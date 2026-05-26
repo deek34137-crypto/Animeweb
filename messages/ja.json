@@ -1,0 +1,55 @@
+{
+  "Navbar": {
+    "brand": "Aniworld",
+    "home": "ホーム",
+    "search": "検索",
+    "searchPlaceholder": "アニメを検索...",
+    "language": "言語"
+  },
+  "Homepage": {
+    "trending": "今週の人気作品",
+    "topRated": "高評価作品",
+    "seasonal": "今期の注目アニメ",
+    "viewAll": "すべて見る",
+    "watchNow": "今すぐ視聴",
+    "addToList": "マイリストに追加"
+  },
+  "Detail": {
+    "synopsis": "あらすじ",
+    "seasons": "関連シーズン・シリーズ",
+    "episodes": "各話の評価・エピソードリスト",
+    "characters": "キャラクター & 声優キャスト",
+    "recommendations": "こちらもおすすめ",
+    "relatedSidebar": "関連アニメ",
+    "discussWithFans": "コミュニティでファンとこのアニメについて語り合おう",
+    "details": "詳細情報",
+    "malScore": "MAL スコア",
+    "duration": "放送時間",
+    "status": "放送ステータス",
+    "studios": "アニメーション制作",
+    "producers": "プロデューサー",
+    "licensors": "ライセンサー",
+    "aired": "放送期間",
+    "premiered": "プレミア公開",
+    "broadcast": "放送日時",
+    "source": "原作",
+    "synonyms": "別名",
+    "japaneseTitle": "日本語タイトル",
+    "streamingInfo": "配信プラットフォーム & 言語",
+    "audioDub": "音声（吹き替え）",
+    "subtitlesSub": "字幕",
+    "hdResolution": "HD画質",
+    "scoreLabel": "評価",
+    "voiceActor": "声優",
+    "type": "タイプ"
+  },
+  "Search": {
+    "filterTitle": "詳細検索フィルター",
+    "genre": "ジャンル",
+    "year": "放送年",
+    "statusLabel": "ステータス",
+    "studioLabel": "スタジオ",
+    "noResults": "条件に一致するアニメが見つかりませんでした。",
+    "all": "すべて"
+  }
+}

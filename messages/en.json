@@ -1,0 +1,55 @@
+{
+  "Navbar": {
+    "brand": "Aniworld",
+    "home": "Home",
+    "search": "Search",
+    "searchPlaceholder": "Search anime...",
+    "language": "Language"
+  },
+  "Homepage": {
+    "trending": "Trending Now",
+    "topRated": "Top Rated",
+    "seasonal": "Seasonal Highlights",
+    "viewAll": "View All",
+    "watchNow": "Watch Now",
+    "addToList": "Add to List"
+  },
+  "Detail": {
+    "synopsis": "Synopsis",
+    "seasons": "Seasons of this Anime",
+    "episodes": "Episode Ratings & List",
+    "characters": "Characters & Voice Actors",
+    "recommendations": "You might also like",
+    "relatedSidebar": "Related Anime",
+    "discussWithFans": "Discuss this anime with fans in our community",
+    "details": "Details",
+    "malScore": "MAL Score",
+    "duration": "Duration",
+    "status": "Status",
+    "studios": "Studios",
+    "producers": "Producers",
+    "licensors": "Licensors",
+    "aired": "Aired",
+    "premiered": "Premiered",
+    "broadcast": "Broadcast",
+    "source": "Source",
+    "synonyms": "Synonyms",
+    "japaneseTitle": "Japanese Title",
+    "streamingInfo": "Languages & Streaming",
+    "audioDub": "Audio (Dub)",
+    "subtitlesSub": "Subtitles (Sub)",
+    "hdResolution": "HD",
+    "scoreLabel": "Score",
+    "voiceActor": "Voice Actor",
+    "type": "Type"
+  },
+  "Search": {
+    "filterTitle": "Advanced Search Filters",
+    "genre": "Genre",
+    "year": "Year",
+    "statusLabel": "Status",
+    "studioLabel": "Studio",
+    "noResults": "No anime found matching these criteria.",
+    "all": "All"
+  }
+}

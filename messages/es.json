@@ -1,0 +1,55 @@
+{
+  "Navbar": {
+    "brand": "Aniworld",
+    "home": "Inicio",
+    "search": "Buscar",
+    "searchPlaceholder": "Buscar anime...",
+    "language": "Idioma"
+  },
+  "Homepage": {
+    "trending": "Tendencias Ahora",
+    "topRated": "Mejor Valorados",
+    "seasonal": "Destacados de la Temporada",
+    "viewAll": "Ver Todo",
+    "watchNow": "Ver Ahora",
+    "addToList": "Agregar a la Lista"
+  },
+  "Detail": {
+    "synopsis": "Sinopsis",
+    "seasons": "Temporadas de este Anime",
+    "episodes": "Lista y Calificaciones de Episodios",
+    "characters": "Personajes y Actores de Voz",
+    "recommendations": "También te podría gustar",
+    "relatedSidebar": "Anime Relacionado",
+    "discussWithFans": "Discute este anime con fans en nuestra comunidad",
+    "details": "Detalles",
+    "malScore": "Puntuación MAL",
+    "duration": "Duración",
+    "status": "Estado",
+    "studios": "Estudios",
+    "producers": "Productores",
+    "licensors": "Licenciantes",
+    "aired": "Transmitido",
+    "premiered": "Estrenado",
+    "broadcast": "Emisión",
+    "source": "Fuente",
+    "synonyms": "Sinónimos",
+    "japaneseTitle": "Título Japonés",
+    "streamingInfo": "Idiomas y Streaming",
+    "audioDub": "Audio (Doblaje)",
+    "subtitlesSub": "Subtítulos (Sub)",
+    "hdResolution": "HD",
+    "scoreLabel": "Calificación",
+    "voiceActor": "Actor de Voz",
+    "type": "Tipo"
+  },
+  "Search": {
+    "filterTitle": "Filtros de Búsqueda Avanzada",
+    "genre": "Género",
+    "year": "Año",
+    "statusLabel": "Estado",
+    "studioLabel": "Estudio",
+    "noResults": "No se encontraron animes que coincidan con estos criterios.",
+    "all": "Todos"
+  }
+}
