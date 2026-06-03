@@ -4,6 +4,7 @@ import { getMessages } from 'next-intl/server';
 import QueryProvider from '@/providers/QueryProvider';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { Analytics } from '@vercel/analytics/next';
 import '../globals.css';
 
 export const metadata = {
@@ -39,6 +40,7 @@ export default async function LocaleLayout({
             <Footer />
           </QueryProvider>
         </NextIntlClientProvider>
+        <Analytics />
       </body>
     </html>
   );
