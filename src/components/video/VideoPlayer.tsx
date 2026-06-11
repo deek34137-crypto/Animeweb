@@ -3,15 +3,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw,
-  SkipForward, SkipBack, Settings, Subtitles, List, Loader2, PlayCircle
+  SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle
 } from 'lucide-react';
 import { progressService } from '@/lib/streaming/progress';
 import PlayerError from './PlayerError';
+import PlayerSettings from './PlayerSettings';
+import ShortcutsOverlay from './ShortcutsOverlay';
 import { useRouter } from '@/navigation';
 
 interface EpisodeSource {
   url: string;
-  quality: string;
+  quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
   isM3U8: boolean;
 }
 
@@ -24,7 +26,9 @@ interface SubtitleTrack {
 interface VideoPlayerProps {
   animeId: string;
   animeImage: string;
-  sources: EpisodeSource[];
+  sources: EpisodeSource[]; // legacy fallback
+  subSources?: EpisodeSource[];
+  dubSources?: EpisodeSource[];
   subtitles?: SubtitleTrack[];
   animeTitle: string;
   episodeNumber: number;
@@ -33,20 +37,25 @@ interface VideoPlayerProps {
   onNextEpisode?: () => void;
   onProgress?: (position: number, duration: number) => void;
   initialPosition?: number;
+  providers?: string[];
+  currentProvider?: string;
 }
 
 export default function VideoPlayer({
   animeId,
   animeImage,
   sources,
+  subSources = [],
+  dubSources = [],
   subtitles = [],
   animeTitle,
   episodeNumber,
   totalEpisodes,
   onPrevEpisode,
   onNextEpisode,
-  onProgress,
   initialPosition = 0,
+  providers = [],
+  currentProvider = 'mock',
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -64,7 +73,15 @@ export default function VideoPlayer({
     }
   });
 
-  // States
+  // Dynamic Provider & Audio Language States
+  const [subSourcesList, setSubSourcesList] = useState<EpisodeSource[]>(subSources.length > 0 ? subSources : sources);
+  const [dubSourcesList, setDubSourcesList] = useState<EpisodeSource[]>(dubSources);
+  const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>(subtitles);
+  const [providersList, setProvidersList] = useState<string[]>(providers.length > 0 ? providers : ['mock']);
+  const [currentProviderName, setCurrentProviderName] = useState<string>(currentProvider);
+  const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub'>('sub');
+
+  // Player States
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(initialPosition);
   const [duration, setDuration] = useState(0);
@@ -78,63 +95,83 @@ export default function VideoPlayer({
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Settings & Overlays
+  const [showSettings, setShowSettings] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownIntervalRef = useRef<any>(null);
+
+  // Skip Intro / Ending Detection States
+  const [showSkipIntro, setShowSkipIntro] = useState(false);
+  const [showSkipEnding, setShowSkipEnding] = useState(false);
+
+  // Mobile Swipe / Gesture States
   const [touchFeedback, setTouchFeedback] = useState<'back' | 'forward' | null>(null);
+  const [isLongPressing2x, setIsLongPressing2x] = useState(false);
+  const [showVolumeIndicator, setShowVolumeIndicator] = useState(false);
+  const [gestureVolume, setGestureVolume] = useState(1);
   const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
+  const touchStartRef = useRef<{ x: number; y: number; time: number; volume: number }>({ x: 0, y: 0, time: 0, volume: 1 });
+  const longPressTimeoutRef = useRef<any>(null);
 
-  const showTouchFeedback = (dir: 'back' | 'forward') => {
-    setTouchFeedback(dir);
-    setTimeout(() => setTouchFeedback(null), 500);
-  };
+  // HLS level detection
+  const [qualityLevels, setQualityLevels] = useState<string[]>(['Auto']);
+  const [currentQuality, setCurrentQuality] = useState('Auto');
+  const hlsRef = useRef<any>(null);
 
-  const handleVideoTouch = (e: React.TouchEvent<HTMLVideoElement>) => {
-    const video = videoRef.current;
-    if (!video) return;
+  // Refs to preserve fresh values inside HLS loadedmetadata callback (avoids stale closures)
+  const currentTimeRef = useRef(initialPosition);
+  const playbackSpeedRef = useRef(1);
+  const volumeRef = useRef(1);
+  const isMutedRef = useRef(false);
+  const activeSubtitleIdxRef = useRef(-1);
+  const isPlayingRef = useRef(false);
 
-    const now = Date.now();
-    const touch = e.touches[0];
-    const rect = video.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const width = rect.width;
+  // Sync prop changes
+  useEffect(() => {
+    setSubSourcesList(subSources.length > 0 ? subSources : sources);
+    setDubSourcesList(dubSources);
+    setSubtitleTracks(subtitles);
+    setProvidersList(providers.length > 0 ? providers : ['mock']);
+    setCurrentProviderName(currentProvider);
+  }, [sources, subSources, dubSources, subtitles, providers, currentProvider]);
 
-    const timeDiff = now - lastTapRef.current.time;
-    const distDiff = Math.abs(x - lastTapRef.current.x);
+  // Sync refs
+  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+  useEffect(() => { playbackSpeedRef.current = playbackSpeed; }, [playbackSpeed]);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { activeSubtitleIdxRef.current = activeSubtitleIdx; }, [activeSubtitleIdx]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
-    if (timeDiff < 300 && distDiff < 40) {
-      e.preventDefault();
-      if (x < width / 2) {
-        video.currentTime = Math.max(video.currentTime - 10, 0);
-        showTouchFeedback('back');
-      } else {
-        video.currentTime = Math.min(video.currentTime + 10, video.duration);
-        showTouchFeedback('forward');
-      }
+  // Load preferences from localStorage on mount
+  useEffect(() => {
+    const savedAutoplay = localStorage.getItem('autoplay_next');
+    if (savedAutoplay !== null) {
+      setIsAutoplayNext(savedAutoplay === 'true');
+    }
+    
+    const savedLang = localStorage.getItem('preferredLanguage') as 'sub' | 'dub';
+    if (savedLang === 'sub' || savedLang === 'dub') {
+      setCurrentLanguage(savedLang);
     }
 
-    lastTapRef.current = { time: now, x };
-  };
+    const savedSpeed = localStorage.getItem('preferredPlaybackSpeed');
+    if (savedSpeed !== null) {
+      const parsedSpeed = parseFloat(savedSpeed);
+      if (!isNaN(parsedSpeed)) setPlaybackSpeed(parsedSpeed);
+    }
 
-  // Selector Menus
-  const [showSettings, setShowSettings] = useState(false);
-  const [showSubtitles, setShowSubtitles] = useState(false);
-  const [showEpisodes, setShowEpisodes] = useState(false);
-
-  const activeSource = sources[activeSourceIdx];
-
-  // Autoplay settings from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('autoplay_next');
-    if (saved !== null) {
-      setIsAutoplayNext(saved === 'true');
+    const savedQuality = localStorage.getItem('preferredQuality');
+    if (savedQuality !== null) {
+      setCurrentQuality(savedQuality);
     }
   }, []);
 
-  const toggleAutoplay = () => {
-    const nextVal = !isAutoplayNext;
-    setIsAutoplayNext(nextVal);
-    localStorage.setItem('autoplay_next', String(nextVal));
-  };
+  const activeSources = currentLanguage === 'dub' && dubSourcesList.length > 0 ? dubSourcesList : subSourcesList;
+  const activeSource = activeSources[activeSourceIdx];
 
-  // ─── HLS Load & Stream Failover ─────────────────────────────────────────────
+  // ─── HLS Load & Failover ───────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !activeSource) return;
@@ -145,10 +182,20 @@ export default function VideoPlayer({
     const handleLoadedMetadata = () => {
       setIsLoading(false);
       setDuration(video.duration);
-      if (initialPosition > 0) {
-        video.currentTime = initialPosition;
+      
+      // Preserve state on switch
+      video.currentTime = currentTimeRef.current;
+      video.playbackRate = playbackSpeedRef.current;
+      video.volume = volumeRef.current;
+      video.muted = isMutedRef.current;
+
+      // Re-apply subtitle index
+      const tracks = video.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        tracks[i].mode = i === activeSubtitleIdxRef.current ? 'showing' : 'disabled';
       }
-      if (isPlaying) {
+
+      if (isPlayingRef.current) {
         video.play().catch(() => setIsPlaying(false));
       }
     };
@@ -156,12 +203,10 @@ export default function VideoPlayer({
     let hls: any = null;
 
     if (activeSource.isM3U8) {
-      // Native Apple HLS support
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = activeSource.url;
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
       } else {
-        // Load hls.js dynamically for Chrome / Firefox
         import('hls.js').then(({ default: Hls }) => {
           if (!Hls.isSupported()) {
             setErrorMessage('HLS playback is not supported in this browser.');
@@ -174,30 +219,47 @@ export default function VideoPlayer({
             enableWorker: true,
           });
 
+          hlsRef.current = hls;
           hls.loadSource(activeSource.url);
           hls.attachMedia(video);
 
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             setIsLoading(false);
-            // Restore playback position if returning
-            if (initialPosition > 0) {
-              video.currentTime = initialPosition;
+
+            // Populate quality levels from HLS manifest
+            const levels = ['Auto', ...hls.levels.map((l: any) => l.height ? `${l.height}p` : 'Unknown')];
+            setQualityLevels(levels);
+
+            // Restore previous quality choice
+            const preferredQ = localStorage.getItem('preferredQuality') || 'Auto';
+            if (preferredQ !== 'Auto') {
+              const height = parseInt(preferredQ, 10);
+              const idx = hls.levels.findIndex((lvl: any) => lvl.height === height);
+              if (idx > -1) {
+                hls.currentLevel = idx;
+                setCurrentQuality(preferredQ);
+              }
             }
-            if (isPlaying) {
+
+            video.currentTime = currentTimeRef.current;
+            video.playbackRate = playbackSpeedRef.current;
+            video.volume = volumeRef.current;
+            video.muted = isMutedRef.current;
+
+            if (isPlayingRef.current) {
               video.play().catch(() => setIsPlaying(false));
             }
           });
 
           hls.on(Hls.Events.ERROR, (event: any, data: any) => {
             if (data.fatal) {
-              console.warn(`HLS fatal error encountered on source index ${activeSourceIdx}:`, data.type);
+              console.warn(`HLS fatal error: ${data.type}`);
               handleSourceError();
             }
           });
         });
       }
     } else {
-      // Standard MP4 source
       video.src = activeSource.url;
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
     }
@@ -205,30 +267,38 @@ export default function VideoPlayer({
     return () => {
       if (hls) {
         hls.destroy();
+        hlsRef.current = null;
       }
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [activeSourceIdx, activeSource?.url]);
+  }, [activeSourceIdx, activeSource?.url, currentLanguage]);
 
-  // Handle source errors by attempting the next available source in failover list
   const handleSourceError = () => {
-    if (activeSourceIdx + 1 < sources.length) {
-      console.info(`Triggering stream failover from source index ${activeSourceIdx} to ${activeSourceIdx + 1}`);
+    if (activeSourceIdx + 1 < activeSources.length) {
       setActiveSourceIdx((prev) => prev + 1);
     } else {
-      setErrorMessage('Failed to load all available stream sources. Please try again later.');
+      setErrorMessage('Failed to load all available stream sources.');
       setIsLoading(false);
     }
   };
 
-  // ─── Progress Tracker & Auto-Advance ────────────────────────────────────────
+  // ─── Time Updates, Preloading & Skips ─────────────────────────────────────
   const handleTimeUpdate = () => {
     const video = videoRef.current;
     if (!video) return;
 
     setCurrentTime(video.currentTime);
 
-    // Call progressService to save throttled progress
+    // Skip Intro / Ending Detection
+    const t = video.currentTime;
+    const dur = video.duration;
+    
+    // Skip Intro: manual button between 01:30 and 03:00
+    setShowSkipIntro(t >= 90 && t <= 180);
+
+    // Skip Ending: manual button 90s before end
+    setShowSkipEnding(dur > 200 && t >= dur - 90 && t < dur - 10);
+
     progressService.updateProgress({
       animeId,
       animeTitle,
@@ -238,16 +308,31 @@ export default function VideoPlayer({
       duration: video.duration,
       totalEpisodes,
     });
-
-    if (onProgress && video.currentTime > 0) {
-      onProgress(video.currentTime, video.duration);
-    }
   };
 
+  // Preloading N+1 Episode data
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const nextEp = episodeNumber + 1;
+    if (totalEpisodes && nextEp <= totalEpisodes) {
+      const preloadTimer = setTimeout(() => {
+        console.info(`[PRELOAD] Pre-fetching Episode ${nextEp} stream details...`);
+        fetch(`/api/stream/source?animeId=${animeId}&episode=${nextEp}`)
+          .then((res) => res.json())
+          .then((data) => {
+            console.info(`[PRELOAD] Cache primed for Episode ${nextEp}`);
+          })
+          .catch((err) => console.warn(`[PRELOAD] Pre-fetch failed for Episode ${nextEp}:`, err));
+      }, 10000); // Trigger pre-load after 10s of stable playback
+
+      return () => clearTimeout(preloadTimer);
+    }
+  }, [animeId, episodeNumber, totalEpisodes, isPlaying]);
+
+  // Autoplay Countdown handling
   const handleVideoEnded = () => {
     setIsPlaying(false);
-    
-    // Force complete progress sync immediately
     const video = videoRef.current;
     if (video) {
       progressService.updateProgress({
@@ -255,43 +340,39 @@ export default function VideoPlayer({
         animeTitle,
         animeImage,
         episode: episodeNumber,
-        position: video.duration, // force completion
+        position: video.duration,
         duration: video.duration,
         totalEpisodes,
         force: true,
       });
     }
 
-    if (isAutoplayNext) {
-      handleNext();
+    if (isAutoplayNext && totalEpisodes && episodeNumber < totalEpisodes) {
+      setCountdown(5);
     }
   };
 
-  // Sync progress on tab close or page navigate away
   useEffect(() => {
-    const handleUnload = () => {
-      const video = videoRef.current;
-      if (video && video.currentTime > 0) {
-        progressService.syncProgressBeacon({
-          animeId,
-          animeTitle,
-          animeImage,
-          episode: episodeNumber,
-          position: video.currentTime,
-          duration: video.duration,
-          totalEpisodes,
-        });
-      }
-    };
+    if (countdown === null) {
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      return;
+    }
 
-    window.addEventListener('beforeunload', handleUnload);
-    return () => {
-      handleUnload(); // Save progress when component unmounts (Next.js client-side navigation)
-      window.removeEventListener('beforeunload', handleUnload);
-    };
-  }, [animeId, episodeNumber, totalEpisodes]);
+    if (countdown === 0) {
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      setCountdown(null);
+      handleNext();
+      return;
+    }
 
-  // ─── Custom Player UI Events ───────────────────────────────────────────────
+    countdownIntervalRef.current = setInterval(() => {
+      setCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearInterval(countdownIntervalRef.current);
+  }, [countdown]);
+
+  // ─── Actions & Swaps ───────────────────────────────────────────────────────
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video || isLoading) return;
@@ -299,7 +380,6 @@ export default function VideoPlayer({
     if (isPlaying) {
       video.pause();
       setIsPlaying(false);
-      // Force sync on pause
       progressService.updateProgress({
         animeId,
         animeTitle,
@@ -313,13 +393,13 @@ export default function VideoPlayer({
     } else {
       video.play().catch(() => {});
       setIsPlaying(true);
+      setCountdown(null); // Cancel auto-next countdown if playing again
     }
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current;
     if (!video) return;
-
     const newTime = Number(e.target.value);
     video.currentTime = newTime;
     setCurrentTime(newTime);
@@ -328,7 +408,6 @@ export default function VideoPlayer({
   const toggleMute = () => {
     const video = videoRef.current;
     if (!video) return;
-
     const nextMute = !isMuted;
     video.muted = nextMute;
     setIsMuted(nextMute);
@@ -337,7 +416,6 @@ export default function VideoPlayer({
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current;
     if (!video) return;
-
     const newVol = Number(e.target.value);
     video.volume = newVol;
     setVolume(newVol);
@@ -349,21 +427,17 @@ export default function VideoPlayer({
 
   const toggleFullscreen = () => {
     const player = playerRef.current;
-    const video = videoRef.current;
-    if (!player || !video) return;
+    if (!player) return;
 
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
       setIsFullscreen(false);
-    } else if (player.requestFullscreen) {
+    } else {
       player.requestFullscreen().catch(() => {});
       setIsFullscreen(true);
-    } else if ((video as any).webkitEnterFullscreen) {
-      (video as any).webkitEnterFullscreen();
     }
   };
 
-  // Listen to external fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -377,37 +451,183 @@ export default function VideoPlayer({
     if (!video) return;
     video.playbackRate = speed;
     setPlaybackSpeed(speed);
-    setShowSettings(false);
+    localStorage.setItem('preferredPlaybackSpeed', String(speed));
   };
 
-  const selectQuality = (idx: number) => {
-    // Quality selection switches active source index and keeps current playback position
-    const video = videoRef.current;
-    const currentPos = video ? video.currentTime : currentTime;
-    
-    // Temporarily save position to inject into useEffect trigger
-    setActiveSourceIdx(idx);
-    setShowSettings(false);
+  const selectQuality = (level: string) => {
+    setCurrentQuality(level);
+    localStorage.setItem('preferredQuality', level);
+
+    if (hlsRef.current) {
+      if (level === 'Auto') {
+        hlsRef.current.currentLevel = -1;
+      } else {
+        const height = parseInt(level, 10);
+        const idx = hlsRef.current.levels.findIndex((l: any) => l.height === height);
+        if (idx > -1) {
+          hlsRef.current.currentLevel = idx;
+        }
+      }
+    } else {
+      const idx = activeSources.findIndex((s) => s.quality === level);
+      if (idx > -1) setActiveSourceIdx(idx);
+    }
+  };
+
+  const selectLanguage = (lang: 'sub' | 'dub') => {
+    setCurrentLanguage(lang);
+    localStorage.setItem('preferredLanguage', lang);
+    setActiveSourceIdx(0);
   };
 
   const selectSubtitle = (idx: number) => {
     const video = videoRef.current;
     if (!video) return;
 
-    // Toggle track visibility on HTML5 video element
     const tracks = video.textTracks;
     for (let i = 0; i < tracks.length; i++) {
       tracks[i].mode = i === idx ? 'showing' : 'disabled';
     }
-
     setActiveSubtitleIdx(idx);
-    setShowSubtitles(false);
   };
 
-  // ─── Keyboard Shortcuts ───────────────────────────────────────────────────
+  // Provider Selection Loader (In-Place Reload)
+  const selectProvider = async (provider: string) => {
+    setIsLoading(true);
+    setShowSettings(false);
+    try {
+      const res = await fetch(`/api/stream/source?animeId=${animeId}&episode=${episodeNumber}&provider=${provider}`);
+      if (!res.ok) throw new Error('Provider resolved failed status.');
+      const data = await res.json();
+      
+      setCurrentProviderName(data.currentProvider || provider);
+      setSubSourcesList(data.sub || []);
+      setDubSourcesList(data.dub || []);
+      setSubtitleTracks(data.subtitles || []);
+      setActiveSourceIdx(0);
+    } catch (err) {
+      console.warn(`Failed to swap provider in place to ${provider}:`, err);
+      setErrorMessage(`Failed to switch provider to ${provider}.`);
+      setIsLoading(false);
+    }
+  };
+
+  // Manual Skip Skip Actions
+  const skipIntro = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = 181; // skip past intro
+    setCurrentTime(181);
+    setShowSkipIntro(false);
+  };
+
+  const skipEnding = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = Math.max(0, video.duration - 5);
+    setCurrentTime(video.duration - 5);
+    setShowSkipEnding(false);
+  };
+
+  // ─── Touch Gesture Handlers ────────────────────────────────────────────────
+  const showTouchFeedback = (dir: 'back' | 'forward') => {
+    setTouchFeedback(dir);
+    setTimeout(() => setTouchFeedback(null), 500);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const video = videoRef.current;
+    if (!video) return;
+
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+      volume: video.volume,
+    };
+
+    // Long press 2x speed trigger (500ms hold)
+    if (isPlaying) {
+      longPressTimeoutRef.current = setTimeout(() => {
+        setIsLongPressing2x(true);
+        video.playbackRate = 2.0;
+      }, 500);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const video = videoRef.current;
+    if (!video) return;
+
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+
+    if (isLongPressing2x) {
+      if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touchXFromLeft = touch.clientX - rect.left;
+    const isRightSide = touchXFromLeft > rect.width / 2;
+
+    // Volume swipe gesture (Vertical swipe right side)
+    if (Math.abs(deltaY) > 30 && Math.abs(deltaY) > Math.abs(deltaX) && isRightSide) {
+      if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+      e.preventDefault();
+
+      const volChange = -deltaY / 150;
+      const nextVol = Math.max(0, Math.min(1, touchStartRef.current.volume + volChange));
+      video.volume = nextVol;
+      setVolume(nextVol);
+      setGestureVolume(nextVol);
+      setShowVolumeIndicator(true);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isLongPressing2x) {
+      setIsLongPressing2x(false);
+      video.playbackRate = playbackSpeed;
+      return;
+    }
+
+    setTimeout(() => setShowVolumeIndicator(false), 1000);
+
+    // Double Tap seek check
+    const now = Date.now();
+    const touch = e.changedTouches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const width = rect.width;
+
+    const timeDiff = now - lastTapRef.current.time;
+    const distDiff = Math.abs(x - lastTapRef.current.x);
+
+    if (timeDiff < 300 && distDiff < 50) {
+      e.preventDefault();
+      if (x < width / 2) {
+        video.currentTime = Math.max(video.currentTime - 10, 0);
+        showTouchFeedback('back');
+      } else {
+        video.currentTime = Math.min(video.currentTime + 10, video.duration);
+        showTouchFeedback('forward');
+      }
+    }
+
+    lastTapRef.current = { time: now, x };
+  };
+
+  // ─── Keyboard Shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
-      // Don't intercept shortcuts when users type in input fields
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
         return;
       }
@@ -448,6 +668,18 @@ export default function VideoPlayer({
           e.preventDefault();
           toggleMute();
           break;
+        case 'n':
+          e.preventDefault();
+          handleNext();
+          break;
+        case 'p':
+          e.preventDefault();
+          handlePrev();
+          break;
+        case '?':
+          e.preventDefault();
+          setShowShortcutsHelp((prev) => !prev);
+          break;
         default:
           break;
       }
@@ -455,9 +687,8 @@ export default function VideoPlayer({
 
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [isPlaying, isLoading]);
+  }, [isPlaying, isLoading, episodeNumber, totalEpisodes]);
 
-  // Formats seconds to mm:ss or hh:mm:ss
   const formatTime = (secs: number) => {
     if (isNaN(secs)) return '00:00';
     const h = Math.floor(secs / 3600);
@@ -466,40 +697,114 @@ export default function VideoPlayer({
 
     const pad = (num: number) => String(num).padStart(2, '0');
 
-    if (h > 0) {
-      return `${h}:${pad(m)}:${pad(s)}`;
-    }
+    if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
     return `${pad(m)}:${pad(s)}`;
   };
 
   return (
     <div
       ref={playerRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden group/player shadow-2xl border border-border-subtle ${
         isFullscreen ? 'rounded-none border-none' : ''
       }`}
     >
-      {/* Dynamic Native HTML5 Video */}
+      {/* Native HTML5 Video Element */}
       <video
         ref={videoRef}
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleVideoEnded}
         onClick={togglePlay}
-        onTouchStart={handleVideoTouch}
         className="w-full h-full object-contain cursor-pointer"
         playsInline
       >
-        {subtitles.map((track, i) => (
+        {subtitleTracks.map((track, i) => (
           <track
-            key={track.lang}
+            key={track.lang + i}
             kind="subtitles"
             label={track.label}
             srcLang={track.lang}
             src={track.url}
-            default={i === 0}
+            default={i === activeSubtitleIdx}
           />
         ))}
       </video>
+
+      {/* Manual Skip Intro / Ending Overlays */}
+      {showSkipIntro && (
+        <button
+          onClick={skipIntro}
+          className="absolute bottom-20 left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-lg animate-fade-up select-none backdrop-blur-md"
+        >
+          ⏩ Skip Intro
+        </button>
+      )}
+      {showSkipEnding && (
+        <button
+          onClick={skipEnding}
+          className="absolute bottom-20 left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-lg animate-fade-up select-none backdrop-blur-md"
+        >
+          ⏩ Skip Ending
+        </button>
+      )}
+
+      {/* Auto Next Countdown Overlay */}
+      {countdown !== null && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs text-center">
+          <div className="space-y-4 max-w-xs animate-fade-up">
+            <p className="text-[10px] font-black uppercase tracking-wider text-accent-violet select-none">
+              Up Next
+            </p>
+            <h3 className="text-base font-bold text-white leading-tight font-display select-none">
+              Episode {episodeNumber + 1} Starts In
+            </h3>
+            <div className="w-16 h-16 rounded-full bg-accent-violet/10 border border-accent-violet/30 flex items-center justify-center mx-auto text-white font-black text-2xl select-none">
+              {countdown}
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setCountdown(null)}
+                className="px-4 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setCountdown(null);
+                  handleNext();
+                }}
+                className="px-4 py-1.5 rounded-lg bg-accent-violet hover:bg-accent-violet-hover text-white font-bold text-xs transition-colors"
+              >
+                Play Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Long Press 2x Speed Indicator */}
+      {isLongPressing2x && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-3 py-1.5 rounded-full bg-black/60 border border-white/10 text-white font-bold text-[10px] tracking-widest uppercase flex items-center gap-1.5">
+          <Loader2 className="w-3.5 h-3.5 text-accent-violet animate-spin" />
+          <span>2X Speed Active</span>
+        </div>
+      )}
+
+      {/* Gesture Volume Indicator */}
+      {showVolumeIndicator && (
+        <div className="absolute right-6 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 bg-black/60 border border-white/10 rounded-full py-4 px-2 w-10 text-white">
+          <Volume2 size={16} />
+          <div className="w-1 h-20 bg-white/20 rounded-full relative overflow-hidden">
+            <div
+              className="absolute bottom-0 left-0 right-0 bg-accent-violet transition-all duration-75"
+              style={{ height: `${gestureVolume * 100}%` }}
+            />
+          </div>
+          <span className="text-[8px] font-mono select-none">{Math.round(gestureVolume * 100)}</span>
+        </div>
+      )}
 
       {/* Touch seeking feedback overlay */}
       {touchFeedback === 'back' && (
@@ -527,8 +832,8 @@ export default function VideoPlayer({
         <PlayerError message={errorMessage} onRetry={handleSourceError} />
       )}
 
-      {/* Play/Pause Center Indicator (Animates briefly on click) */}
-      {!isLoading && !errorMessage && (
+      {/* Play/Pause Center Indicator */}
+      {!isLoading && !errorMessage && countdown === null && (
         <div
           onClick={togglePlay}
           className="absolute inset-0 flex items-center justify-center bg-black/0 active:bg-black/10 transition-colors pointer-events-none"
@@ -585,6 +890,17 @@ export default function VideoPlayer({
                 {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
               </button>
 
+              <button
+                onClick={() => {
+                  const video = videoRef.current;
+                  if (video) video.currentTime = Math.max(video.currentTime - 10, 0);
+                }}
+                className="text-text-secondary hover:text-white transition-colors"
+                title="Rewind 10s"
+              >
+                <RotateCcw size={16} />
+              </button>
+
               {(onPrevEpisode || episodeNumber > 1) && (
                 <button
                   onClick={handlePrev}
@@ -605,132 +921,70 @@ export default function VideoPlayer({
                 </button>
               )}
 
+              <button
+                onClick={() => {
+                  const video = videoRef.current;
+                  if (video) video.currentTime = Math.min(video.currentTime + 10, video.duration);
+                }}
+                className="text-text-secondary hover:text-white transition-colors"
+                title="Skip 10s"
+              >
+                <SkipForward size={16} />
+              </button>
+
               <span className="text-xs font-bold text-white tracking-wide select-none hidden sm:inline-block">
                 Ep {episodeNumber} · {animeTitle}
               </span>
             </div>
 
-            {/* Right Actions (Selectors, Volume, PIP, Fullscreen) */}
+            {/* Right Actions */}
             <div className="flex items-center gap-4 relative">
-              {/* Autoplay Toggle */}
+              
+              {/* Keyboard Shortcuts Help */}
               <button
-                onClick={toggleAutoplay}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition-all ${
-                  isAutoplayNext
-                    ? 'bg-accent-violet/20 border-accent-violet/40 text-accent-violet'
-                    : 'border-border-subtle text-text-muted hover:text-text-secondary'
-                }`}
-                title="Autoplay Next Episode"
+                onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
+                className="text-text-secondary hover:text-white transition-colors"
+                title="Keyboard Shortcuts"
               >
-                Auto-Next
+                <HelpCircle size={17} />
               </button>
 
-              {/* Subtitles Button */}
-              {subtitles.length > 0 && (
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setShowSubtitles(!showSubtitles);
-                      setShowSettings(false);
-                    }}
-                    className={`text-text-secondary hover:text-white transition-colors ${
-                      activeSubtitleIdx > -1 ? 'text-accent-violet' : ''
-                    }`}
-                    aria-label="Subtitles"
-                  >
-                    <Subtitles size={18} />
-                  </button>
-
-                  {/* Subtitle Selector Dropdown */}
-                  {showSubtitles && (
-                    <div className="absolute bottom-8 right-0 bg-[#0D0D14]/95 border border-border-default backdrop-blur-md rounded-xl p-2 min-w-32 shadow-xl z-50 text-xs">
-                      <p className="px-2.5 py-1.5 text-text-disabled font-bold uppercase tracking-wider text-[9px]">
-                        Subtitles
-                      </p>
-                      <button
-                        onClick={() => selectSubtitle(-1)}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-surface-2 transition-colors ${
-                          activeSubtitleIdx === -1 ? 'text-accent-violet font-semibold' : 'text-text-secondary'
-                        }`}
-                      >
-                        Off
-                      </button>
-                      {subtitles.map((track, idx) => (
-                        <button
-                          key={track.lang}
-                          onClick={() => selectSubtitle(idx)}
-                          className={`w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-surface-2 transition-colors ${
-                            activeSubtitleIdx === idx ? 'text-accent-violet font-semibold' : 'text-text-secondary'
-                          }`}
-                        >
-                          {track.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Settings / Quality / Speed Button */}
+              {/* Settings Dropdown Button */}
               <div className="relative">
                 <button
-                  onClick={() => {
-                    setShowSettings(!showSettings);
-                    setShowSubtitles(false);
-                  }}
+                  onClick={() => setShowSettings(!showSettings)}
                   className="text-text-secondary hover:text-white transition-colors"
                   aria-label="Settings"
                 >
                   <Settings size={18} />
                 </button>
 
-                {/* Settings Panel Dropdown */}
+                {/* Settings Panel */}
                 {showSettings && (
-                  <div className="absolute bottom-8 right-0 bg-[#0D0D14]/95 border border-border-default backdrop-blur-md rounded-xl p-3.5 min-w-44 shadow-xl z-50 text-xs space-y-3">
-                    {/* Quality Switcher */}
-                    <div>
-                      <p className="text-text-disabled font-bold uppercase tracking-wider text-[9px] mb-1.5">
-                        Stream Quality
-                      </p>
-                      <div className="space-y-0.5">
-                        {sources.map((src, idx) => (
-                          <button
-                            key={src.quality + idx}
-                            onClick={() => selectQuality(idx)}
-                            className={`w-full text-left px-2 py-1 rounded-lg hover:bg-surface-2 transition-colors capitalize ${
-                              activeSourceIdx === idx
-                                ? 'text-accent-violet font-semibold bg-accent-violet/5'
-                                : 'text-text-secondary'
-                            }`}
-                          >
-                            Source {idx + 1} ({src.quality})
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Speed Switcher */}
-                    <div className="border-t border-border-subtle pt-2">
-                      <p className="text-text-disabled font-bold uppercase tracking-wider text-[9px] mb-1.5">
-                        Playback Speed
-                      </p>
-                      <div className="grid grid-cols-4 gap-1 text-[10px] text-center">
-                        {[0.5, 1, 1.5, 2].map((speed) => (
-                          <button
-                            key={speed}
-                            onClick={() => changeSpeed(speed)}
-                            className={`py-1 rounded hover:bg-surface-2 transition-colors ${
-                              playbackSpeed === speed
-                                ? 'bg-accent-violet text-white font-bold'
-                                : 'text-text-secondary'
-                            }`}
-                          >
-                            {speed}x
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                  <PlayerSettings
+                    levels={qualityLevels}
+                    currentLevel={currentQuality}
+                    onSelectQuality={selectQuality}
+                    currentLanguage={currentLanguage}
+                    onSelectLanguage={selectLanguage}
+                    hasSub={subSourcesList.length > 0}
+                    hasDub={dubSourcesList.length > 0}
+                    subtitles={subtitleTracks}
+                    activeSubtitleIdx={activeSubtitleIdx}
+                    onSelectSubtitle={selectSubtitle}
+                    playbackSpeed={playbackSpeed}
+                    onChangeSpeed={changeSpeed}
+                    isAutoplayNext={isAutoplayNext}
+                    onToggleAutoplay={() => {
+                      const next = !isAutoplayNext;
+                      setIsAutoplayNext(next);
+                      localStorage.setItem('autoplay_next', String(next));
+                    }}
+                    providers={providersList}
+                    currentProvider={currentProviderName}
+                    onSelectProvider={selectProvider}
+                    onClose={() => setShowSettings(false)}
+                  />
                 )}
               </div>
 
@@ -772,6 +1026,11 @@ export default function VideoPlayer({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Keyboard Shortcuts Overlay Modal */}
+      {showShortcutsHelp && (
+        <ShortcutsOverlay onClose={() => setShowShortcutsHelp(false)} />
       )}
     </div>
   );

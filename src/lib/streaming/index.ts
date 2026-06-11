@@ -3,6 +3,7 @@ import { streamCache } from './cache';
 import { db } from '../db';
 import { EpisodeItem, EpisodeStreamInfo } from './types';
 import { StreamingHealth } from './health';
+import { StreamingAnalytics } from './analytics';
 
 export const StreamingManager = {
   /**
@@ -36,72 +37,118 @@ export const StreamingManager = {
 
   /**
    * Resolves stream sources, subtitles, and audio track info for a specific episode.
-   * Leverages db mapping to store and fetch resolved provider IDs.
+   * Leverages db mapping and implements automatic priority-based failover.
    */
   getStreamInfo: async (
     animeId: string,
     episode: number,
     providerName?: string
   ): Promise<EpisodeStreamInfo> => {
-    const provider = StreamingManager.getProvider(providerName);
-    const cacheKey = `stream:${provider.name}:${animeId}:${episode}`;
+    const cacheKey = providerName 
+      ? `stream:resolve:${providerName.toLowerCase()}:${animeId}:${episode}`
+      : `stream:resolve:auto:${animeId}:${episode}`;
 
     const cached = await streamCache.get<EpisodeStreamInfo>(cacheKey);
     if (cached) return cached;
 
-    // Try to resolve a stored provider mapping from the database.
-    // Wrapped in try/catch: SQLite is unavailable on Vercel's read-only filesystem.
-    let resolvedProviderId = animeId; // default: use raw animeId
-    try {
-      let mapping = await db.streamingProvider.findFirst({
-        where: {
-          animeId,
-          provider: provider.name,
-        },
-      });
+    // Get all registered provider names
+    const registeredProviders = registry.getPriorityChain(); // ['consumet', 'animepahe', 'anicli', 'mock']
+    
+    // Sort providers dynamically based on reliability success rate percentages
+    const sortedProviderNames = StreamingHealth.getReorderedProviders(registeredProviders);
 
-      if (!mapping) {
-        mapping = await db.streamingProvider.create({
-          data: {
-            animeId,
-            provider: provider.name,
-            providerId: `${animeId}-provider-id`,
-          },
-        });
+    // If a specific provider is requested, prioritize it at the front of the queue
+    let queue = [...sortedProviderNames];
+    if (providerName) {
+      const idx = queue.indexOf(providerName.toLowerCase());
+      if (idx > -1) {
+        queue.splice(idx, 1);
       }
-      resolvedProviderId = mapping.providerId;
-    } catch (dbErr) {
-      console.warn(
-        'StreamingProvider DB lookup failed (using raw animeId as fallback):',
-        dbErr
-      );
+      queue.unshift(providerName.toLowerCase());
     }
 
-    // Call the provider using the resolved mapping ID
-    const streamInfo = await provider.getStreamInfo(resolvedProviderId, episode);
+    let lastError: any = null;
 
-    // Validate sources and bubble up healthy ones
-    if (streamInfo.sources && streamInfo.sources.length > 1) {
+    // Loop through providers in order of priority and attempt source resolution
+    for (let i = 0; i < queue.length; i++) {
+      const pName = queue[i];
+      const provider = registry.get(pName);
+      if (!provider) continue;
+
       try {
-        const healthChecks = await Promise.all(
-          streamInfo.sources.map(async (src) => {
-            const isHealthy = await StreamingHealth.checkSourceHealth(src.url);
-            return { src, isHealthy };
-          })
-        );
-        const healthySources = healthChecks.filter(c => c.isHealthy).map(c => c.src);
-        const unhealthySources = healthChecks.filter(c => !c.isHealthy).map(c => c.src);
-        if (healthySources.length > 0) {
-          streamInfo.sources = [...healthySources, ...unhealthySources];
+        console.info(`Attempting stream resolution via provider: ${provider.name} for animeId: ${animeId}, ep: ${episode}`);
+        
+        let resolvedProviderId = animeId;
+        try {
+          let mapping = await db.streamingProvider.findFirst({
+            where: {
+              animeId,
+              provider: provider.name,
+            },
+          });
+
+          if (!mapping) {
+            mapping = await db.streamingProvider.create({
+              data: {
+                animeId,
+                provider: provider.name,
+                providerId: `${animeId}-${provider.name}-id`,
+              },
+            });
+          }
+          resolvedProviderId = mapping.providerId;
+        } catch (dbErr) {
+          console.warn(`StreamingProvider DB lookup failed for ${provider.name} (using raw animeId):`, dbErr);
         }
-      } catch (err) {
-        console.warn('Failed to perform stream sources health check:', err);
+
+        const streamInfo = await provider.getStreamInfo(resolvedProviderId, episode);
+
+        // Validate that provider returned sources
+        const activeSources = streamInfo.sub && streamInfo.sub.length > 0 ? streamInfo.sub : streamInfo.sources;
+        if (!activeSources || activeSources.length === 0) {
+          throw new Error('No stream sources returned by provider.');
+        }
+
+        // Validate source health (ping the first HLS stream URL)
+        const primarySrc = activeSources[0];
+        const isHealthy = await StreamingHealth.checkSourceHealth(primarySrc.url);
+        if (!isHealthy) {
+          throw new Error(`Primary stream source health check failed: ${primarySrc.url}`);
+        }
+
+        // Mark success
+        StreamingHealth.recordSuccess(provider.name);
+
+        // Normalize the payload
+        const resolvedInfo: EpisodeStreamInfo = {
+          sources: streamInfo.sources || streamInfo.sub,
+          sub: streamInfo.sub || [],
+          dub: streamInfo.dub || [],
+          subtitles: streamInfo.subtitles || [],
+          audioLanguage: streamInfo.audioLanguage,
+          providers: registeredProviders,
+          currentProvider: provider.name,
+        };
+
+        // Cache for 10 minutes (600 seconds)
+        await streamCache.set(cacheKey, resolvedInfo, 600);
+        return resolvedInfo;
+
+      } catch (err: any) {
+        console.warn(`Provider ${provider.name} failed to resolve stream for animeId ${animeId}, ep ${episode}:`, err.message);
+        StreamingHealth.recordFailure(provider.name);
+        StreamingAnalytics.trackProviderFailure(provider.name, err.message);
+
+        // Log fallback action if next provider exists
+        const nextProviderName = queue[i + 1];
+        if (nextProviderName) {
+          StreamingAnalytics.trackFallbackEvent(provider.name, nextProviderName, episode);
+        }
+        lastError = err;
       }
     }
 
-    // Cache for 5 minutes
-    await streamCache.set(cacheKey, streamInfo, 300);
-    return streamInfo;
+    throw lastError || new Error('All registered stream providers failed to resolve a working stream.');
   },
 };
 

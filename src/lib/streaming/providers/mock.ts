@@ -35,20 +35,27 @@ export const mockProvider: StreamingProviderInterface = {
 
   getStreamInfo: async (animeId: string, episode: number): Promise<EpisodeStreamInfo> => {
     // High-fidelity fallback HLS streams for testing
-    // Source A is Sintel, Source B is Tears of Steel (reliable test streams)
+    // Sub: Sintel HLS, Dub: Tears of Steel HLS
+    const subSources = [
+      {
+        url: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
+        quality: 'auto' as const,
+        isM3U8: true,
+      },
+    ];
+
+    const dubSources = [
+      {
+        url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
+        quality: 'auto' as const,
+        isM3U8: true,
+      },
+    ];
+
     return {
-      sources: [
-        {
-          url: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
-          quality: 'auto',
-          isM3U8: true,
-        },
-        {
-          url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
-          quality: 'auto',
-          isM3U8: true,
-        },
-      ],
+      sources: subSources,
+      sub: subSources,
+      dub: dubSources,
       subtitles: [
         {
           label: 'English',

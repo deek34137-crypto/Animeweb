@@ -1,6 +1,66 @@
-// Health Monitoring Helper for HLS Stream Sources
+// Health Monitoring Helper for HLS Stream Sources and Providers
+
+interface ProviderStats {
+  successes: number;
+  failures: number;
+  lastSuccess?: Date;
+}
+
+// Default starting values based on expected baseline reliability
+const providerStats: Record<string, ProviderStats> = {
+  consumet: { successes: 98, failures: 2 },
+  animepahe: { successes: 92, failures: 8 },
+  anicli: { successes: 85, failures: 15 },
+  mock: { successes: 100, failures: 0 },
+};
 
 export const StreamingHealth = {
+  /**
+   * Records a successful fetch/stream load for a provider.
+   */
+  recordSuccess: (provider: string) => {
+    const key = provider.toLowerCase();
+    if (!providerStats[key]) {
+      providerStats[key] = { successes: 0, failures: 0 };
+    }
+    providerStats[key].successes += 1;
+    providerStats[key].lastSuccess = new Date();
+  },
+
+  /**
+   * Records a failure for a provider.
+   */
+  recordFailure: (provider: string) => {
+    const key = provider.toLowerCase();
+    if (!providerStats[key]) {
+      providerStats[key] = { successes: 0, failures: 0 };
+    }
+    providerStats[key].failures += 1;
+  },
+
+  /**
+   * Returns the success rate percentage of a provider.
+   */
+  getSuccessPercentage: (provider: string): number => {
+    const key = provider.toLowerCase();
+    const stats = providerStats[key];
+    if (!stats) return 0;
+    const total = stats.successes + stats.failures;
+    if (total === 0) return 0;
+    return (stats.successes / total) * 100;
+  },
+
+  /**
+   * Reorders a list of providers by their success percentage (descending).
+   */
+  getReorderedProviders: (providers: string[]): string[] => {
+    return [...providers].sort((a, b) => {
+      const rateA = StreamingHealth.getSuccessPercentage(a);
+      const rateB = StreamingHealth.getSuccessPercentage(b);
+      return rateB - rateA;
+    });
+  },
+
   /**
    * Validates if a stream URL is online, reachable, and returns a valid HLS/media playlist.
    */
