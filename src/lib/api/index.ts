@@ -207,13 +207,20 @@ export const AnimeApi = {
         });
 
         let resumeEpisode = entry.episodesWatched + 1;
+        let lastWatchedDate = entry.updatedAt;
+        let percentageComplete = 0;
+        let remainingMinutes = 0;
+
         if (latestProgress) {
           const isCompleted = latestProgress.position / latestProgress.duration >= 0.95;
           if (!isCompleted) {
             resumeEpisode = latestProgress.episode;
+            percentageComplete = Math.round((latestProgress.position / latestProgress.duration) * 100);
+            remainingMinutes = Math.max(0, Math.ceil((latestProgress.duration - latestProgress.position) / 60));
           } else {
             resumeEpisode = latestProgress.episode + 1;
           }
+          lastWatchedDate = latestProgress.lastWatchedAt;
         }
 
         return {
@@ -233,6 +240,9 @@ export const AnimeApi = {
           isPrivate: entry.isPrivate,
           createdAt: entry.createdAt,
           updatedAt: entry.updatedAt,
+          lastWatchedAt: lastWatchedDate.toISOString(),
+          percentageComplete,
+          remainingMinutes,
         };
       })
     );

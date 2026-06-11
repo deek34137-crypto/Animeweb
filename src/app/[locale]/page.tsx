@@ -5,6 +5,7 @@ import AnimeCard from '@/components/AnimeCard';
 import HeroSpotlight, {
   SectionHeader,
   ContinueWatchingRail,
+  WatchLaterRail,
   Flame,
   Star,
   Sparkles,
@@ -71,6 +72,12 @@ async function ContinueWatchingSection({ userId }: { userId: string }) {
   return <ContinueWatchingRail entries={entries} />;
 }
 
+async function WatchLaterSection({ userId }: { userId: string }) {
+  const entries = await AnimeApi.getUserList(userId, 'planning');
+  if (!entries.length) return null;
+  return <WatchLaterRail entries={entries} />;
+}
+
 export default async function HomePage() {
   const session = await auth();
   const userId = (session?.user as { id?: string })?.id;
@@ -86,6 +93,13 @@ export default async function HomePage() {
       {userId && (
         <Suspense fallback={null}>
           <ContinueWatchingSection userId={userId} />
+        </Suspense>
+      )}
+
+      {/* Watch Later — only for logged-in users */}
+      {userId && (
+        <Suspense fallback={null}>
+          <WatchLaterSection userId={userId} />
         </Suspense>
       )}
 

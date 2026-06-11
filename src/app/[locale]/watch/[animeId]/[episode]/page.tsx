@@ -34,7 +34,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
   // Fetch anime details, episodes, and stream info in parallel
   const [anime, streamInfo, episodes] = await Promise.all([
     AnimeApi.getAnimeDetail(malId, userId),
-    StreamingManager.getStreamInfo(animeId, epNum).catch(() => ({ sources: [], subtitles: [] })),
+    StreamingManager.getStreamInfo(animeId, epNum).catch(() => ({ sources: [], sub: [], dub: [], subtitles: [], providers: [], currentProvider: 'mock' })),
     StreamingManager.getEpisodes(animeId).catch(() => []),
   ]);
 
@@ -102,15 +102,15 @@ export default async function WatchPage({ params }: WatchPageProps) {
               animeId={animeId}
               animeImage={anime.images.webp.large_image_url || ''}
               sources={streamInfo.sources}
+              subSources={streamInfo.sub}
+              dubSources={streamInfo.dub}
               subtitles={streamInfo.subtitles}
               animeTitle={mainTitle}
               episodeNumber={epNum}
               totalEpisodes={episodes.length}
               initialPosition={initialPosition}
-              onProgress={async (pos, dur) => {
-                'use server';
-                // Server action logic stub - actual API progressive updates are executed via Progress Service /api/stream/progress client-side
-              }}
+              providers={streamInfo.providers}
+              currentProvider={streamInfo.currentProvider}
             />
           </Suspense>
 

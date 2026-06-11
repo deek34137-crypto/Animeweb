@@ -211,6 +211,8 @@ interface ContinueWatchingEntry {
   animeImage: string;
   animeEpisodes?: number | null;
   episodesWatched: number;
+  percentageComplete?: number;
+  remainingMinutes?: number;
 }
 
 interface ContinueWatchingRailProps {
@@ -229,9 +231,7 @@ export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
       />
       <div className="flex gap-3 overflow-x-auto rail-scroll pb-2">
         {entries.map((entry) => {
-          const pct = entry.animeEpisodes
-            ? Math.round((entry.episodesWatched / entry.animeEpisodes) * 100)
-            : null;
+          const pct = entry.percentageComplete !== undefined ? entry.percentageComplete : null;
 
           return (
             <Link
@@ -252,7 +252,7 @@ export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
 
                 {/* Episode progress pill */}
                 <div className="absolute bottom-2 left-2 right-2">
-                  {pct !== null && (
+                  {pct !== null && pct > 0 && (
                     <div className="h-1 bg-[rgba(255,255,255,0.15)] rounded-full overflow-hidden">
                       <div
                         className="h-full bg-accent-violet rounded-full shadow-[0_0_4px_rgba(124,91,255,0.7)]"
@@ -276,7 +276,11 @@ export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
                 </p>
                 <p className="text-[10px] text-text-muted mt-0.5">
                   Ep {entry.episodesWatched}
-                  {entry.animeEpisodes ? ` / ${entry.animeEpisodes}` : ''}
+                  {entry.remainingMinutes && entry.remainingMinutes > 0
+                    ? ` · ${entry.remainingMinutes}m left`
+                    : pct && pct > 0
+                      ? ` · ${pct}% watched`
+                      : ''}
                 </p>
               </div>
             </Link>
@@ -287,7 +291,63 @@ export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
   );
 }
 
+interface WatchLaterEntry {
+  animeId: string;
+  animeTitle: string;
+  animeImage: string;
+  animeEpisodes?: number | null;
+}
+
+interface WatchLaterRailProps {
+  entries: WatchLaterEntry[];
+}
+
+export function WatchLaterRail({ entries }: WatchLaterRailProps) {
+  if (!entries.length) return null;
+
+  return (
+    <section className="space-y-3">
+      <SectionHeader
+        title="Watch Later"
+        icon={<Clock size={20} />}
+        viewAllHref="/profile"
+      />
+      <div className="flex gap-4 overflow-x-auto rail-scroll pb-2">
+        {entries.map((entry) => (
+          <Link
+            key={entry.animeId}
+            href={`/anime/${entry.animeId}` as '/'}
+            className="flex-shrink-0 w-36 group"
+          >
+            <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-colors duration-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={entry.animeImage}
+                alt={entry.animeTitle}
+                className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-transparent to-transparent opacity-60" />
+            </div>
+            <div className="mt-2 px-0.5">
+              <p className="text-xs font-semibold text-text-primary line-clamp-1 group-hover:text-accent-violet transition-colors">
+                {entry.animeTitle}
+              </p>
+              {entry.animeEpisodes && (
+                <p className="text-[10px] text-text-muted mt-0.5">
+                  {entry.animeEpisodes} Episodes
+                </p>
+              )}
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Section icons export
+// Section icons and rails export
 // ─────────────────────────────────────────────────────────────────────────────
 export { Flame, Star, Sparkles };

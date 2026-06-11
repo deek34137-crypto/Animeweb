@@ -1,10 +1,12 @@
 import { StreamingProviderInterface } from '../types';
 import { mockProvider } from './mock';
-import { gogoanimeProvider } from './gogoanime';
+import { consumetProvider } from './consumet';
+import { animepaheProvider } from './animepahe';
+import { anicliProvider } from './aniCLI';
 
 class ProviderRegistry {
   private providers = new Map<string, StreamingProviderInterface>();
-  private defaultProviderName = 'mock';
+  private defaultProviderName = 'consumet';
 
   public register(provider: StreamingProviderInterface) {
     this.providers.set(provider.name.toLowerCase(), provider);
@@ -18,10 +20,16 @@ class ProviderRegistry {
     return Array.from(this.providers.values());
   }
 
+  public getPriorityChain(): string[] {
+    return ['consumet', 'animepahe', 'anicli', 'mock'];
+  }
+
   public getDefault(): StreamingProviderInterface {
     const defaultProvider = this.get(this.defaultProviderName);
     if (!defaultProvider) {
-      throw new Error(`Default provider "${this.defaultProviderName}" not registered.`);
+      const mock = this.get('mock');
+      if (mock) return mock;
+      throw new Error(`Default provider "${this.defaultProviderName}" and fallback "mock" not registered.`);
     }
     return defaultProvider;
   }
@@ -36,9 +44,11 @@ class ProviderRegistry {
 
 export const registry = new ProviderRegistry();
 
-// Statically register default providers
+// Register all providers
+registry.register(consumetProvider);
+registry.register(animepaheProvider);
+registry.register(anicliProvider);
 registry.register(mockProvider);
-registry.register(gogoanimeProvider);
 
 export default registry;
 
