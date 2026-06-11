@@ -57,17 +57,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id: user.id },
           select: { username: true },
         });
-        token.username = dbUser?.username || user.name;
+        token.username = dbUser?.username || user.name || undefined;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user = {
-          ...session.user,
-          id: token.id as string,
-          username: token.username as string,
-        } as any;
+        session.user.id = token.id;
+        session.user.username = token.username;
       }
       return session;
     },

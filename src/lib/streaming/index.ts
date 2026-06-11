@@ -49,27 +49,36 @@ export const StreamingManager = {
     const cached = await streamCache.get<EpisodeStreamInfo>(cacheKey);
     if (cached) return cached;
 
-    // Check if we have a resolved provider mapping in the database
-    let mapping = await db.streamingProvider.findFirst({
-      where: {
-        animeId,
-        provider: provider.name,
-      },
-    });
-
-    // If no mapping exists, create a stub/mapping entry
-    if (!mapping) {
-      mapping = await db.streamingProvider.create({
-        data: {
+    // Try to resolve a stored provider mapping from the database.
+    // Wrapped in try/catch: SQLite is unavailable on Vercel's read-only filesystem.
+    let resolvedProviderId = animeId; // default: use raw animeId
+    try {
+      let mapping = await db.streamingProvider.findFirst({
+        where: {
           animeId,
           provider: provider.name,
-          providerId: `${animeId}-provider-id`, // stub mapping
         },
       });
+
+      if (!mapping) {
+        mapping = await db.streamingProvider.create({
+          data: {
+            animeId,
+            provider: provider.name,
+            providerId: `${animeId}-provider-id`,
+          },
+        });
+      }
+      resolvedProviderId = mapping.providerId;
+    } catch (dbErr) {
+      console.warn(
+        'StreamingProvider DB lookup failed (using raw animeId as fallback):',
+        dbErr
+      );
     }
 
     // Call the provider using the resolved mapping ID
-    const streamInfo = await provider.getStreamInfo(mapping.providerId, episode);
+    const streamInfo = await provider.getStreamInfo(resolvedProviderId, episode);
 
     // Validate sources and bubble up healthy ones
     if (streamInfo.sources && streamInfo.sources.length > 1) {

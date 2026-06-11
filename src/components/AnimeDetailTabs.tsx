@@ -260,13 +260,31 @@ function EpisodesTab({
   const [filter, setFilter] = useState<'all' | 'watched' | 'unwatched'>('all');
   const episodesWatched = tracking?.episodesWatched || 0;
 
-  const filtered = filter === 'all'
+  // Fallback: if Jikan returned empty episodes (rate limit), generate numbered stubs from anime.episodes
+  const resolvedEpisodes = episodes.length > 0
     ? episodes
-    : filter === 'watched'
-      ? episodes.filter((ep) => ep.mal_id <= episodesWatched)
-      : episodes.filter((ep) => ep.mal_id > episodesWatched);
+    : anime.episodes
+      ? Array.from({ length: anime.episodes }, (_, i) => ({
+          mal_id: i + 1,
+          url: '',
+          title: `Episode ${i + 1}`,
+          title_japanese: null,
+          title_romanji: null,
+          aired: null,
+          score: null,
+          filler: false,
+          recap: false,
+          forum_url: null,
+        }))
+      : [];
 
-  if (!episodes.length) {
+  const filtered = filter === 'all'
+    ? resolvedEpisodes
+    : filter === 'watched'
+      ? resolvedEpisodes.filter((ep) => ep.mal_id <= episodesWatched)
+      : resolvedEpisodes.filter((ep) => ep.mal_id > episodesWatched);
+
+  if (!resolvedEpisodes.length) {
     return (
       <div className="glass-panel border border-border-default rounded-2xl p-10 text-center">
         <Play size={40} className="text-text-disabled mx-auto mb-3" />
@@ -280,7 +298,7 @@ function EpisodesTab({
   }
 
   // Progress summary
-  const totalEps = episodes.length || anime.episodes || 0;
+  const totalEps = resolvedEpisodes.length || anime.episodes || 0;
   const pct = totalEps > 0 ? Math.round((episodesWatched / totalEps) * 100) : 0;
 
   return (
