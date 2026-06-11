@@ -34,9 +34,24 @@ export default function EpisodeSidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortAsc, setSortAsc] = useState(true);
 
+  // Fallback: if no episodes from provider, generate stubs from totalEpisodes
+  const resolvedEpisodes = useMemo(() => {
+    if (episodes.length > 0) return episodes;
+    if (totalEpisodes && totalEpisodes > 0) {
+      return Array.from({ length: totalEpisodes }, (_, i) => ({
+        number: i + 1,
+        title: undefined,
+        aired: undefined,
+        filler: false,
+        recap: false,
+      }));
+    }
+    return [];
+  }, [episodes, totalEpisodes]);
+
   // Search & Filter
   const filteredEpisodes = useMemo(() => {
-    let result = [...episodes];
+    let result = [...resolvedEpisodes];
 
     // Filter by keyword
     if (searchQuery.trim()) {
@@ -52,7 +67,7 @@ export default function EpisodeSidebar({
     result.sort((a, b) => (sortAsc ? a.number - b.number : b.number - a.number));
 
     return result;
-  }, [episodes, searchQuery, sortAsc]);
+  }, [resolvedEpisodes, searchQuery, sortAsc]);
 
   const toggleSort = () => setSortAsc(!sortAsc);
 
@@ -172,7 +187,7 @@ export default function EpisodeSidebar({
 
       {/* Footer stats summary */}
       <div className="p-3 border-t border-border-subtle text-[10px] text-text-muted font-semibold bg-surface-1/50 flex-shrink-0 flex justify-between">
-        <span>Total: {episodes.length} episodes</span>
+        <span>Total: {resolvedEpisodes.length} episodes</span>
         <span>Watched: {watchedEpisodes.length}</span>
       </div>
     </div>

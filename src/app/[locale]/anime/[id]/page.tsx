@@ -50,7 +50,7 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
   const animeId = parseInt(id, 10);
 
   const session = await auth();
-  const userId = (session?.user as { id?: string })?.id;
+  const userId = session?.user?.id;
 
   if (isNaN(animeId)) {
     return (
@@ -162,11 +162,18 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
               )}
               {anime.status && (
                 <Badge
-                  variant={anime.status === 'Currently Airing' ? 'cyan' : anime.status === 'Not yet aired' ? 'gold' : 'default'}
+                  variant={
+                    anime.status === 'Currently Airing' ? 'cyan'
+                    : anime.status === 'Not yet aired' ? 'gold'
+                    : 'default'
+                  }
                   size="sm"
                   dot
                 >
-                  {anime.status}
+                  {anime.status === 'Finished Airing' ? 'Finished'
+                    : anime.status === 'Currently Airing' ? 'Airing'
+                    : anime.status === 'Not yet aired' ? 'Upcoming'
+                    : anime.status}
                 </Badge>
               )}
             </div>
