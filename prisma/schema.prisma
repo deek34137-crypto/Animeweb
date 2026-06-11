@@ -1,0 +1,99 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String      @id @default(cuid())
+  username      String      @unique
+  email         String      @unique
+  password      String?     // Hashed password for credentials auth
+  displayName   String?
+  avatar        String?
+  banner        String?
+  bio           String?
+  role          String      @default("USER")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Auth relations (optional / future-proofing for database sessions)
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Tracking & List relations
+  listEntries   ListEntry[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model ListEntry {
+  id              String         @id @default(cuid())
+  userId          String
+  animeId         String         // Jikan / MAL ID stored as string
+  animeTitle      String         // Cache the title for Continue Watching
+  animeImage      String         // Cache the image for Continue Watching
+  animeEpisodes   Int?           // Cache total episodes count
+  status          String         // watching, completed, dropped, paused, planning, rewatching
+  score           Float?         // 1-10 with 0.5 steps
+  episodesWatched Int            @default(0)
+  rewatchCount    Int            @default(0)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  notes           String?
+  isPrivate       Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  watchSessions   WatchSession[]
+
+  @@unique([userId, animeId])
+  @@index([userId, status])
+}
+
+model WatchSession {
+  id           String    @id @default(cuid())
+  listEntryId  String
+  watchTime    Int       @default(0) // in minutes
+  watchedAt    DateTime  @default(now())
+  
+  listEntry    ListEntry @relation(fields: [listEntryId], references: [id], onDelete: Cascade)
+}

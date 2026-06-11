@@ -3,53 +3,213 @@
 @tailwind utilities;
 
 :root {
-  --background: #0F0F0F;
-  --foreground: #F5F5F5;
+  /* Backgrounds */
+  --color-void: #05050A;
+  --color-surface-1: #0D0D14;
+  --color-surface-2: #13131C;
+  --color-surface-3: #1A1A25;
+  --color-surface-elevated: #1F1F2E;
+  --color-surface-glass: rgba(13, 13, 20, 0.72);
+
+  /* Accents */
+  --color-accent-violet: #7C5BFF;
+  --color-accent-violet-glow: rgba(124, 91, 255, 0.35);
+  --color-accent-sakura: #FF5B8D;
+  --color-accent-sakura-glow: rgba(255, 91, 141, 0.3);
+  --color-accent-gold: #FFB800;
+  --color-accent-gold-glow: rgba(255, 184, 0, 0.3);
+  --color-accent-cyan: #00D4FF;
+
+  /* Text */
+  --color-text-primary: #F0EFF8;
+  --color-text-secondary: #9896B0;
+  --color-text-muted: #5A5872;
+  --color-text-disabled: #3A3852;
+
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-emphasis: rgba(124, 91, 255, 0.4);
+
+  /* Status */
+  --color-watching: #00D4FF;
+  --color-completed: #22C55E;
+  --color-dropped: #EF4444;
+  --color-paused: #F59E0B;
+  --color-planning: #8B5CF6;
+  --color-rewatching: #EC4899;
+
+  /* Next.js default config compatibility */
+  --background: #05050A;
+  --foreground: #F0EFF8;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--color-void);
+  color: var(--color-text-primary);
+  font-family: 'DM Sans', system-ui, sans-serif;
   overflow-x: hidden;
 }
 
-/* Custom scrollbar matching dark/orange theme */
+/* Custom premium scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0F0F0F;
+  background: var(--color-void);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2A2A2A;
+  background: var(--color-surface-3);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #FF8C00;
+  background: var(--color-accent-violet);
 }
 
-/* Custom visual utilities */
-.glow-orange {
-  box-shadow: 0 0 15px rgba(255, 140, 0, 0.15);
+/* Shimmer Loading Keyframe */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-.glow-orange-hover:hover {
-  box-shadow: 0 0 25px rgba(255, 140, 0, 0.35);
+.shimmer-loader {
+  background: linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-surface-3) 50%, var(--color-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+/* Ken Burns background zoom keyframe */
+@keyframes kenburns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.06) translate(0, 0);
+  }
+}
+
+.ken-burns {
+  animation: kenburns 12s ease-out infinite alternate;
+}
+
+/* Glassmorphism classes */
+.glass-panel {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border-subtle);
 }
 
 .glass-card {
-  background: rgba(26, 26, 26, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.text-gradient {
-  background: linear-gradient(135deg, #FFF 0%, #FF8C00 100%);
+.glass-card:hover {
+  border-color: var(--color-accent-violet-glow);
+  box-shadow: 0 8px 30px rgba(124, 91, 255, 0.08);
+}
+
+/* Accented gradients */
+.text-gradient-violet {
+  background: linear-gradient(135deg, #FFF 0%, var(--color-accent-violet) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-sakura {
+  background: linear-gradient(135deg, #FFF 0%, var(--color-accent-sakura) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #FFF 0%, var(--color-accent-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Modal entrance animation */
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Command palette slide-down */
+@keyframes cmdPaletteIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Fade-up for hero content */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Carousel smooth scroll */
+.carousel-track {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.carousel-item {
+  scroll-snap-align: start;
+}
+
+/* Glow hover effect used on cards */
+.glow-violet-hover:hover {
+  box-shadow: 0 0 0 1px rgba(124, 91, 255, 0.4), 0 8px 30px rgba(124, 91, 255, 0.15);
+}
+
+/* No scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Horizontal rail scrollbar (thin) */
+.rail-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.rail-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-surface-3);
+  border-radius: 2px;
 }

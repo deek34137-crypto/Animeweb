@@ -1,582 +1,290 @@
-import React from 'react';
-import { getTranslations } from 'next-intl/server';
-import { JikanAPI, AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
-import { StreamingService, StreamingPlatform } from '@/services/streaming';
-import { Star, Clock, Calendar, Tv, Users, Heart, Share2, Play, MessageSquare, ArrowRight, ExternalLink, Plus } from 'lucide-react';
+import React, { Suspense } from 'react';
+import { AnimeApi } from '@/lib/api';
+import { auth } from '@/auth';
+import {
+  Star, Clock, Tv, Users, Heart, Share2, Play, MessageSquare,
+  ArrowRight, Calendar, Plus, BookMarked, CheckCircle2, Pause,
+  XCircle, RefreshCw, ChevronRight
+} from 'lucide-react';
 import { Link } from '@/navigation';
+import Badge from '@/components/ui/Badge';
+import Progress from '@/components/ui/Progress';
+import { SectionSkeleton } from '@/components/ui/Skeleton';
+import AnimeDetailTabs from '@/components/AnimeDetailTabs';
+import type { AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
 
-export const revalidate = 1800; // Cache details for 30 minutes
+export const revalidate = 1800;
 
 interface DetailPageProps {
   params: Promise<{ id: string; locale: string }>;
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  watching: 'text-status-watching',
+  completed: 'text-status-completed',
+  dropped: 'text-status-dropped',
+  paused: 'text-status-paused',
+  planning: 'text-status-planning',
+  rewatching: 'text-status-rewatching',
+};
+
+// ─── Server Data Loader ───────────────────────────────────────────────────────
+async function loadDetailData(animeId: number, userId?: string) {
+  const [animeDetail, characters, recommendations, episodes] = await Promise.allSettled([
+    AnimeApi.getAnimeDetail(animeId, userId),
+    AnimeApi.getAnimeCharacters(animeId),
+    AnimeApi.getAnimeRecommendations(animeId),
+    AnimeApi.getAnimeEpisodes(animeId),
+  ]);
+
+  return {
+    anime: animeDetail.status === 'fulfilled' ? animeDetail.value : null,
+    characters: characters.status === 'fulfilled' ? characters.value : [],
+    recommendations: recommendations.status === 'fulfilled' ? recommendations.value : [],
+    episodes: episodes.status === 'fulfilled' ? episodes.value : [],
+  };
+}
+
 export default async function AnimeDetailPage({ params }: DetailPageProps) {
   const { id } = await params;
   const animeId = parseInt(id, 10);
-  const t = await getTranslations('Detail');
 
-  // Fetch all details concurrently on the server
-  let anime: AnimeData;
-  let characters: CharacterRoster[] = [];
-  let recommendations: RecommendationItem[] = [];
-  let episodes: EpisodeData[] = [];
-  let streamingInfo;
+  const session = await auth();
+  const userId = (session?.user as { id?: string })?.id;
 
-  try {
-    const [animeRes, charactersRes, recommendationsRes, episodesRes] = await Promise.all([
-      JikanAPI.getAnimeDetail(animeId),
-      JikanAPI.getAnimeCharacters(animeId),
-      JikanAPI.getAnimeRecommendations(animeId),
-      JikanAPI.getAnimeEpisodes(animeId),
-    ]);
-
-    anime = animeRes.data;
-    characters = charactersRes.data || [];
-    recommendations = recommendationsRes.data || [];
-    episodes = episodesRes.data || [];
-
-    // Fetch availability based on title
-    streamingInfo = await StreamingService.getStreamingInfo(animeId, anime.title);
-  } catch (error) {
-    console.error('Error fetching detail page data:', error);
-    // Graceful error fallback
+  if (isNaN(animeId)) {
     return (
-      <div className="py-20 text-center max-w-md mx-auto space-y-4">
-        <div className="text-4xl">⚠️</div>
-        <h1 className="text-xl font-black text-white">Anime Not Found</h1>
-        <p className="text-sm text-anime-muted">
-          We encountered an error fetching this anime&apos;s details. The Jikan API may be overloaded. Please try again shortly.
+      <div className="py-20 text-center">
+        <h1 className="text-2xl font-black text-text-primary">Invalid Anime ID</h1>
+        <Link href="/" className="mt-4 inline-block text-accent-violet hover:underline">← Back to Home</Link>
+      </div>
+    );
+  }
+
+  const { anime, characters, recommendations, episodes } = await loadDetailData(animeId, userId);
+
+  if (!anime) {
+    return (
+      <div className="py-20 text-center space-y-4 max-w-md mx-auto">
+        <div className="text-5xl">⚠️</div>
+        <h1 className="text-2xl font-black text-text-primary">Anime Not Found</h1>
+        <p className="text-text-secondary text-sm">
+          The Jikan API may be rate-limited. Please try again in a moment.
         </p>
-        <Link href="/" className="inline-block bg-anime-orange text-black px-6 py-2 rounded-full font-bold text-sm">
-          Return Home
+        <Link href="/" className="inline-flex items-center gap-2 mt-2 px-6 py-3 rounded-xl bg-accent-violet text-white font-semibold text-sm hover:bg-[#6b4ae6] transition-colors">
+          ← Return Home
         </Link>
       </div>
     );
   }
 
   const mainTitle = anime.title_english || anime.title;
-  const jpTitle = anime.title_japanese || '';
-  const score = anime.score ? anime.score.toFixed(1) : 'N/A';
-  const votes = anime.scored_by ? anime.scored_by.toLocaleString() : '0';
+  const jpTitle = anime.title_japanese;
+  const score = anime.score;
+  const votes = anime.scored_by;
+  const tracking = anime.userTracking;
 
-  // Share message
-  const shareText = `Check out ${mainTitle} on Aniworld!`;
-  const shareUrl = `https://aniworld.com/anime/${anime.mal_id}`;
-
-  // Deterministic Seasons generator for "Seasons of this Anime" section (matching visual style)
-  // This yields premium season cards with rich backdrops
-  const getMockSeasons = () => {
-    const seasonsList = [
-      {
-        title: `${mainTitle} - Season 1`,
-        subtitle: 'The Journey Begins • 24 Episodes',
-        image: anime.images.webp.large_image_url
-      }
-    ];
-
-    if (anime.status === 'Finished Airing') {
-      seasonsList.push({
-        title: `${mainTitle} - Season 2`,
-        subtitle: 'Sequel Season • 12 Episodes',
-        image: anime.images.webp.image_url
-      });
-    } else {
-      seasonsList.push({
-        title: `${mainTitle} - Current Season`,
-        subtitle: 'Airing Now • Weekly Episodes',
-        image: anime.images.webp.large_image_url
-      });
-    }
-
-    return seasonsList;
-  };
-
-  const seasonsList = getMockSeasons();
+  const genres = anime.genres || [];
+  const studios = anime.studios || [];
+  const producers = anime.producers || [];
 
   return (
-    <div className="space-y-8 pb-20">
-      {/* Blurred Backdrop & Banner Header */}
-      <div className="relative rounded-2xl overflow-hidden border border-anime-border/40 bg-anime-card">
-        <div className="absolute inset-0 h-[220px] md:h-[300px]">
+    <div className="pb-20 -mt-6">
+      {/* ─── Cinematic Hero Header ─────────────────────────────────────────── */}
+      <section className="relative w-full min-h-[520px] md:min-h-[580px] overflow-hidden">
+        {/* Full-bleed background */}
+        <div className="absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
             alt={mainTitle}
-            className="w-full h-full object-cover filter blur-lg brightness-[0.25] scale-110"
+            className="w-full h-full object-cover scale-[1.04]"
+            referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-anime-card to-transparent" />
+          {/* Dark cinematic overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#05050A] via-[#05050A]/85 to-[#05050A]/50" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-transparent to-[#05050A]/40" />
         </div>
 
-        {/* Header content overlay (re-positions on desktop) */}
-        <div className="relative z-10 pt-20 px-6 pb-6 md:px-10 md:pb-10 flex flex-col md:flex-row md:items-end gap-6">
+        {/* Content */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-0 flex flex-col md:flex-row items-center md:items-end gap-8">
           {/* Poster */}
-          <div className="relative w-44 md:w-56 aspect-[3/4] rounded-xl overflow-hidden border-2 border-anime-border shadow-2xl flex-shrink-0 mx-auto md:mx-0 -mt-10 md:-mt-20">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
-              alt={mainTitle}
-              className="w-full h-full object-cover"
-            />
+          <div className="flex-shrink-0 mx-auto md:mx-0">
+            <div className="w-44 md:w-52 aspect-[3/4] rounded-2xl overflow-hidden border-2 border-border-default shadow-[0_20px_60px_rgba(0,0,0,0.6)] relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
+                alt={mainTitle}
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
           </div>
 
-          {/* Titles & Action */}
-          <div className="flex-grow text-center md:text-left space-y-3">
-            <h1 className="text-2xl md:text-4xl lg:text-5xl font-black text-white leading-tight tracking-tight">
+          {/* Info Column */}
+          <div className="flex-grow pb-8 text-center md:text-left space-y-4 animate-fade-up">
+            {/* Genres */}
+            <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
+              {genres.slice(0, 4).map((g) => (
+                <Badge key={g.mal_id} variant="ghost" size="xs">{g.name}</Badge>
+              ))}
+            </div>
+
+            {/* Title */}
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight font-display">
               {mainTitle}
             </h1>
             {jpTitle && (
-              <p className="text-sm font-semibold text-anime-orange/90 tracking-wide">{jpTitle}</p>
+              <p className="text-sm font-medium text-text-muted">{jpTitle}</p>
             )}
 
-            {/* Quick Metadata badges */}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-1 text-xs text-anime-muted">
-              <span className="flex items-center text-anime-orange font-bold">
-                <Star size={13} fill="currentColor" className="mr-1" />
-                {score}
-              </span>
-              <span>•</span>
-              <span className="flex items-center">
-                <Clock size={13} className="mr-1" />
-                {anime.duration}
-              </span>
-              <span>•</span>
-              <span className="flex items-center">
-                <Tv size={13} className="mr-1" />
-                {anime.type}
-              </span>
-            </div>
-
-            {/* Watch Buttons */}
-            <div className="flex flex-wrap justify-center md:justify-start gap-3.5 pt-3">
-              <a
-                href={streamingInfo.platforms[0]?.url || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center space-x-2 bg-anime-orange hover:bg-anime-orangeHover text-black font-extrabold text-sm px-6 py-2.5 rounded-full shadow-lg hover:shadow-orange-500/10 transition-all duration-300"
-              >
-                <Play size={14} fill="currentColor" />
-                <span>Watch Now</span>
-              </a>
-              <button
-                className="inline-flex items-center justify-center space-x-2 bg-transparent border border-anime-border hover:border-anime-orange text-gray-300 hover:text-anime-orange text-sm font-bold px-6 py-2.5 rounded-full transition-all"
-              >
-                <Plus size={14} />
-                <span>{t('addToList')}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* TWO COLUMN GRID LAYOUT */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* LEFT COLUMN: Core Details and Lists (2/3 width) */}
-        <div className="lg:col-span-2 space-y-10">
-          
-          {/* Synopsis */}
-          <section className="bg-anime-card border border-anime-border/40 rounded-2xl p-6 md:p-8 space-y-4">
-            <h2 className="text-lg font-black text-white tracking-tight flex items-center space-x-2 border-b border-anime-border/20 pb-2">
-              <MessageSquare size={18} className="text-anime-orange" />
-              <span>{t('synopsis')}</span>
-            </h2>
-            <p className="text-sm md:text-base text-gray-300 leading-relaxed font-normal whitespace-pre-line">
-              {anime.synopsis || 'No description available for this anime.'}
-            </p>
-          </section>
-
-          {/* Seasons of this Anime */}
-          <section className="space-y-4">
-            <h2 className="text-lg font-black text-white tracking-tight flex items-center space-x-2 border-b border-anime-border/40 pb-2">
-              <Tv size={18} className="text-anime-orange" />
-              <span>{t('seasons')}</span>
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {seasonsList.map((season, idx) => (
-                <div
-                  key={idx}
-                  className="relative rounded-xl overflow-hidden aspect-[16/7] md:aspect-[16/8] border border-anime-border/40 group hover:border-anime-orange/50 transition-all duration-300"
-                >
-                  {/* Backdrop */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={season.image}
-                    alt={season.title}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 brightness-[0.3]"
-                    loading="lazy"
-                  />
-                  {/* Gradient to darken bottom */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-                  
-                  {/* Info Overlay */}
-                  <div className="absolute bottom-4 left-4 right-4 flex flex-col">
-                    <span className="text-white font-extrabold text-sm md:text-base leading-snug group-hover:text-anime-orange transition-colors">
-                      {season.title}
-                    </span>
-                    <span className="text-[10px] md:text-xs text-gray-400 mt-0.5">
-                      {season.subtitle}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Characters and Voice Actors */}
-          {characters.length > 0 && (
-            <section className="bg-anime-card border border-anime-border/40 rounded-2xl p-6 md:p-8 space-y-4">
-              <h2 className="text-lg font-black text-white tracking-tight flex items-center space-x-2 border-b border-anime-border/20 pb-2">
-                <Users size={18} className="text-anime-orange" />
-                <span>{t('characters')}</span>
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {characters.slice(0, 6).map((c) => {
-                  const JapaneseVA = c.voice_actors.find(va => va.language === 'Japanese');
-                  return (
-                    <div
-                      key={c.character.mal_id}
-                      className="flex items-center justify-between bg-anime-dark/60 rounded-xl p-3 border border-anime-border/20"
-                    >
-                      {/* Character Side */}
-                      <div className="flex items-center space-x-3">
-                        <div className="w-11 h-11 rounded-full overflow-hidden border border-anime-border/60 bg-anime-card">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={c.character.images.jpg.image_url}
-                            alt={c.character.name}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-white truncate max-w-[110px] md:max-w-[140px]">
-                            {c.character.name}
-                          </div>
-                          <div className="text-[10px] text-anime-muted">{c.role}</div>
-                        </div>
-                      </div>
-
-                      {/* Arrow divider */}
-                      <ArrowRight size={12} className="text-anime-muted mx-1 flex-shrink-0" />
-
-                      {/* VA Side */}
-                      {JapaneseVA ? (
-                        <div className="flex items-center space-x-3 text-right">
-                          <div>
-                            <div className="text-xs font-bold text-white truncate max-w-[110px] md:max-w-[140px]">
-                              {JapaneseVA.person.name}
-                            </div>
-                            <div className="text-[10px] text-anime-orange">JP VA</div>
-                          </div>
-                          <div className="w-11 h-11 rounded-full overflow-hidden border border-anime-border/60 bg-anime-card">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={JapaneseVA.person.images.jpg.image_url}
-                              alt={JapaneseVA.person.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-anime-muted">No VA info</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Episode List & Ratings */}
-          {anime.type !== 'Movie' && (
-            <section className="bg-anime-card border border-anime-border/40 rounded-2xl p-6 md:p-8 space-y-4">
-              <h2 className="text-lg font-black text-white tracking-tight flex items-center space-x-2 border-b border-anime-border/20 pb-2">
-                <Tv size={18} className="text-anime-orange" />
-                <span>{t('episodes')}</span>
-              </h2>
-              {episodes.length > 0 ? (
-                <div className="max-h-80 overflow-y-auto space-y-2 pr-2 scrollbar-thin">
-                  {episodes.map((ep) => {
-                    const epScore = ep.score ? ep.score.toFixed(1) : (8.0 + (ep.mal_id % 3) * 0.4).toFixed(1);
-                    return (
-                      <div
-                        key={ep.mal_id}
-                        className="flex items-center justify-between bg-anime-dark/40 rounded-xl p-3 border border-anime-border/20 hover:border-anime-orange/30 transition-colors"
-                      >
-                        <div className="space-y-0.5 truncate pr-4">
-                          <div className="text-xs font-bold text-white truncate">
-                            EP {ep.mal_id}: {ep.title}
-                          </div>
-                          {ep.aired && (
-                            <div className="text-[10px] text-anime-muted flex items-center">
-                              <Calendar size={9} className="mr-1" />
-                              {new Date(ep.aired).toLocaleDateString()}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-1.5 flex-shrink-0">
-                          {ep.filler && (
-                            <span className="text-[9px] font-bold text-yellow-500/80 border border-yellow-500/20 bg-yellow-500/5 px-1.5 py-0.5 rounded uppercase">
-                              Filler
-                            </span>
-                          )}
-                          <span className="bg-anime-orange/10 border border-anime-orange/20 text-anime-orange text-[10px] font-extrabold px-2 py-0.5 rounded flex items-center">
-                            <Star size={10} fill="currentColor" className="mr-1" />
-                            {epScore}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-xs text-anime-muted py-6 text-center italic bg-anime-dark/40 rounded-xl border border-anime-border/10">
-                  {anime.status === 'Upcoming' ? 'This anime has not aired yet!' : 'Individual episode listings are not available for this anime series.'}
+            {/* Stats Row */}
+            <div className="flex flex-wrap items-center gap-4 justify-center md:justify-start text-sm">
+              {score && (
+                <div className="flex items-center gap-1.5 bg-[rgba(255,184,0,0.12)] border border-[rgba(255,184,0,0.25)] rounded-xl px-3 py-1.5">
+                  <Star size={14} fill="currentColor" className="text-accent-gold" />
+                  <span className="font-black text-accent-gold">{score.toFixed(1)}</span>
+                  {votes && <span className="text-text-muted text-xs">({(votes / 1000).toFixed(0)}K)</span>}
                 </div>
               )}
-            </section>
-          )}
-
-          {/* RecommendationsCarousel */}
-          {recommendations.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="text-lg font-black text-white tracking-tight flex items-center space-x-2 border-b border-anime-border/40 pb-2">
-                <Heart size={18} className="text-anime-orange" />
-                <span>{t('recommendations')}</span>
-              </h2>
-              <div className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin">
-                {recommendations.slice(0, 10).map((r) => (
-                  <Link
-                    key={r.entry.mal_id}
-                    href={`/anime/${r.entry.mal_id}`}
-                    className="w-36 flex-shrink-0 group block space-y-2 rounded-xl overflow-hidden bg-anime-card border border-anime-border/40 p-2 hover:border-anime-orange/40 transition"
-                  >
-                    <div className="aspect-[3/4] rounded-lg overflow-hidden relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={r.entry.images.webp.image_url || r.entry.images.jpg.image_url}
-                        alt={r.entry.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    </div>
-                    <div className="text-[11px] font-semibold text-gray-200 line-clamp-2 leading-snug group-hover:text-anime-orange transition-colors">
-                      {r.entry.title}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
-
-        </div>
-
-        {/* RIGHT COLUMN: Sidebar (Fixed width 350px on desktop) */}
-        <div className="space-y-8">
-          
-          {/* MAL SCORE METRIC */}
-          <div className="bg-anime-card border border-anime-border/40 rounded-2xl p-6 text-center space-y-2 glow-orange">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-              {t('malScore')}
-            </span>
-            <div className="flex items-center justify-center space-x-2">
-              <Star size={28} fill="#FF8C00" className="text-anime-orange" />
-              <span className="text-4xl font-black text-white">{score}</span>
-              <span className="text-lg text-anime-muted font-semibold">/10</span>
-            </div>
-            <div className="text-[10px] text-anime-muted uppercase font-bold tracking-wide">
-              {votes} Users Rated
-            </div>
-          </div>
-
-          {/* STREAMING AVAILABILITY SECTION */}
-          <div className="bg-anime-card border border-anime-border/40 rounded-2xl p-6 space-y-4">
-            <h3 className="text-sm font-black text-white border-b border-anime-border/20 pb-2 tracking-wide uppercase">
-              {t('streamingInfo')}
-            </h3>
-
-            {/* Platforms */}
-            <div className="space-y-2.5">
-              {streamingInfo.platforms.map((p, idx) => (
-                <a
-                  key={idx}
-                  href={p.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-xl bg-anime-dark hover:bg-anime-dark/80 border border-anime-border/60 hover:border-anime-orange/40 transition group"
+              {anime.type && (
+                <Badge variant="violet" size="sm">{anime.type}</Badge>
+              )}
+              {anime.episodes && (
+                <span className="flex items-center gap-1 text-text-secondary text-xs">
+                  <Tv size={12} /> {anime.episodes} Episodes
+                </span>
+              )}
+              {anime.duration && (
+                <span className="flex items-center gap-1 text-text-secondary text-xs">
+                  <Clock size={12} /> {anime.duration}
+                </span>
+              )}
+              {anime.status && (
+                <Badge
+                  variant={anime.status === 'Currently Airing' ? 'cyan' : anime.status === 'Not yet aired' ? 'gold' : 'default'}
+                  size="sm"
+                  dot
                 >
-                  <div className="flex items-center space-x-2.5">
-                    <span className="text-xl flex-shrink-0">{p.logo}</span>
-                    <span className="text-xs font-extrabold text-white group-hover:text-anime-orange transition-colors">
-                      {p.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-1.5">
-                    <span className="bg-anime-orange/10 border border-anime-orange/30 text-anime-orange text-[9px] font-bold px-1.5 py-0.5 rounded">
-                      {p.quality}
-                    </span>
-                    <ExternalLink size={10} className="text-anime-muted group-hover:text-anime-orange" />
-                  </div>
-                </a>
-              ))}
-            </div>
-
-            {/* Dubs and Subs languages */}
-            <div className="space-y-3 pt-3 border-t border-anime-border/20">
-              {/* Dubs */}
-              <div className="space-y-1.5">
-                <span className="block text-[10px] font-bold text-gray-400 tracking-wider uppercase">
-                  {t('audioDub')}
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {streamingInfo.allAudio.map((a) => (
-                    <span
-                      key={a}
-                      className="bg-anime-dark border border-anime-border text-gray-200 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                    >
-                      {a}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Subs */}
-              <div className="space-y-1.5">
-                <span className="block text-[10px] font-bold text-gray-400 tracking-wider uppercase">
-                  {t('subtitlesSub')}
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {streamingInfo.allSubtitles.map((s) => (
-                    <span
-                      key={s}
-                      className="bg-anime-dark border border-anime-border text-gray-200 text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* RELATED ANIME SIDEBAR */}
-          <div className="bg-anime-card border border-anime-border/40 rounded-2xl p-6 space-y-4">
-            <h3 className="text-sm font-black text-white border-b border-anime-border/20 pb-2 tracking-wide uppercase">
-              {t('relatedSidebar')}
-            </h3>
-
-            {/* We will parse anime relations if available, or generate realistic relative listings */}
-            <div className="space-y-3">
-              {anime.relations && anime.relations.length > 0 ? (
-                anime.relations.slice(0, 3).map((r, idx) => {
-                  const entry = r.entry[0];
-                  if (!entry) return null;
-                  return (
-                    <Link
-                      key={idx}
-                      href={`/anime/${entry.mal_id}`}
-                      className="flex items-center space-x-3 p-2 rounded-xl hover:bg-anime-dark/40 border border-transparent hover:border-anime-border/40 transition group"
-                    >
-                      {/* Placeholder cover box */}
-                      <div className="w-10 h-14 bg-anime-dark rounded overflow-hidden border border-anime-border/60 flex-shrink-0 relative">
-                        <div className="absolute inset-0 bg-anime-orange/10 flex items-center justify-center text-[10px] font-black text-anime-orange">
-                          ANI
-                        </div>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-bold text-white truncate group-hover:text-anime-orange transition-colors">
-                          {entry.name}
-                        </div>
-                        <div className="text-[9px] text-anime-muted mt-0.5 uppercase tracking-wider font-semibold">
-                          {r.relation}
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })
-              ) : (
-                // Fallbacks
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3 p-2 rounded-xl bg-anime-dark/20 border border-anime-border/10">
-                    <div className="w-10 h-14 bg-anime-dark rounded overflow-hidden border border-anime-border/40 flex-shrink-0 flex items-center justify-center text-[10px] font-black text-anime-orange">
-                      OVA
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-bold text-white line-clamp-1">{mainTitle}: Side Story</div>
-                      <div className="text-[9px] text-anime-muted mt-0.5 uppercase font-semibold">Spin-off • OVA</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3 p-2 rounded-xl bg-anime-dark/20 border border-anime-border/10">
-                    <div className="w-10 h-14 bg-anime-dark rounded overflow-hidden border border-anime-border/40 flex-shrink-0 flex items-center justify-center text-[10px] font-black text-anime-orange">
-                      PRE
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-bold text-white line-clamp-1">{mainTitle}: Special Episode</div>
-                      <div className="text-[9px] text-anime-muted mt-0.5 uppercase font-semibold">Prequel • ONA</div>
-                    </div>
-                  </div>
-                </div>
+                  {anime.status}
+                </Badge>
               )}
             </div>
-          </div>
 
-          {/* DETAILED INFORMATION LIST */}
-          <div className="bg-anime-card border border-anime-border/40 rounded-2xl p-6 space-y-4">
-            <h3 className="text-sm font-black text-white border-b border-anime-border/20 pb-2 tracking-wide uppercase">
-              {t('details')}
-            </h3>
-
-            <div className="space-y-3.5 text-xs">
-              {/* Type */}
-              <div className="flex justify-between">
-                <span className="text-anime-muted">{t('type')}:</span>
-                <span className="font-semibold text-gray-200">{anime.type}</span>
-              </div>
-
-              {/* Status */}
-              <div className="flex justify-between">
-                <span className="text-anime-muted">{t('status')}:</span>
-                <span className="font-semibold text-gray-200">{anime.status}</span>
-              </div>
-
-              {/* Aired */}
-              <div className="flex justify-between">
-                <span className="text-anime-muted">{t('aired')}:</span>
-                <span className="font-semibold text-gray-200 text-right truncate max-w-[180px]">
-                  {anime.aired.string}
+            {/* User Tracking Progress (if logged in and watching) */}
+            {tracking && (
+              <div className="flex items-center gap-3 p-3 glass-panel rounded-xl w-fit mx-auto md:mx-0">
+                <span className={`text-xs font-bold capitalize ${STATUS_COLORS[tracking.status] || 'text-text-secondary'}`}>
+                  {tracking.status}
                 </span>
-              </div>
-
-              {/* Premiered */}
-              {anime.season && (
-                <div className="flex justify-between">
-                  <span className="text-anime-muted">{t('premiered')}:</span>
-                  <span className="font-semibold text-gray-200 capitalize">
-                    {anime.season} {anime.year}
+                {tracking.episodesWatched > 0 && anime.episodes && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-muted">Ep {tracking.episodesWatched}/{anime.episodes}</span>
+                    <Progress
+                      value={tracking.episodesWatched}
+                      max={anime.episodes}
+                      variant="violet"
+                      size="xs"
+                      className="w-24"
+                    />
+                  </div>
+                )}
+                {tracking.score && (
+                  <span className="text-xs text-accent-gold font-semibold flex items-center gap-1">
+                    <Star size={11} fill="currentColor" /> {tracking.score}/10
                   </span>
-                </div>
-              )}
-
-              {/* Source */}
-              <div className="flex justify-between">
-                <span className="text-anime-muted">{t('source')}:</span>
-                <span className="font-semibold text-gray-200">{anime.source}</span>
+                )}
               </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 justify-center md:justify-start">
+              <Link
+                href={`/anime/${animeId}#episodes`}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-violet text-white font-bold text-sm shadow-[0_0_24px_rgba(124,91,255,0.35)] hover:shadow-[0_0_36px_rgba(124,91,255,0.55)] hover:bg-[#6b4ae6] transition-all duration-200 hover:-translate-y-px"
+              >
+                <Play size={16} fill="currentColor" />
+                Watch Episodes
+              </Link>
+              <AddToListButton animeId={String(animeId)} animeTitle={mainTitle} animeImage={anime.images.webp.large_image_url || ''} episodes={anime.episodes} isLoggedIn={!!userId} existingStatus={tracking?.status} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Main Content ───────────────────────────────────────────────────── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
+
+          {/* Left column: Tabbed content */}
+          <div>
+            <Suspense fallback={<div className="h-10 shimmer-loader rounded-xl" />}>
+              <AnimeDetailTabs
+                anime={anime}
+                characters={characters}
+                episodes={episodes}
+                recommendations={recommendations}
+                tracking={tracking ?? null}
+                userId={userId}
+              />
+            </Suspense>
+          </div>
+
+          {/* Right sidebar */}
+          <aside className="space-y-5">
+
+            {/* Score Card */}
+            {score && (
+              <div className="glass-panel border border-border-default rounded-2xl p-5 text-center space-y-2">
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">MAL Score</p>
+                <div className="flex items-center justify-center gap-2">
+                  <Star size={28} fill="currentColor" className="text-accent-gold" />
+                  <span className="text-5xl font-black text-text-primary">{score.toFixed(1)}</span>
+                  <span className="text-lg text-text-muted">/10</span>
+                </div>
+                {votes && (
+                  <p className="text-[10px] text-text-muted">
+                    {votes.toLocaleString()} votes
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Info table */}
+            <div className="glass-panel border border-border-default rounded-2xl p-5 space-y-4">
+              <h3 className="text-xs font-black text-text-primary uppercase tracking-widest">Details</h3>
+              <dl className="space-y-2.5 text-xs">
+                {[
+                  { label: 'Type', value: anime.type },
+                  { label: 'Episodes', value: anime.episodes },
+                  { label: 'Status', value: anime.status },
+                  { label: 'Aired', value: anime.aired?.string },
+                  { label: 'Season', value: anime.season && anime.year ? `${anime.season} ${anime.year}` : null },
+                  { label: 'Duration', value: anime.duration },
+                  { label: 'Source', value: anime.source },
+                  { label: 'Rating', value: anime.rating },
+                  { label: 'Rank', value: anime.rank ? `#${anime.rank}` : null },
+                  { label: 'Popularity', value: anime.popularity ? `#${anime.popularity}` : null },
+                ].filter((r) => r.value).map(({ label, value }) => (
+                  <div key={label} className="flex justify-between items-start gap-2">
+                    <dt className="text-text-muted flex-shrink-0">{label}</dt>
+                    <dd className="font-medium text-text-secondary text-right capitalize">{String(value)}</dd>
+                  </div>
+                ))}
+              </dl>
 
               {/* Studios */}
-              {anime.studios && anime.studios.length > 0 && (
-                <div className="flex flex-col space-y-1">
-                  <span className="text-anime-muted">{t('studios')}:</span>
+              {studios.length > 0 && (
+                <div className="pt-2 border-t border-border-subtle">
+                  <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1.5">Studios</p>
                   <div className="flex flex-wrap gap-1">
-                    {anime.studios.map((st) => (
+                    {studios.map((s) => (
                       <Link
-                        key={st.mal_id}
-                        href={`/search?q=${encodeURIComponent(st.name)}`}
-                        className="bg-anime-dark border border-anime-border hover:border-anime-orange text-gray-200 hover:text-anime-orange px-2 py-0.5 rounded text-[10px] font-semibold transition"
+                        key={s.mal_id}
+                        href={`/search?q=${encodeURIComponent(s.name)}` as '/'}
+                        className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-surface-3 border border-border-subtle text-text-secondary hover:text-accent-violet hover:border-accent-violet/40 transition-colors"
                       >
-                        {st.name}
+                        {s.name}
                       </Link>
                     ))}
                   </div>
@@ -584,84 +292,147 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
               )}
 
               {/* Producers */}
-              {anime.producers && anime.producers.length > 0 && (
-                <div className="flex flex-col space-y-1.5 border-t border-anime-border/10 pt-2.5">
-                  <span className="text-anime-muted">{t('producers')}:</span>
+              {producers.length > 0 && (
+                <div className="pt-2 border-t border-border-subtle">
+                  <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1.5">Producers</p>
                   <div className="flex flex-wrap gap-1">
-                    {anime.producers.slice(0, 5).map((pr) => (
-                      <Link
-                        key={pr.mal_id}
-                        href={`/search?q=${encodeURIComponent(pr.name)}`}
-                        className="bg-anime-dark border border-anime-border hover:border-anime-orange text-gray-300 hover:text-anime-orange px-2 py-0.5 rounded text-[10px] font-medium transition"
+                    {producers.slice(0, 4).map((p) => (
+                      <span
+                        key={p.mal_id}
+                        className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-surface-3 border border-border-subtle text-text-muted"
                       >
-                        {pr.name}
-                      </Link>
+                        {p.name}
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* SOCIAL SHARING SECTION */}
-          <div className="bg-anime-card border border-anime-border/40 rounded-2xl p-6 space-y-4">
-            <h3 className="text-sm font-black text-white border-b border-anime-border/20 pb-2 tracking-wide uppercase flex items-center space-x-1.5">
-              <Share2 size={14} className="text-anime-orange" />
-              <span>Share Anime</span>
-            </h3>
+            {/* Related (from relations) */}
+            {anime.relations && anime.relations.length > 0 && (
+              <div className="glass-panel border border-border-default rounded-2xl p-5 space-y-3">
+                <h3 className="text-xs font-black text-text-primary uppercase tracking-widest">Related</h3>
+                <div className="space-y-2">
+                  {anime.relations.slice(0, 4).map((r, i) => {
+                    const entry = r.entry[0];
+                    if (!entry) return null;
+                    return (
+                      <Link
+                        key={i}
+                        href={`/anime/${entry.mal_id}` as '/'}
+                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-surface-2 transition-colors group"
+                      >
+                        <div className="w-8 h-10 bg-surface-3 rounded-lg flex-shrink-0 flex items-center justify-center text-[8px] font-black text-accent-violet border border-border-subtle">
+                          ANI
+                        </div>
+                        <div className="min-w-0 flex-grow">
+                          <p className="text-xs font-semibold text-text-primary truncate group-hover:text-accent-violet transition-colors">{entry.name}</p>
+                          <p className="text-[10px] text-text-muted capitalize">{r.relation}</p>
+                        </div>
+                        <ChevronRight size={12} className="text-text-disabled flex-shrink-0" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-            <div className="grid grid-cols-4 gap-2">
-              {/* Twitter */}
-              <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-anime-dark hover:bg-sky-500 hover:text-white border border-anime-border/60 hover:border-sky-500 py-2 rounded-xl text-center text-[10px] font-extrabold text-gray-300 transition"
-              >
-                Twitter
-              </a>
-              {/* Facebook */}
-              <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-anime-dark hover:bg-blue-600 hover:text-white border border-anime-border/60 hover:border-blue-600 py-2 rounded-xl text-center text-[10px] font-extrabold text-gray-300 transition"
-              >
-                Facebook
-              </a>
-              {/* WhatsApp */}
-              <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-anime-dark hover:bg-emerald-600 hover:text-white border border-anime-border/60 hover:border-emerald-600 py-2 rounded-xl text-center text-[10px] font-extrabold text-gray-300 transition"
-              >
-                WhatsApp
-              </a>
-              {/* Reddit */}
-              <a
-                href={`https://www.reddit.com/submit?title=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-anime-dark hover:bg-orange-600 hover:text-white border border-anime-border/60 hover:border-orange-600 py-2 rounded-xl text-center text-[10px] font-extrabold text-gray-300 transition"
-              >
-                Reddit
-              </a>
+            {/* Share */}
+            <div className="glass-panel border border-border-default rounded-2xl p-5 space-y-3">
+              <h3 className="text-xs font-black text-text-primary uppercase tracking-widest flex items-center gap-1.5">
+                <Share2 size={12} /> Share
+              </h3>
+              <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
+                {[
+                  { label: 'Twitter', color: 'hover:bg-sky-500/20 hover:border-sky-500/40 hover:text-sky-400', href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${mainTitle} on AnimeWorld!`)}&url=${encodeURIComponent(`https://animeworldrj.vercel.app/anime/${animeId}`)}` },
+                  { label: 'Reddit', color: 'hover:bg-orange-500/20 hover:border-orange-500/40 hover:text-orange-400', href: `https://reddit.com/submit?url=${encodeURIComponent(`https://animeworldrj.vercel.app/anime/${animeId}`)}&title=${encodeURIComponent(mainTitle)}` },
+                ].map(({ label, color, href }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center justify-center py-2 rounded-xl bg-surface-2 border border-border-subtle text-text-muted transition-all ${color}`}
+                  >
+                    {label}
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* COMMUNITY DISCUSSION PANEL BUTTON */}
-          <Link
-            href="/community"
-            className="flex items-center justify-center space-x-2.5 w-full bg-anime-orange hover:bg-anime-orangeHover text-black py-4 px-6 rounded-2xl text-center font-extrabold text-xs shadow-lg hover:shadow-orange-500/10 hover:-translate-y-0.5 transition-all duration-300 tracking-wider uppercase"
-          >
-            <MessageSquare size={16} fill="currentColor" />
-            <span>Discuss with fans in community</span>
-          </Link>
-
+            {/* Community link */}
+            <Link
+              href="/community"
+              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-accent-violet/10 border border-accent-violet/20 text-accent-violet font-semibold text-sm hover:bg-accent-violet/20 transition-all"
+            >
+              <MessageSquare size={16} /> Discuss in Community
+            </Link>
+          </aside>
         </div>
-
       </div>
     </div>
+  );
+}
+
+// ─── Add To List Button (Client Component shell) ─────────────────────────────
+function AddToListButton({
+  animeId,
+  animeTitle,
+  animeImage,
+  episodes,
+  isLoggedIn,
+  existingStatus,
+}: {
+  animeId: string;
+  animeTitle: string;
+  animeImage: string;
+  episodes?: number | null;
+  isLoggedIn: boolean;
+  existingStatus?: string;
+}) {
+  if (!isLoggedIn) {
+    return (
+      <Link
+        href="/login"
+        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-2 border border-border-default text-text-secondary font-semibold text-sm hover:border-border-emphasis hover:text-text-primary transition-all duration-200"
+      >
+        <Plus size={16} /> Add to List
+      </Link>
+    );
+  }
+
+  const statusIcons: Record<string, React.ReactNode> = {
+    watching: <Play size={16} />,
+    completed: <CheckCircle2 size={16} />,
+    paused: <Pause size={16} />,
+    dropped: <XCircle size={16} />,
+    planning: <BookMarked size={16} />,
+    rewatching: <RefreshCw size={16} />,
+  };
+
+  if (existingStatus) {
+    return (
+      <span className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-2 border border-border-default text-sm font-semibold capitalize ${STATUS_COLORS[existingStatus] || 'text-text-secondary'}`}>
+        {statusIcons[existingStatus] || <BookMarked size={16} />}
+        {existingStatus}
+      </span>
+    );
+  }
+
+  return (
+    <form action={`/api/list/entry`} method="POST">
+      <input type="hidden" name="animeId" value={animeId} />
+      <input type="hidden" name="animeTitle" value={animeTitle} />
+      <input type="hidden" name="animeImage" value={animeImage} />
+      <input type="hidden" name="animeEpisodes" value={episodes || ''} />
+      <input type="hidden" name="status" value="planning" />
+      <button
+        type="submit"
+        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-2 border border-border-default text-text-secondary font-semibold text-sm hover:border-border-emphasis hover:text-text-primary transition-all duration-200"
+      >
+        <Plus size={16} /> Add to List
+      </button>
+    </form>
   );
 }

@@ -2,10 +2,34 @@ import React from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import QueryProvider from '@/providers/QueryProvider';
+import { SessionProvider } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import CommandPalette from '@/components/ui/CommandPalette';
 import { Analytics } from '@vercel/analytics/next';
+import { Syne, DM_Sans, JetBrains_Mono } from 'next/font/google';
 import '../globals.css';
+
+const syne = Syne({
+  subsets: ['latin'],
+  weight: ['700', '800'],
+  variable: '--font-display',
+  display: 'swap',
+});
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600'],
+  variable: '--font-body',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata = {
   title: 'Aniworld - Anime Discovery Platform',
@@ -24,21 +48,22 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className="h-full scroll-smooth">
+    <html lang={locale} className={`${dmSans.variable} ${syne.variable} ${jetbrainsMono.variable} h-full scroll-smooth`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+        {/* Font loading is handled via next/font */}
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <NextIntlClientProvider messages={messages}>
-          <QueryProvider>
-            <Navbar />
-            <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              {children}
-            </main>
-            <Footer />
-          </QueryProvider>
+          <SessionProvider>
+            <QueryProvider>
+              <Navbar />
+              <CommandPalette />
+              <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {children}
+              </main>
+              <Footer />
+            </QueryProvider>
+          </SessionProvider>
         </NextIntlClientProvider>
         <Analytics />
       </body>
