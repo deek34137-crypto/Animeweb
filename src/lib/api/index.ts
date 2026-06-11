@@ -194,9 +194,52 @@ export const AnimeApi = {
       take: 12,
     });
 
-    // In-memory filter out completed shows to handle cases where status wasn't updated
-    return entries.filter(
-      (entry) => !entry.animeEpisodes || entry.episodesWatched < entry.animeEpisodes
+    const results = await Promise.all(
+      entries.map(async (entry) => {
+        const latestProgress = await db.watchProgress.findFirst({
+          where: {
+            userId,
+            animeId: entry.animeId,
+          },
+          orderBy: {
+            lastWatchedAt: 'desc',
+          },
+        });
+
+        let resumeEpisode = entry.episodesWatched + 1;
+        if (latestProgress) {
+          const isCompleted = latestProgress.position / latestProgress.duration >= 0.95;
+          if (!isCompleted) {
+            resumeEpisode = latestProgress.episode;
+          } else {
+            resumeEpisode = latestProgress.episode + 1;
+          }
+        }
+
+        return {
+          id: entry.id,
+          userId: entry.userId,
+          animeId: entry.animeId,
+          animeTitle: entry.animeTitle,
+          animeImage: entry.animeImage,
+          animeEpisodes: entry.animeEpisodes,
+          status: entry.status,
+          score: entry.score,
+          episodesWatched: resumeEpisode,
+          rewatchCount: entry.rewatchCount,
+          startedAt: entry.startedAt,
+          completedAt: entry.completedAt,
+          notes: entry.notes,
+          isPrivate: entry.isPrivate,
+          createdAt: entry.createdAt,
+          updatedAt: entry.updatedAt,
+        };
+      })
+    );
+
+    // In-memory filter out completed shows
+    return results.filter(
+      (entry) => !entry.animeEpisodes || entry.episodesWatched <= entry.animeEpisodes
     );
   },
 };

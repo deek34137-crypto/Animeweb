@@ -236,7 +236,7 @@ export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
           return (
             <Link
               key={entry.animeId}
-              href={`/anime/${entry.animeId}` as '/'}
+              href={`/watch/${entry.animeId}/${entry.episodesWatched}` as '/'}
               className="flex-shrink-0 w-36 group"
             >
               <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-colors duration-200">

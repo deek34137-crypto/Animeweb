@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Link, useRouter, usePathname } from '@/navigation';
 import {
   Search, Menu, X, Globe, Home, TrendingUp, Calendar, Star,
-  User, LogOut, Settings, ChevronDown, Command
+  User, LogOut, Settings, ChevronDown, Command, Clock
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 
@@ -172,6 +172,13 @@ export default function Navbar() {
                           <User size={14} /> My List
                         </Link>
                         <Link
+                          href="/history"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors"
+                        >
+                          <Clock size={14} /> Watch History
+                        </Link>
+                        <Link
                           href="/settings"
                           onClick={() => setUserMenuOpen(false)}
                           className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors"
@@ -264,6 +271,13 @@ export default function Navbar() {
                     className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-all"
                   >
                     <User size={16} /> My List
+                  </Link>
+                  <Link
+                    href="/history"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-all"
+                  >
+                    <Clock size={16} /> Watch History
                   </Link>
                   <button
                     onClick={() => { signOut(); setMobileMenuOpen(false); }}

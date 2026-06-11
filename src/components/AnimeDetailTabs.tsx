@@ -318,9 +318,10 @@ function EpisodesTab({
         {filtered.map((ep) => {
           const isWatched = ep.mal_id <= episodesWatched;
           return (
-            <div
+            <Link
               key={ep.mal_id}
-              className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+              href={`/watch/${anime.mal_id}/${ep.mal_id}` as '/'}
+              className={`flex items-center gap-3 p-3 rounded-xl border transition-colors hover:bg-surface-3/50 ${
                 isWatched
                   ? 'bg-surface-2/50 border-border-subtle opacity-70'
                   : 'bg-surface-2 border-border-subtle hover:border-border-emphasis'
@@ -359,7 +360,7 @@ function EpisodesTab({
                   </div>
                 )}
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
