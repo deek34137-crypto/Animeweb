@@ -1025,7 +1025,9 @@ export default function VideoPlayer({
       {showSkipIntro && (
         <button
           onClick={skipIntro}
-          className="absolute bottom-20 left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-lg animate-fade-up select-none backdrop-blur-md"
+          className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
+            showControls ? 'bottom-32' : 'bottom-8'
+          }`}
         >
           ⏩ Skip Intro
         </button>
@@ -1033,7 +1035,9 @@ export default function VideoPlayer({
       {showSkipEnding && (
         <button
           onClick={skipEnding}
-          className="absolute bottom-20 left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-lg animate-fade-up select-none backdrop-blur-md"
+          className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
+            showControls ? 'bottom-32' : 'bottom-8'
+          }`}
         >
           ⏩ Skip Ending
         </button>
