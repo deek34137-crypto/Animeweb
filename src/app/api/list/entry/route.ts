@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { AnimeApi } from '@/lib/api';
+import { syncWatchProgress } from '@/lib/trackers';
 
 export async function GET(req: Request) {
   try {
@@ -61,6 +62,11 @@ export async function POST(req: Request) {
       rewatchCount: rewatchCount !== undefined ? Number(rewatchCount) : 0,
       notes,
       isPrivate: !!isPrivate,
+    });
+
+    // Trigger external tracker sync in the background
+    syncWatchProgress(session.user.id, String(animeId), entry.status, entry.episodesWatched, entry.score).catch((err) => {
+      console.error('[MAL/AniList List Sync Error]', err);
     });
 
     return NextResponse.json(entry);

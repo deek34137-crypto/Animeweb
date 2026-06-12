@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
+import { syncWatchProgress } from '@/lib/trackers';
 
 export async function POST(req: Request) {
   try {
@@ -112,6 +113,10 @@ export async function POST(req: Request) {
             },
           });
           listEntryUpdated = true;
+          // Trigger sync in the background
+          syncWatchProgress(userId, String(animeId), finalStatus, finalEpsWatched).catch((err) => {
+            console.error('[MAL/AniList Sync Error]', err);
+          });
         }
       } else {
         // If they had no list entry, create one as 'watching'
@@ -137,6 +142,10 @@ export async function POST(req: Request) {
           },
         });
         listEntryUpdated = true;
+        // Trigger sync in the background
+        syncWatchProgress(userId, String(animeId), finalStatus, epNum).catch((err) => {
+          console.error('[MAL/AniList Sync Error]', err);
+        });
       }
     }
 

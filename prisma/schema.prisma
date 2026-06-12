@@ -21,6 +21,20 @@ model User {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   
+  // Tracker Sync details
+  malAccessToken      String?
+  malRefreshToken     String?
+  malExpiresAt        DateTime?
+  malUsername         String?
+  
+  anilistAccessToken  String?
+  anilistExpiresAt    DateTime?
+  anilistUsername     String?
+  
+  syncToMal           Boolean     @default(true)
+  syncToAnilist       Boolean     @default(true)
+
+  
   // Auth relations (optional / future-proofing for database sessions)
   accounts      Account[]
   sessions      Session[]
