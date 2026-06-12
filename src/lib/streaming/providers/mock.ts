@@ -1,10 +1,19 @@
 import { StreamingProviderInterface, EpisodeItem, EpisodeStreamInfo } from '../types';
 import { AnimeApi } from '@/lib/api';
 
+/**
+ * Mock/Fallback Provider
+ * 
+ * Used ONLY when all real providers fail. Returns test HLS streams
+ * with explicit "Fallback Test Stream" labeling so the UI can clearly
+ * indicate that real anime content was not resolved.
+ * 
+ * All returned streams are marked with isFallback: true.
+ */
 export const mockProvider: StreamingProviderInterface = {
   name: 'mock',
 
-  getEpisodes: async (animeId: string): Promise<EpisodeItem[]> => {
+  getEpisodes: async (animeId: string, _animeTitle?: string): Promise<EpisodeItem[]> => {
     try {
       // Try fetching the actual episodes list from Jikan
       const malId = parseInt(animeId, 10);
@@ -26,16 +35,17 @@ export const mockProvider: StreamingProviderInterface = {
     // Fallback if Jikan is offline or anime is invalid
     return Array.from({ length: 12 }, (_, i) => ({
       number: i + 1,
-      title: `Episode ${i + 1} - Mock Episode Title`,
+      title: `Episode ${i + 1}`,
       aired: new Date(Date.now() - (12 - i) * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      filler: i === 3, // mock episode 4 is filler
-      recap: i === 8,  // mock episode 9 is recap
+      filler: i === 3,
+      recap: i === 8,
     }));
   },
 
-  getStreamInfo: async (animeId: string, episode: number): Promise<EpisodeStreamInfo> => {
-    // High-fidelity fallback HLS streams for testing
-    // Sub: Sintel HLS, Dub: Tears of Steel HLS
+  getStreamInfo: async (_animeId: string, episode: number, _animeTitle?: string): Promise<EpisodeStreamInfo> => {
+    console.warn(`[FALLBACK] Mock provider active — returning test streams for episode ${episode}. No real provider could resolve this anime.`);
+
+    // Clearly labeled test streams — these are NOT anime content
     const subSources = [
       {
         url: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
@@ -56,20 +66,10 @@ export const mockProvider: StreamingProviderInterface = {
       sources: subSources,
       sub: subSources,
       dub: dubSources,
-      subtitles: [
-        {
-          label: 'English',
-          lang: 'en',
-          url: 'https://raw.githubusercontent.com/mdn/learning-area/master/html/multimedia-and-embedding/video-and-audio-content/subtitles-en.vtt',
-        },
-        {
-          label: 'Spanish',
-          lang: 'es',
-          url: 'https://raw.githubusercontent.com/mdn/learning-area/master/html/multimedia-and-embedding/video-and-audio-content/subtitles-en.vtt', // using same as mock
-        },
-      ],
+      subtitles: [],
       audioLanguage: 'japanese',
+      isFallback: true,
+      fallbackReason: 'All streaming providers failed to resolve real anime sources. Displaying test content.',
     };
   },
 };
-

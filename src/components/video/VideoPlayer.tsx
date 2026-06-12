@@ -9,11 +9,12 @@ import { progressService } from '@/lib/streaming/progress';
 import PlayerError from './PlayerError';
 import PlayerSettings from './PlayerSettings';
 import ShortcutsOverlay from './ShortcutsOverlay';
+import StreamDebugPanel from './StreamDebugPanel';
 import { useRouter } from '@/navigation';
 
 interface EpisodeSource {
   url: string;
-  quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
+  quality: '1080p' | '720p' | '480p' | '360p' | 'auto' | 'default';
   isM3U8: boolean;
 }
 
@@ -39,6 +40,8 @@ interface VideoPlayerProps {
   initialPosition?: number;
   providers?: string[];
   currentProvider?: string;
+  isFallback?: boolean;
+  fallbackReason?: string;
 }
 
 export default function VideoPlayer({
@@ -56,6 +59,8 @@ export default function VideoPlayer({
   initialPosition = 0,
   providers = [],
   currentProvider = 'mock',
+  isFallback = false,
+  fallbackReason,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -80,6 +85,8 @@ export default function VideoPlayer({
   const [providersList, setProvidersList] = useState<string[]>(providers.length > 0 ? providers : ['mock']);
   const [currentProviderName, setCurrentProviderName] = useState<string>(currentProvider);
   const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub'>('sub');
+  const [isFallbackActive, setIsFallbackActive] = useState<boolean>(isFallback);
+  const [fallbackReasonText, setFallbackReasonText] = useState<string | undefined>(fallbackReason);
 
   // Player States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -226,8 +233,13 @@ export default function VideoPlayer({
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             setIsLoading(false);
 
-            // Populate quality levels from HLS manifest
-            const levels = ['Auto', ...hls.levels.map((l: any) => l.height ? `${l.height}p` : 'Unknown')];
+            // Populate quality levels from HLS manifest — user-friendly labels only
+            const parsedLevels = hls.levels
+              .map((l: any) => l.height ? `${l.height}p` : null)
+              .filter((l: string | null): l is string => l !== null);
+            // Deduplicate and sort descending
+            const uniqueLevels = Array.from(new Set<string>(parsedLevels)).sort((a: string, b: string) => parseInt(b) - parseInt(a));
+            const levels: string[] = ['Auto', ...uniqueLevels];
             setQualityLevels(levels);
 
             // Restore previous quality choice
@@ -318,7 +330,7 @@ export default function VideoPlayer({
     if (totalEpisodes && nextEp <= totalEpisodes) {
       const preloadTimer = setTimeout(() => {
         console.info(`[PRELOAD] Pre-fetching Episode ${nextEp} stream details...`);
-        fetch(`/api/stream/source?animeId=${animeId}&episode=${nextEp}`)
+        fetch(`/api/stream/source?animeId=${animeId}&episode=${nextEp}&title=${encodeURIComponent(animeTitle)}`)
           .then((res) => res.json())
           .then((data) => {
             console.info(`[PRELOAD] Cache primed for Episode ${nextEp}`);
@@ -496,7 +508,7 @@ export default function VideoPlayer({
     setIsLoading(true);
     setShowSettings(false);
     try {
-      const res = await fetch(`/api/stream/source?animeId=${animeId}&episode=${episodeNumber}&provider=${provider}`);
+      const res = await fetch(`/api/stream/source?animeId=${animeId}&episode=${episodeNumber}&provider=${provider}&title=${encodeURIComponent(animeTitle)}`);
       if (!res.ok) throw new Error('Provider resolved failed status.');
       const data = await res.json();
       
@@ -504,6 +516,8 @@ export default function VideoPlayer({
       setSubSourcesList(data.sub || []);
       setDubSourcesList(data.dub || []);
       setSubtitleTracks(data.subtitles || []);
+      setIsFallbackActive(data.isFallback || false);
+      setFallbackReasonText(data.fallbackReason);
       setActiveSourceIdx(0);
     } catch (err) {
       console.warn(`Failed to swap provider in place to ${provider}:`, err);
@@ -932,9 +946,14 @@ export default function VideoPlayer({
                 <SkipForward size={16} />
               </button>
 
-              <span className="text-xs font-bold text-white tracking-wide select-none hidden sm:inline-block">
-                Ep {episodeNumber} · {animeTitle}
-              </span>
+              <div className="hidden sm:flex flex-col gap-0 min-w-0">
+                <span className="text-[11px] font-black text-white tracking-wide truncate leading-tight">
+                  {animeTitle}
+                </span>
+                <span className="text-[9px] font-semibold text-white/50 tracking-wider truncate leading-tight">
+                  Episode {episodeNumber} · {currentQuality} · {currentLanguage.toUpperCase()}
+                </span>
+              </div>
             </div>
 
             {/* Right Actions */}
@@ -1027,6 +1046,30 @@ export default function VideoPlayer({
           </div>
         </div>
       )}
+
+      {/* Fallback Test Stream Banner */}
+      {isFallbackActive && (
+        <div className="absolute top-0 left-0 right-0 z-[55] bg-amber-600/90 backdrop-blur-sm text-white text-center py-1.5 px-4 text-xs font-bold tracking-wide">
+          ⚠ Fallback Test Stream — Real anime sources could not be resolved
+        </div>
+      )}
+
+      {/* Stream Debug Panel */}
+      <StreamDebugPanel
+        debugInfo={{
+          activeProvider: currentProviderName,
+          streamUrl: activeSource?.url || '',
+          sourceType: activeSource?.isM3U8 ? 'HLS' : 'MP4',
+          isFallback: isFallbackActive,
+          fallbackReason: fallbackReasonText,
+          subtitleCount: subtitleTracks.length,
+          subtitleLangs: subtitleTracks.map((t) => t.lang),
+          qualityLevels,
+          currentQuality,
+          audioLanguage: currentLanguage,
+          providers: providersList,
+        }}
+      />
 
       {/* Keyboard Shortcuts Overlay Modal */}
       {showShortcutsHelp && (

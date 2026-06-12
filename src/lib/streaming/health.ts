@@ -6,12 +6,12 @@ interface ProviderStats {
   lastSuccess?: Date;
 }
 
-// Default starting values based on expected baseline reliability
+// Default starting values — equal baselines since all providers are now real
 const providerStats: Record<string, ProviderStats> = {
-  consumet: { successes: 98, failures: 2 },
-  animepahe: { successes: 92, failures: 8 },
-  anicli: { successes: 85, failures: 15 },
-  mock: { successes: 100, failures: 0 },
+  consumet: { successes: 50, failures: 5 },
+  animepahe: { successes: 45, failures: 10 },
+  anicli: { successes: 0, failures: 50 }, // Not implemented — will always fail
+  mock: { successes: 100, failures: 0 },  // Always succeeds (test streams)
 };
 
 export const StreamingHealth = {
@@ -51,10 +51,29 @@ export const StreamingHealth = {
   },
 
   /**
+   * Returns current stats for all providers (for debug panel).
+   */
+  getAllStats: (): Record<string, { successRate: number; total: number }> => {
+    const result: Record<string, { successRate: number; total: number }> = {};
+    for (const [key, stats] of Object.entries(providerStats)) {
+      const total = stats.successes + stats.failures;
+      result[key] = {
+        successRate: total > 0 ? Math.round((stats.successes / total) * 100) : 0,
+        total,
+      };
+    }
+    return result;
+  },
+
+  /**
    * Reorders a list of providers by their success percentage (descending).
+   * Mock provider is always placed last — it should only be used as final fallback.
    */
   getReorderedProviders: (providers: string[]): string[] => {
     return [...providers].sort((a, b) => {
+      // Mock always last
+      if (a === 'mock') return 1;
+      if (b === 'mock') return -1;
       const rateA = StreamingHealth.getSuccessPercentage(a);
       const rateB = StreamingHealth.getSuccessPercentage(b);
       return rateB - rateA;
@@ -62,17 +81,18 @@ export const StreamingHealth = {
   },
 
   /**
-   * Validates if a stream URL is online, reachable, and returns a valid HLS/media playlist.
+   * Validates if a stream URL is online, reachable, and returns a valid HLS/media response.
+   * No bypasses for demo/test URLs — every URL is checked honestly.
    */
   checkSourceHealth: async (url: string): Promise<boolean> => {
-    // If it's a relative URL or mock testing stream, skip fetch checks and treat as healthy
+    // If it's a relative URL or local dev stream, skip fetch checks
     if (url.startsWith('/') || url.includes('localhost') || url.includes('127.0.0.1')) {
       return true;
     }
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5 seconds timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
       const response = await fetch(url, {
         method: 'HEAD',
@@ -84,16 +104,10 @@ export const StreamingHealth = {
 
       clearTimeout(timeoutId);
 
-      // A 200 or 206 status indicates the file is fully reachable and available
+      // Accept 200, 206 (partial content), and 302/301 (redirects handled by fetch)
       return response.ok;
     } catch (err) {
       console.warn(`Health check failed for stream source: ${url}`, err);
-      
-      // Fallback: If it's a known test HLS stream (e.g. akamaihd, bitdash, unified-streaming),
-      // we assume it is healthy unless it consistently times out, to avoid false negatives due to CORS.
-      if (url.includes('akamaihd') || url.includes('bitdash') || url.includes('unified-streaming')) {
-        return true;
-      }
       return false;
     }
   },

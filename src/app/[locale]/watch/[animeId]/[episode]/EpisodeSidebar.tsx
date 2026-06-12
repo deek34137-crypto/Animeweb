@@ -117,68 +117,84 @@ export default function EpisodeSidebar({
               <Link
                 key={ep.number}
                 href={`/watch/${animeId}/${ep.number}` as '/'}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 group ${
+                className={`block rounded-xl border overflow-hidden transition-all duration-200 group ${
                   isActive
-                    ? 'bg-accent-violet/10 border-accent-violet text-text-primary shadow-[0_0_12px_rgba(124,91,255,0.1)]'
+                    ? 'border-l-2 border-accent-violet bg-accent-violet/10 shadow-[0_0_16px_rgba(124,91,255,0.15)]'
                     : isWatched
-                      ? 'bg-surface-2/40 border-border-subtle opacity-70 hover:opacity-100 hover:border-border-emphasis'
-                      : 'bg-surface-2/80 border-border-subtle hover:border-border-emphasis'
+                      ? 'border-border-subtle bg-surface-2/40 opacity-70 hover:opacity-100 hover:border-border-emphasis'
+                      : 'border-border-subtle bg-surface-2/80 hover:border-border-emphasis'
                 }`}
               >
-                {/* Visual Status Indicator (Play icon if active, checkmark if watched, number if raw) */}
-                <div
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 transition-colors ${
-                    isActive
-                      ? 'bg-accent-violet text-white shadow-md'
-                      : isWatched
-                        ? 'bg-green-500/15 text-green-400 border border-green-500/20'
-                        : 'bg-surface-3 text-text-muted border border-border-subtle group-hover:text-text-primary group-hover:border-border-emphasis'
-                  }`}
-                >
-                  {isActive ? (
-                    <Play size={12} fill="currentColor" className="ml-0.5 animate-pulse" />
-                  ) : isWatched ? (
-                    <Check size={12} />
-                  ) : (
-                    ep.number
-                  )}
-                </div>
+                <div className="flex gap-3 p-2">
+                  {/* Thumbnail */}
+                  <div className="relative w-24 h-[54px] rounded-lg overflow-hidden flex-shrink-0">
+                    <img
+                      src={animeImage}
+                      alt={ep.title || `Episode ${ep.number}`}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                    />
+                    {isActive && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Play size={18} fill="currentColor" className="text-accent-violet animate-pulse" />
+                      </div>
+                    )}
+                    {isWatched && !isActive && (
+                      <div className="absolute bottom-0.5 right-0.5">
+                        <Check size={12} className="text-green-400 drop-shadow-md" />
+                      </div>
+                    )}
+                  </div>
 
-                {/* Episode metadata details */}
-                <div className="min-w-0 flex-grow">
-                  <p
-                    className={`text-xs font-bold truncate transition-colors ${
-                      isActive
-                        ? 'text-accent-violet'
-                        : 'text-text-primary group-hover:text-accent-violet'
-                    }`}
-                  >
-                    {ep.title || `Episode ${ep.number}`}
-                  </p>
-                  {ep.aired && (
-                    <p className="text-[10px] text-text-disabled mt-0.5">
-                      {new Date(ep.aired).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                  {/* Episode info */}
+                  <div className="min-w-0 flex-grow flex flex-col justify-center">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-text-muted">
+                      EP {ep.number}
                     </p>
-                  )}
+                    <p
+                      className={`text-xs font-bold truncate transition-colors ${
+                        isActive
+                          ? 'text-accent-violet'
+                          : 'text-text-primary group-hover:text-accent-violet'
+                      }`}
+                    >
+                      {ep.title || `Episode ${ep.number}`}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[10px] text-text-disabled">23m</span>
+                      {ep.aired && (
+                        <>
+                          <span className="text-[10px] text-text-disabled">·</span>
+                          <span className="text-[10px] text-text-disabled">
+                            {new Date(ep.aired).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </span>
+                        </>
+                      )}
+                      {ep.filler && (
+                        <span className="text-[8px] font-black uppercase tracking-wider px-1 py-px bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-full leading-tight">
+                          Filler
+                        </span>
+                      )}
+                      {ep.recap && (
+                        <span className="text-[8px] font-black uppercase tracking-wider px-1 py-px bg-accent-violet/10 border border-accent-violet/20 text-accent-violet rounded-full leading-tight">
+                          Recap
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Sub-label badges */}
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  {ep.filler && (
-                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded">
-                      Filler
-                    </span>
-                  )}
-                  {ep.recap && (
-                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-accent-violet/10 border border-accent-violet/20 text-accent-violet rounded">
-                      Recap
-                    </span>
-                  )}
-                </div>
+                {/* Progress bar */}
+                {isWatched && (
+                  <div className="h-0.5 bg-white/10 rounded-full w-full">
+                    <div className="h-0.5 bg-accent-violet rounded-full w-full" />
+                  </div>
+                )}
               </Link>
             );
           })

@@ -4,18 +4,15 @@ import { mockProvider } from './mock';
 export const gogoanimeProvider: StreamingProviderInterface = {
   name: 'gogoanime',
 
-  getEpisodes: async (animeId: string): Promise<EpisodeItem[]> => {
-    // Scaffolded for actual gogoanime scraping.
-    // In Phase 2 development, it falls back to mock provider episodes.
+  getEpisodes: async (animeId: string, animeTitle?: string): Promise<EpisodeItem[]> => {
+    // Scaffolded — delegates to mock provider. Use consumet provider for Gogoanime sources.
     console.info(`GoGoAnime provider requesting episodes for animeId: ${animeId}`);
-    return mockProvider.getEpisodes(animeId);
+    return mockProvider.getEpisodes(animeId, animeTitle);
   },
 
-  getStreamInfo: async (animeId: string, episode: number): Promise<EpisodeStreamInfo> => {
-    // Scaffolded for actual gogoanime link extraction.
-    // In Phase 2 development, it falls back to mock provider streams.
+  getStreamInfo: async (animeId: string, episode: number, animeTitle?: string): Promise<EpisodeStreamInfo> => {
+    // Scaffolded — delegates to mock provider. Use consumet provider for Gogoanime sources.
     console.info(`GoGoAnime provider requesting stream for animeId: ${animeId}, ep: ${episode}`);
-    return mockProvider.getStreamInfo(animeId, episode);
+    return mockProvider.getStreamInfo(animeId, episode, animeTitle);
   },
 };
-

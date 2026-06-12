@@ -31,12 +31,8 @@ export default async function WatchPage({ params }: WatchPageProps) {
     );
   }
 
-  // Fetch anime details, episodes, and stream info in parallel
-  const [anime, streamInfo, episodes] = await Promise.all([
-    AnimeApi.getAnimeDetail(malId, userId),
-    StreamingManager.getStreamInfo(animeId, epNum).catch(() => ({ sources: [], sub: [], dub: [], subtitles: [], providers: [], currentProvider: 'mock' })),
-    StreamingManager.getEpisodes(animeId).catch(() => []),
-  ]);
+  // Fetch anime details first (we need the title for stream resolution)
+  const anime = await AnimeApi.getAnimeDetail(malId, userId);
 
   if (!anime) {
     return (
@@ -46,6 +42,16 @@ export default async function WatchPage({ params }: WatchPageProps) {
       </div>
     );
   }
+
+  const mainTitle = anime.title_english || anime.title;
+
+  // Now fetch stream info and episodes with the resolved title
+  const [streamInfo, episodes, characters, recommendations] = await Promise.all([
+    StreamingManager.getStreamInfo(animeId, epNum, mainTitle).catch(() => ({ sources: [], sub: [], dub: [], subtitles: [], providers: [], currentProvider: 'mock', isFallback: true, fallbackReason: 'Stream resolution threw an unhandled error.' })),
+    StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []),
+    AnimeApi.getAnimeCharacters(malId).catch(() => []),
+    AnimeApi.getAnimeRecommendations(malId).catch(() => []),
+  ]);
 
   // Fetch last saved position if authenticated
   let initialPosition = 0;
@@ -77,7 +83,6 @@ export default async function WatchPage({ params }: WatchPageProps) {
     watchedEpisodes = history.map((h) => h.episode);
   }
 
-  const mainTitle = anime.title_english || anime.title;
   const currentEp = episodes.find((e) => e.number === epNum);
 
   return (
@@ -111,6 +116,8 @@ export default async function WatchPage({ params }: WatchPageProps) {
               initialPosition={initialPosition}
               providers={streamInfo.providers}
               currentProvider={streamInfo.currentProvider}
+              isFallback={streamInfo.isFallback}
+              fallbackReason={streamInfo.fallbackReason}
             />
           </Suspense>
 
@@ -177,6 +184,94 @@ export default async function WatchPage({ params }: WatchPageProps) {
             />
           </Suspense>
         </aside>
+      </div>
+
+      {/* Below Player: Rich Content */}
+      <div className="space-y-8 mt-2">
+
+        {/* Synopsis */}
+        {anime.synopsis && (
+          <section className="glass-panel border border-border-default rounded-2xl p-6">
+            <h2 className="text-sm font-black text-text-primary uppercase tracking-widest font-display mb-3">Synopsis</h2>
+            <p className="text-sm text-text-secondary leading-relaxed">{anime.synopsis}</p>
+          </section>
+        )}
+
+        {/* Characters */}
+        {characters.length > 0 && (
+          <section className="glass-panel border border-border-default rounded-2xl p-6">
+            <h2 className="text-sm font-black text-text-primary uppercase tracking-widest font-display mb-4">Characters</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {characters.slice(0, 8).map((c: any) => (
+                <div key={c.character.mal_id} className="flex items-center gap-3 p-2 rounded-xl bg-surface-2/50 border border-border-subtle">
+                  <img
+                    src={c.character.images?.webp?.image_url || c.character.images?.jpg?.image_url}
+                    alt={c.character.name}
+                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-text-primary truncate">{c.character.name}</p>
+                    <p className="text-[10px] text-text-muted truncate">{c.role}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Recommendations */}
+        {recommendations.length > 0 && (
+          <section className="glass-panel border border-border-default rounded-2xl p-6">
+            <h2 className="text-sm font-black text-text-primary uppercase tracking-widest font-display mb-4">Recommended</h2>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+              {recommendations.slice(0, 10).map((r: any) => (
+                <Link
+                  key={r.entry.mal_id}
+                  href={`/anime/${r.entry.mal_id}` as '/'}
+                  className="flex-shrink-0 w-32 group"
+                >
+                  <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border-subtle group-hover:border-accent-violet transition-colors">
+                    <img
+                      src={r.entry.images?.webp?.image_url || r.entry.images?.jpg?.image_url}
+                      alt={r.entry.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                    />
+                  </div>
+                  <p className="text-[11px] font-bold text-text-secondary group-hover:text-accent-violet mt-1.5 truncate transition-colors">{r.entry.title}</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Related Anime / Seasons */}
+        {anime.relations && anime.relations.length > 0 && (
+          <section className="glass-panel border border-border-default rounded-2xl p-6">
+            <h2 className="text-sm font-black text-text-primary uppercase tracking-widest font-display mb-4">Related</h2>
+            <div className="space-y-2">
+              {anime.relations.slice(0, 6).map((rel: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-surface-2/50 border border-border-subtle">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-text-primary truncate">{rel.entry?.[0]?.name || 'Unknown'}</p>
+                    <p className="text-[10px] text-text-muted">{rel.relation}</p>
+                  </div>
+                  {rel.entry?.[0]?.mal_id && rel.entry?.[0]?.type === 'anime' && (
+                    <Link
+                      href={`/anime/${rel.entry[0].mal_id}` as '/'}
+                      className="text-[10px] font-bold text-accent-violet hover:underline flex-shrink-0 ml-2"
+                    >
+                      View →
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

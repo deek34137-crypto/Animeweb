@@ -1,6 +1,6 @@
 export interface EpisodeSource {
   url: string;
-  quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
+  quality: '1080p' | '720p' | '480p' | '360p' | 'auto' | 'default';
   isM3U8: boolean;
 }
 
@@ -18,6 +18,8 @@ export interface EpisodeStreamInfo {
   audioLanguage?: string;   // e.g. 'japanese' or 'english'
   providers?: string[];     // list of all registered provider names
   currentProvider?: string; // name of the provider resolving these sources
+  isFallback?: boolean;     // true if using mock/test streams
+  fallbackReason?: string;  // why fallback was triggered
 }
 
 export interface EpisodeItem {
@@ -30,6 +32,6 @@ export interface EpisodeItem {
 
 export interface StreamingProviderInterface {
   name: string;
-  getEpisodes(animeId: string): Promise<EpisodeItem[]>;
-  getStreamInfo(animeId: string, episode: number): Promise<EpisodeStreamInfo>;
+  getEpisodes(animeId: string, animeTitle?: string): Promise<EpisodeItem[]>;
+  getStreamInfo(animeId: string, episode: number, animeTitle?: string): Promise<EpisodeStreamInfo>;
 }

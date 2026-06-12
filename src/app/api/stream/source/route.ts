@@ -40,6 +40,7 @@ export async function GET(req: Request) {
     const animeId = searchParams.get('animeId');
     const episodeStr = searchParams.get('episode');
     const providerName = searchParams.get('provider') || undefined;
+    const animeTitle = searchParams.get('title') || undefined;
 
     if (!animeId || !episodeStr) {
       return NextResponse.json({ error: 'AnimeId and episode are required.' }, { status: 400 });
@@ -50,12 +51,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Episode must be a valid positive number.' }, { status: 400 });
     }
 
-    // 3. Timeout Layer (5 seconds)
+    // 3. Timeout Layer (10 seconds — real API calls take longer)
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out resolving stream source.')), 5000)
+      setTimeout(() => reject(new Error('Request timed out resolving stream source.')), 10000)
     );
 
-    const fetchPromise = StreamingManager.getStreamInfo(animeId, episode, providerName);
+    const fetchPromise = StreamingManager.getStreamInfo(animeId, episode, animeTitle, providerName);
 
     const streamInfo = await Promise.race([fetchPromise, timeoutPromise]);
     return NextResponse.json(streamInfo);

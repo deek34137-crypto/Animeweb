@@ -47,17 +47,32 @@ export default function HeroSpotlight({ items }: HeroSpotlightProps) {
 
   return (
     <section className="relative w-full rounded-2xl overflow-hidden aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] min-h-[340px] sm:min-h-[400px]">
-      {/* Background Image with Ken Burns */}
+      {/* Background Image with Ken Burns — blurred ambient approach to hide low-res posters */}
       <div
         key={`bg-${currentIndex}`}
         className={`absolute inset-0 transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
       >
+        {/* Blurred ambient background — masks low-res poster stretching */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
+          alt=""
+          aria-hidden="true"
+          className="w-full h-full object-cover ken-burns"
+          referrerPolicy="no-referrer"
+          style={{
+            filter: 'blur(40px) brightness(0.6)',
+            transform: 'scale(1.2)',
+          }}
+        />
+        {/* Sharp foreground poster — centered, intrinsic aspect ratio preserved */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
           alt={title}
-          className="w-full h-full object-cover ken-burns"
+          className="absolute inset-0 w-full h-full object-cover ken-burns"
           referrerPolicy="no-referrer"
+          style={{ opacity: 0.7 }}
         />
         {/* Multi-layer gradients for cinematic depth */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#05050A] via-[#05050A]/75 to-transparent" />
