@@ -213,3 +213,75 @@ body {
   background: var(--color-surface-3);
   border-radius: 2px;
 }
+
+/* Dynamic Media Player Accent Color Overrides */
+[style*="--player-accent"] .text-accent-violet {
+  color: var(--player-accent) !important;
+}
+
+[style*="--player-accent"] .bg-accent-violet\/5 {
+  background-color: hsla(
+    var(--player-accent-h),
+    var(--player-accent-s),
+    var(--player-accent-l),
+    0.05
+  ) !important;
+}
+
+[style*="--player-accent"] .bg-accent-violet\/10 {
+  background-color: hsla(
+    var(--player-accent-h),
+    var(--player-accent-s),
+    var(--player-accent-l),
+    0.1
+  ) !important;
+}
+
+[style*="--player-accent"] .bg-accent-violet\/70 {
+  background-color: hsla(
+    var(--player-accent-h),
+    var(--player-accent-s),
+    var(--player-accent-l),
+    0.7
+  ) !important;
+}
+
+[style*="--player-accent"] .bg-accent-violet {
+  background-color: var(--player-accent) !important;
+}
+
+[style*="--player-accent"] .peer-checked\:bg-accent-violet:checked ~ div {
+  background-color: var(--player-accent) !important;
+}
+
+[style*="--player-accent"] .peer-checked\:bg-accent-violet:checked {
+  background-color: var(--player-accent) !important;
+}
+
+[style*="--player-accent"] .border-accent-violet\/30 {
+  border-color: hsla(
+    var(--player-accent-h),
+    var(--player-accent-s),
+    var(--player-accent-l),
+    0.3
+  ) !important;
+}
+
+[style*="--player-accent"] .hover\:border-accent-violet\/60:hover {
+  border-color: hsla(
+    var(--player-accent-h),
+    var(--player-accent-s),
+    var(--player-accent-l),
+    0.6
+  ) !important;
+}
+
+[style*="--player-accent"] .hover\:bg-accent-violet-hover:hover {
+  background-color: hsla(
+    var(--player-accent-h),
+    var(--player-accent-s),
+    calc(var(--player-accent-l) - 8%),
+    1
+  ) !important;
+}
+

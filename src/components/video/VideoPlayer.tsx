@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw,
-  SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle
+  SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle, Tv
 } from 'lucide-react';
 import { progressService } from '@/lib/streaming/progress';
 import PlayerError from './PlayerError';
@@ -22,6 +22,12 @@ interface SubtitleTrack {
   label: string;
   lang: string;
   url: string;
+}
+
+interface SkipInterval {
+  startTime: number;
+  endTime: number;
+  type: 'op' | 'ed';
 }
 
 interface VideoPlayerProps {
@@ -137,6 +143,197 @@ export default function VideoPlayer({
   const touchStartRef = useRef<{ x: number; y: number; time: number; volume: number }>({ x: 0, y: 0, time: 0, volume: 1 });
   const longPressTimeoutRef = useRef<any>(null);
 
+  // Phase 3 Premium States
+  const [showControls, setShowControls] = useState(true);
+  const [skipIntervals, setSkipIntervals] = useState<SkipInterval[]>([]);
+  const [accentColor, setAccentColor] = useState('hsl(250, 100%, 60%)');
+  const [accentH, setAccentH] = useState(250);
+  const [accentS, setAccentS] = useState('100%');
+  const [accentL, setAccentL] = useState('60%');
+  const [isPiPSupported, setIsPiPSupported] = useState(false);
+  const controlsTimeoutRef = useRef<any>(null);
+
+  // Inactivity Controls Fade Helper
+  const resetControlsTimeout = () => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    setShowControls(true);
+    if (isPlaying && !showSettings && !showShortcutsHelp) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 2000);
+    }
+  };
+
+  useEffect(() => {
+    resetControlsTimeout();
+    return () => {
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, [isPlaying, showSettings, showShortcutsHelp]);
+
+  const handleMouseMove = () => {
+    resetControlsTimeout();
+  };
+
+  const handleMouseLeave = () => {
+    if (isPlaying && !showSettings && !showShortcutsHelp) {
+      setShowControls(false);
+    }
+  };
+
+  // Client-Side Canvas Accent Color Extraction
+  useEffect(() => {
+    if (!animeImage) return;
+
+    const extractColor = async () => {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.src = animeImage;
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 10;
+            canvas.height = 10;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0, 10, 10);
+            const pixels = ctx.getImageData(0, 0, 10, 10).data;
+            
+            let rSum = 0, gSum = 0, bSum = 0, count = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+              const r = pixels[i];
+              const g = pixels[i+1];
+              const b = pixels[i+2];
+              const a = pixels[i+3];
+              if (a > 200) {
+                const maxVal = Math.max(r, g, b);
+                const minVal = Math.min(r, g, b);
+                if (maxVal - minVal > 20) { // filter colorful ones
+                  rSum += r;
+                  gSum += g;
+                  bSum += b;
+                  count++;
+                }
+              }
+            }
+
+            if (count === 0) {
+              for (let i = 0; i < pixels.length; i += 4) {
+                rSum += pixels[i];
+                gSum += pixels[i+1];
+                bSum += pixels[i+2];
+                count++;
+              }
+            }
+
+            const rAvg = Math.round(rSum / count);
+            const gAvg = Math.round(gSum / count);
+            const bAvg = Math.round(bSum / count);
+
+            const rNorm = rAvg / 255;
+            const gNorm = gAvg / 255;
+            const bNorm = bAvg / 255;
+            const max = Math.max(rNorm, gNorm, bNorm);
+            const min = Math.min(rNorm, gNorm, bNorm);
+            let h = 0, s = 0, l = (max + min) / 2;
+
+            if (max !== min) {
+              const d = max - min;
+              s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+              switch (max) {
+                case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+                case gNorm: h = (bNorm - rNorm) / d + 2; break;
+                case bNorm: h = (rNorm - gNorm) / d + 4; break;
+              }
+              h /= 6;
+            }
+
+            // Keep it vibrant and sufficiently bright on dark background
+            const sFinal = Math.max(0.65, s) * 100;
+            const lFinal = Math.max(0.45, Math.min(0.65, l)) * 100;
+            const hFinal = h * 360;
+
+            const roundedH = Math.round(hFinal);
+            const roundedS = Math.round(sFinal);
+            const roundedL = Math.round(lFinal);
+
+            setAccentColor(`hsl(${roundedH}, ${roundedS}%, ${roundedL}%)`);
+            setAccentH(roundedH);
+            setAccentS(`${roundedS}%`);
+            setAccentL(`${roundedL}%`);
+          } catch {}
+        };
+      } catch {}
+    };
+
+    extractColor();
+  }, [animeImage]);
+
+  // Fetch skip time configurations from AniSkip
+  useEffect(() => {
+    const fetchSkipTimes = async () => {
+      try {
+        const res = await fetch(`https://api.aniskip.com/v2/skip-times/${animeId}/${episodeNumber}?types[]=op&types[]=ed`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.found && data.results) {
+          const intervals = data.results.map((r: any) => ({
+            startTime: r.interval?.startTime || 0,
+            endTime: r.interval?.endTime || 0,
+            type: r.skipType,
+          }));
+          setSkipIntervals(intervals);
+        }
+      } catch {}
+    };
+    fetchSkipTimes();
+  }, [animeId, episodeNumber]);
+
+  // Check Picture-in-Picture support
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      setIsPiPSupported(
+        document.pictureInPictureEnabled ||
+        (videoRef.current && (videoRef.current as any).webkitSupportsPresentationMode && typeof (videoRef.current as any).webkitSetPresentationMode === 'function')
+      );
+    }
+  }, []);
+
+  const togglePiP = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await video.requestPictureInPicture();
+      }
+    } catch {}
+  };
+
+  // Automatically enable subtitles on SUB audio and disable on DUB audio
+  useEffect(() => {
+    if (currentLanguage === 'sub') {
+      if (subtitleTracks.length > 0) {
+        const engIdx = subtitleTracks.findIndex(
+          (t) =>
+            t.lang.toLowerCase() === 'en' ||
+            t.label.toLowerCase().includes('eng')
+        );
+        if (engIdx > -1) {
+          setActiveSubtitleIdx(engIdx);
+        } else {
+          setActiveSubtitleIdx(0);
+        }
+      }
+    } else {
+      setActiveSubtitleIdx(-1);
+    }
+  }, [currentLanguage, subtitleTracks]);
+
   // HLS level detection
   const [qualityLevels, setQualityLevels] = useState<string[]>(['Auto']);
   const [currentQuality, setCurrentQuality] = useState('Auto');
@@ -174,6 +371,16 @@ export default function VideoPlayer({
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { activeSubtitleIdxRef.current = activeSubtitleIdx; }, [activeSubtitleIdx]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+
+  // Sync activeSubtitleIdx to video.textTracks mode
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const tracks = video.textTracks;
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].mode = i === activeSubtitleIdx ? 'showing' : 'disabled';
+    }
+  }, [activeSubtitleIdx, subtitleTracks]);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -325,15 +532,24 @@ export default function VideoPlayer({
 
     setCurrentTime(video.currentTime);
 
-    // Skip Intro / Ending Detection
+    // Skip Intro / Ending Detection using exact intervals or defaults
     const t = video.currentTime;
     const dur = video.duration;
     
-    // Skip Intro: manual button between 01:30 and 03:00
-    setShowSkipIntro(t >= 90 && t <= 180);
+    const opInterval = skipIntervals.find(i => i.type === 'op');
+    const edInterval = skipIntervals.find(i => i.type === 'ed');
 
-    // Skip Ending: manual button 90s before end
-    setShowSkipEnding(dur > 200 && t >= dur - 90 && t < dur - 10);
+    if (opInterval) {
+      setShowSkipIntro(t >= opInterval.startTime && t <= opInterval.endTime);
+    } else {
+      setShowSkipIntro(t >= 90 && t <= 180);
+    }
+
+    if (edInterval) {
+      setShowSkipEnding(t >= edInterval.startTime && t <= edInterval.endTime);
+    } else {
+      setShowSkipEnding(dur > 200 && t >= dur - 90 && t < dur - 10);
+    }
 
     progressService.updateProgress({
       animeId,
@@ -559,16 +775,20 @@ export default function VideoPlayer({
   const skipIntro = () => {
     const video = videoRef.current;
     if (!video) return;
-    video.currentTime = 181; // skip past intro
-    setCurrentTime(181);
+    const opInterval = skipIntervals.find(i => i.type === 'op');
+    const targetTime = opInterval ? opInterval.endTime : 181;
+    video.currentTime = targetTime;
+    setCurrentTime(targetTime);
     setShowSkipIntro(false);
   };
 
   const skipEnding = () => {
     const video = videoRef.current;
     if (!video) return;
-    video.currentTime = Math.max(0, video.duration - 5);
-    setCurrentTime(video.duration - 5);
+    const edInterval = skipIntervals.find(i => i.type === 'ed');
+    const targetTime = edInterval ? edInterval.endTime : Math.max(0, video.duration - 5);
+    video.currentTime = targetTime;
+    setCurrentTime(targetTime);
     setShowSkipEnding(false);
   };
 
@@ -750,9 +970,18 @@ export default function VideoPlayer({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden group/player shadow-2xl border border-border-subtle ${
         isFullscreen ? 'rounded-none border-none' : ''
       }`}
+      style={{
+        cursor: showControls ? 'default' : 'none',
+        ['--player-accent' as any]: accentColor,
+        ['--player-accent-h' as any]: accentH,
+        ['--player-accent-s' as any]: accentS,
+        ['--player-accent-l' as any]: accentL,
+      }}
     >
       {/* Native HTML5 Video Element */}
       <video
@@ -892,8 +1121,8 @@ export default function VideoPlayer({
       {/* ─── Control Bar Overlay ──────────────────────────────────────────────── */}
       {!errorMessage && (
         <div
-          className={`absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-[#05050A]/95 via-[#05050A]/70 to-transparent p-4 flex flex-col gap-3 transition-all duration-300 ${
-            isPlaying ? 'translate-y-full group-hover/player:translate-y-0' : 'translate-y-0'
+          className={`absolute bottom-4 left-4 right-4 z-40 bg-[#05050A]/70 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300 shadow-2xl ${
+            showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
           }`}
         >
           {/* Progress Bar and Scrubber */}
@@ -907,9 +1136,10 @@ export default function VideoPlayer({
               max={duration || 0}
               value={currentTime}
               onChange={handleSeek}
-              className="flex-grow h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 accent-accent-violet focus:outline-none"
+              className="flex-grow h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 focus:outline-none"
               style={{
-                background: `linear-gradient(to right, var(--color-accent-violet) 0%, var(--color-accent-violet) ${
+                accentColor: 'var(--player-accent)',
+                background: `linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) ${
                   duration ? (currentTime / duration) * 100 : 0
                 }%, rgba(255, 255, 255, 0.2) ${
                   duration ? (currentTime / duration) * 100 : 0
@@ -1052,9 +1282,10 @@ export default function VideoPlayer({
                   step={0.05}
                   value={isMuted ? 0 : volume}
                   onChange={handleVolumeChange}
-                  className="w-0 group-hover/volume:w-16 focus:w-16 h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 accent-accent-violet focus:outline-none transition-all duration-300"
+                  className="w-0 group-hover/volume:w-16 focus:w-16 h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 focus:outline-none transition-all duration-300"
                   style={{
-                    background: `linear-gradient(to right, var(--color-accent-violet) 0%, var(--color-accent-violet) ${
+                    accentColor: 'var(--player-accent)',
+                    background: `linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) ${
                       isMuted ? 0 : volume * 100
                     }%, rgba(255, 255, 255, 0.2) ${
                       isMuted ? 0 : volume * 100
@@ -1062,6 +1293,17 @@ export default function VideoPlayer({
                   }}
                 />
               </div>
+
+              {/* Picture-in-Picture Button */}
+              {isPiPSupported && (
+                <button
+                  onClick={togglePiP}
+                  className="text-text-secondary hover:text-white transition-colors"
+                  title="Picture-in-Picture"
+                >
+                  <Tv size={17} />
+                </button>
+              )}
 
               {/* Fullscreen Button */}
               <button
