@@ -376,10 +376,26 @@ export default function VideoPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const tracks = video.textTracks;
-    for (let i = 0; i < tracks.length; i++) {
-      tracks[i].mode = i === activeSubtitleIdx ? 'showing' : 'disabled';
-    }
+
+    const textTracks = video.textTracks;
+    
+    const syncTracks = () => {
+      for (let i = 0; i < textTracks.length; i++) {
+        textTracks[i].mode = i === activeSubtitleIdx ? 'showing' : 'disabled';
+      }
+    };
+
+    // Run sync immediately in case tracks are already there
+    syncTracks();
+
+    // Also listen for any new tracks added asynchronously
+    textTracks.onaddtrack = () => {
+      syncTracks();
+    };
+
+    return () => {
+      textTracks.onaddtrack = null;
+    };
   }, [activeSubtitleIdx, subtitleTracks]);
 
   // Load preferences from localStorage on mount
@@ -991,6 +1007,7 @@ export default function VideoPlayer({
         onClick={togglePlay}
         className="w-full h-full object-contain cursor-pointer"
         playsInline
+        crossOrigin="anonymous"
       >
         {subtitleTracks.map((track, i) => (
           <track
