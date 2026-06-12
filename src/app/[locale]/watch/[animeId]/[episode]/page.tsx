@@ -47,7 +47,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
 
   // Now fetch stream info and episodes with the resolved title
   const [streamInfo, episodes, characters, recommendations] = await Promise.all([
-    StreamingManager.getStreamInfo(animeId, epNum, mainTitle).catch(() => ({ sources: [], sub: [], dub: [], subtitles: [], providers: [], currentProvider: 'mock', isFallback: true, fallbackReason: 'Stream resolution threw an unhandled error.' })),
+    StreamingManager.getStreamInfo(animeId, epNum, mainTitle).catch(() => ({ sources: [], sub: [], dub: [], subtitles: [], providers: [], currentProvider: 'mock', isFallback: true, fallbackReason: 'Stream resolution threw an unhandled error.' } as any)),
     StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []),
     AnimeApi.getAnimeCharacters(malId).catch(() => []),
     AnimeApi.getAnimeRecommendations(malId).catch(() => []),
@@ -118,6 +118,11 @@ export default async function WatchPage({ params }: WatchPageProps) {
               currentProvider={streamInfo.currentProvider}
               isFallback={streamInfo.isFallback}
               fallbackReason={streamInfo.fallbackReason}
+              matchedTitle={streamInfo.matchedTitle}
+              matchedSlug={streamInfo.matchedSlug}
+              searchCount={streamInfo.searchCount}
+              episodeCountFound={streamInfo.episodeCountFound}
+              providerSlug={streamInfo.providerSlug}
             />
           </Suspense>
 

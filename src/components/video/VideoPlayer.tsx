@@ -42,6 +42,11 @@ interface VideoPlayerProps {
   currentProvider?: string;
   isFallback?: boolean;
   fallbackReason?: string;
+  matchedTitle?: string;
+  matchedSlug?: string;
+  searchCount?: number;
+  episodeCountFound?: number;
+  providerSlug?: string;
 }
 
 export default function VideoPlayer({
@@ -61,6 +66,11 @@ export default function VideoPlayer({
   currentProvider = 'mock',
   isFallback = false,
   fallbackReason,
+  matchedTitle: initialMatchedTitle,
+  matchedSlug: initialMatchedSlug,
+  searchCount: initialSearchCount,
+  episodeCountFound: initialEpisodeCountFound,
+  providerSlug: initialProviderSlug,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -87,6 +97,12 @@ export default function VideoPlayer({
   const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub'>('sub');
   const [isFallbackActive, setIsFallbackActive] = useState<boolean>(isFallback);
   const [fallbackReasonText, setFallbackReasonText] = useState<string | undefined>(fallbackReason);
+
+  const [matchedTitle, setMatchedTitle] = useState<string | undefined>(initialMatchedTitle);
+  const [matchedSlug, setMatchedSlug] = useState<string | undefined>(initialMatchedSlug);
+  const [searchCount, setSearchCount] = useState<number | undefined>(initialSearchCount);
+  const [episodeCountFound, setEpisodeCountFound] = useState<number | undefined>(initialEpisodeCountFound);
+  const [providerSlug, setProviderSlug] = useState<string | undefined>(initialProviderSlug);
 
   // Player States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -141,7 +157,15 @@ export default function VideoPlayer({
     setSubtitleTracks(subtitles);
     setProvidersList(providers.length > 0 ? providers : ['mock']);
     setCurrentProviderName(currentProvider);
-  }, [sources, subSources, dubSources, subtitles, providers, currentProvider]);
+    setMatchedTitle(initialMatchedTitle);
+    setMatchedSlug(initialMatchedSlug);
+    setSearchCount(initialSearchCount);
+    setEpisodeCountFound(initialEpisodeCountFound);
+    setProviderSlug(initialProviderSlug);
+  }, [
+    sources, subSources, dubSources, subtitles, providers, currentProvider,
+    initialMatchedTitle, initialMatchedSlug, initialSearchCount, initialEpisodeCountFound, initialProviderSlug
+  ]);
 
   // Sync refs
   useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
@@ -518,6 +542,11 @@ export default function VideoPlayer({
       setSubtitleTracks(data.subtitles || []);
       setIsFallbackActive(data.isFallback || false);
       setFallbackReasonText(data.fallbackReason);
+      setMatchedTitle(data.matchedTitle);
+      setMatchedSlug(data.matchedSlug);
+      setSearchCount(data.searchCount);
+      setEpisodeCountFound(data.episodeCountFound);
+      setProviderSlug(data.providerSlug);
       setActiveSourceIdx(0);
     } catch (err) {
       console.warn(`Failed to swap provider in place to ${provider}:`, err);
@@ -1068,6 +1097,16 @@ export default function VideoPlayer({
           currentQuality,
           audioLanguage: currentLanguage,
           providers: providersList,
+          // Advanced Diagnostics
+          resolvedSourcesCount: activeSources.length,
+          animeId,
+          episodeNumber,
+          providerSlug,
+          matchedTitle,
+          matchedSlug,
+          searchCount,
+          episodeCountFound,
+          lastError: isFallbackActive ? fallbackReasonText : undefined,
         }}
       />
 

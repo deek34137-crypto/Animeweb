@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bug, X, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { Bug, X, Copy, Check } from 'lucide-react';
 
 interface DebugInfo {
   activeProvider: string;
@@ -15,6 +15,16 @@ interface DebugInfo {
   currentQuality: string;
   audioLanguage: string;
   providers: string[];
+  // Advanced Diagnostics
+  resolvedSourcesCount: number;
+  animeId: string;
+  episodeNumber: number;
+  providerSlug?: string;
+  matchedTitle?: string;
+  matchedSlug?: string;
+  searchCount?: number;
+  episodeCountFound?: number;
+  lastError?: string;
 }
 
 interface StreamDebugPanelProps {
@@ -60,7 +70,7 @@ export default function StreamDebugPanel({ debugInfo }: StreamDebugPanelProps) {
     return 'unknown';
   };
 
-  const truncateUrl = (url: string, maxLen = 60): string => {
+  const truncateUrl = (url: string, maxLen = 45): string => {
     if (!url) return '(no URL)';
     if (url.length <= maxLen) return url;
     return url.slice(0, maxLen - 3) + '...';
@@ -82,7 +92,7 @@ export default function StreamDebugPanel({ debugInfo }: StreamDebugPanelProps) {
 
       {/* Panel */}
       {isOpen && (
-        <div className="w-[380px] max-h-[350px] overflow-y-auto rounded-xl bg-black/90 backdrop-blur-xl border border-amber-500/30 shadow-2xl shadow-amber-500/10 text-[11px] font-mono">
+        <div className="w-[380px] max-h-[350px] overflow-y-auto rounded-xl bg-black/90 backdrop-blur-xl border border-amber-500/30 shadow-2xl shadow-amber-500/10 text-[11px] font-mono scrollbar-thin">
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-amber-500/20 sticky top-0 bg-black/95">
             <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
@@ -111,12 +121,33 @@ export default function StreamDebugPanel({ debugInfo }: StreamDebugPanelProps) {
               </div>
             )}
 
-            {/* Provider */}
+            {/* Error Message */}
+            {debugInfo.lastError && (
+              <div className="px-2 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-[10px]">
+                Error: {debugInfo.lastError}
+              </div>
+            )}
+
+            {/* Request Meta */}
+            <Row label="Anime ID" value={debugInfo.animeId} />
+            <Row label="Episode" value={String(debugInfo.episodeNumber)} />
+
+            {/* Provider Details */}
             <Row label="Provider" value={debugInfo.activeProvider} highlight={debugInfo.isFallback ? 'red' : 'green'} />
+            
+            {/* Scraper Details */}
+            {debugInfo.matchedTitle && (
+              <>
+                <Row label="Matched Title" value={debugInfo.matchedTitle} />
+                <Row label="Matched Slug" value={debugInfo.matchedSlug || 'N/A'} />
+                <Row label="Search Count" value={String(debugInfo.searchCount ?? 0)} />
+                <Row label="Provider Eps" value={String(debugInfo.episodeCountFound ?? 0)} />
+              </>
+            )}
 
             {/* Stream URL */}
             <div className="flex items-start gap-2">
-              <span className="text-white/40 min-w-[80px] text-right shrink-0">Stream URL</span>
+              <span className="text-white/40 min-w-[100px] text-right shrink-0">Stream URL</span>
               <div className="flex items-center gap-1 min-w-0">
                 <span className="text-white/90 break-all">{truncateUrl(debugInfo.streamUrl)}</span>
                 <button
@@ -132,10 +163,9 @@ export default function StreamDebugPanel({ debugInfo }: StreamDebugPanelProps) {
             {/* Source Type */}
             <Row label="Source Type" value={getSourceType(debugInfo.streamUrl)} />
 
-            {/* Audio */}
-            <Row label="Audio" value={debugInfo.audioLanguage || 'sub (japanese)'} />
-
-            {/* Quality */}
+            {/* Audio & Quality */}
+            <Row label="Audio" value={debugInfo.audioLanguage} />
+            <Row label="Sources Count" value={String(debugInfo.resolvedSourcesCount)} />
             <Row label="Quality" value={debugInfo.currentQuality} />
             <Row label="Levels" value={debugInfo.qualityLevels.join(', ') || 'Auto only'} />
 
@@ -144,7 +174,7 @@ export default function StreamDebugPanel({ debugInfo }: StreamDebugPanelProps) {
 
             {/* Provider Chain */}
             <div className="flex items-start gap-2 pt-1 border-t border-white/5">
-              <span className="text-white/40 min-w-[80px] text-right shrink-0">Providers</span>
+              <span className="text-white/40 min-w-[100px] text-right shrink-0">Providers</span>
               <div className="flex flex-wrap gap-1">
                 {debugInfo.providers.map((p) => (
                   <span
@@ -175,7 +205,7 @@ export default function StreamDebugPanel({ debugInfo }: StreamDebugPanelProps) {
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: 'green' | 'red' }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-white/40 min-w-[80px] text-right shrink-0">{label}</span>
+      <span className="text-white/40 min-w-[100px] text-right shrink-0">{label}</span>
       <span className={`${
         highlight === 'green' ? 'text-green-400' :
         highlight === 'red' ? 'text-red-400' :

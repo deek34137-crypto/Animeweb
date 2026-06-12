@@ -20,6 +20,11 @@ export interface EpisodeStreamInfo {
   currentProvider?: string; // name of the provider resolving these sources
   isFallback?: boolean;     // true if using mock/test streams
   fallbackReason?: string;  // why fallback was triggered
+  matchedTitle?: string;
+  matchedSlug?: string;
+  searchCount?: number;
+  episodeCountFound?: number;
+  providerSlug?: string;
 }
 
 export interface EpisodeItem {

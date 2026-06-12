@@ -1,6 +1,5 @@
 import { registry } from './providers/registry';
 import { streamCache } from './cache';
-import { db } from '../db';
 import { EpisodeItem, EpisodeStreamInfo } from './types';
 import { StreamingHealth } from './health';
 import { StreamingAnalytics } from './analytics';
@@ -78,9 +77,12 @@ export const StreamingManager = {
       const provider = registry.get(pName);
       if (!provider) continue;
 
+      // Log attempt details in exact requested format
+      console.info(`\n[${provider.name.toUpperCase()}]`);
+      console.info(`anime=${animeId}`);
+      console.info(`episode=${episode}`);
+
       try {
-        console.info(`[StreamingManager] Attempting stream via ${provider.name} for "${animeTitle}" (MAL: ${animeId}), ep: ${episode}`);
-        
         const streamInfo = await provider.getStreamInfo(animeId, episode, animeTitle);
 
         // Validate that provider returned sources
@@ -98,6 +100,10 @@ export const StreamingManager = {
           }
         }
 
+        // Log success details
+        console.info(`status=200`);
+        console.info(`url=resolved`);
+
         // Mark success
         StreamingHealth.recordSuccess(provider.name);
         fallbackChain.push({ provider: provider.name, status: 'success' });
@@ -113,6 +119,11 @@ export const StreamingManager = {
           currentProvider: provider.name,
           isFallback: streamInfo.isFallback || false,
           fallbackReason: streamInfo.fallbackReason,
+          matchedTitle: streamInfo.matchedTitle,
+          matchedSlug: streamInfo.matchedSlug,
+          searchCount: streamInfo.searchCount,
+          episodeCountFound: streamInfo.episodeCountFound,
+          providerSlug: streamInfo.providerSlug,
         };
 
         // Cache for 10 minutes (shorter for fallback, longer for real sources)
@@ -121,6 +132,11 @@ export const StreamingManager = {
         return resolvedInfo;
 
       } catch (err: any) {
+        // Log failure details in exact requested format
+        console.info(`url=${err.url || 'N/A'}`);
+        console.info(`status=${err.status || 500}`);
+        console.info(`error=${err.message || 'Unknown error'}`);
+
         console.warn(`[StreamingManager] Provider ${provider.name} failed for "${animeTitle}" ep ${episode}:`, err.message);
         StreamingHealth.recordFailure(provider.name);
         StreamingAnalytics.trackProviderFailure(provider.name, err.message);
