@@ -57,9 +57,9 @@ const config: Config = {
       },
       fontFamily: {
         display: ['var(--font-display)', 'Syne', 'sans-serif'],
-        body: ['var(--font-body)', 'DM Sans', 'sans-serif'],
+        body: ['var(--font-body)', 'Inter', 'sans-serif'],
         mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
-        sans: ['var(--font-body)', 'DM Sans', 'sans-serif'],
+        sans: ['var(--font-body)', 'Inter', 'sans-serif'],
       },
     },
   },

@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CommandPalette from '@/components/ui/CommandPalette';
 import { Analytics } from '@vercel/analytics/next';
-import { Syne, DM_Sans, JetBrains_Mono } from 'next/font/google';
+import { Syne, Inter, JetBrains_Mono } from 'next/font/google';
 import '../globals.css';
 
 const syne = Syne({
@@ -17,9 +17,9 @@ const syne = Syne({
   display: 'swap',
 });
 
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+  weight: ['300', '400', '500', '600', '700'],
   variable: '--font-body',
   display: 'swap',
 });
@@ -48,7 +48,7 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`${dmSans.variable} ${syne.variable} ${jetbrainsMono.variable} h-full scroll-smooth`}>
+    <html lang={locale} className={`${inter.variable} ${syne.variable} ${jetbrainsMono.variable} h-full scroll-smooth`}>
       <head>
         {/* Font loading is handled via next/font */}
       </head>

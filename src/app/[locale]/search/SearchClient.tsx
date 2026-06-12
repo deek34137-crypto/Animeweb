@@ -7,7 +7,7 @@ import { AnimeApi } from '@/lib/api';
 import AnimeCard from '@/components/AnimeCard';
 import { Search as SearchIcon, Filter, RefreshCw, Calendar, Eye, Heart } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
-import { SectionSkeleton } from '@/components/ui/Skeleton';
+import { AnimeCardSkeleton } from '@/components/ui/Skeleton';
 
 const GENRES = [
   { id: 1, name: 'Action' },
@@ -192,11 +192,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
         {isLoading && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
             {Array.from({ length: 12 }).map((_, idx) => (
-              <div key={idx} className="animate-pulse flex flex-col space-y-3">
-                <div className="bg-surface-2 aspect-[3/4] w-full rounded-xl" />
-                <div className="h-4 bg-surface-2 rounded w-3/4" />
-                <div className="h-3 bg-surface-2 rounded w-1/2" />
-              </div>
+              <AnimeCardSkeleton key={idx} />
             ))}
           </div>
         )}

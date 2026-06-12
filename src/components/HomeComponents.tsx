@@ -47,7 +47,7 @@ export default function HeroSpotlight({ items }: HeroSpotlightProps) {
 
   return (
     <section className="relative w-full rounded-2xl overflow-hidden aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] min-h-[340px] sm:min-h-[400px]">
-      {/* Background Image with Ken Burns — blurred ambient approach to hide low-res posters */}
+      {/* Background Image with Ken Burns / Video Hero */}
       <div
         key={`bg-${currentIndex}`}
         className={`absolute inset-0 transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
@@ -65,15 +65,28 @@ export default function HeroSpotlight({ items }: HeroSpotlightProps) {
             transform: 'scale(1.2)',
           }}
         />
-        {/* Sharp foreground poster — centered, intrinsic aspect ratio preserved */}
+        {/* Sharp foreground poster */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
           alt={title}
           className="absolute inset-0 w-full h-full object-cover ken-burns"
           referrerPolicy="no-referrer"
-          style={{ opacity: 0.7 }}
+          style={{ opacity: anime.trailer?.youtube_id ? 0.35 : 0.7 }}
         />
+
+        {/* Immersive Video Hero (Muted Autoplay Trailer) */}
+        {anime.trailer?.youtube_id && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden mix-blend-screen opacity-[0.45]">
+            <iframe
+              src={`https://www.youtube.com/embed/${anime.trailer.youtube_id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${anime.trailer.youtube_id}&playsinline=1&showinfo=0&rel=0&enablejsapi=1&iv_load_policy=3&modestbranding=1`}
+              className="absolute top-1/2 left-1/2 w-full h-full min-w-full min-h-full -translate-x-1/2 -translate-y-1/2 scale-[1.35] pointer-events-none"
+              allow="autoplay; encrypted-media"
+              title="Anime Trailer"
+            />
+          </div>
+        )}
+
         {/* Multi-layer gradients for cinematic depth */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#05050A] via-[#05050A]/75 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-transparent to-transparent" />

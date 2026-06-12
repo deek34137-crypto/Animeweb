@@ -67,9 +67,14 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         <div className="absolute -top-20 -left-20 w-48 h-48 bg-accent-violet/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-accent-sakura/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Avatar */}
-        <div className="w-24 h-24 rounded-2xl bg-accent-violet border border-accent-violet/30 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-accent-violet/15 flex-shrink-0">
-          {(user?.displayName || user?.username || user?.email || 'U')[0].toUpperCase()}
+        {/* Avatar with Animated Border Ring */}
+        <div className="relative w-24 h-24 rounded-3xl p-1 bg-surface-3 flex-shrink-0 group/avatar overflow-hidden">
+          {/* Animated Gradient Border Layer */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-accent-violet via-accent-sakura to-accent-gold opacity-75 group-hover/avatar:opacity-100 group-hover/avatar:rotate-180 transition-all duration-700 ease-out rounded-3xl" />
+          {/* Inner Content Area */}
+          <div className="relative w-full h-full rounded-2xl bg-surface-2 border border-border-subtle flex items-center justify-center text-text-primary text-3xl font-black shadow-inner">
+            {(user?.displayName || user?.username || user?.email || 'U')[0].toUpperCase()}
+          </div>
         </div>
 
         {/* User Details */}
