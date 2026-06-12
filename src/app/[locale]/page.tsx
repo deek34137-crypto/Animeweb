@@ -28,7 +28,7 @@ async function TrendingSection() {
     <section className="space-y-4">
       <SectionHeader title="Trending Now" icon={<Flame size={20} />} viewAllHref="/search" />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 auto-rows-fr grid-flow-row-dense">
-        {data.slice(0, 9).map((anime, i) => {
+        {data.slice(0, 8).map((anime, i) => {
           let variant: 'standard' | 'large' | 'wide' = 'standard';
           if (i === 0) variant = 'large';
           else if (i === 1) variant = 'wide';
@@ -48,7 +48,7 @@ async function SeasonalSection() {
     <section className="space-y-4">
       <SectionHeader title="This Season" icon={<Sparkles size={20} />} viewAllHref="/search?season=current" />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 auto-rows-fr grid-flow-row-dense">
-        {data.slice(0, 9).map((anime, i) => {
+        {data.slice(0, 8).map((anime, i) => {
           let variant: 'standard' | 'large' | 'wide' = 'standard';
           if (i === 0) variant = 'large';
           else if (i === 1) variant = 'wide';

@@ -33,7 +33,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           className="flex h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover"
         >
           {/* Left: Poster */}
-          <div className="relative w-1/3 aspect-[3/4] flex-shrink-0 overflow-hidden bg-surface-3">
+          <div className="relative w-[32%] sm:w-[30%] flex-shrink-0 overflow-hidden bg-surface-3 h-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
@@ -51,32 +51,37 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           </div>
 
           {/* Right: Detailed Info */}
-          <div className="flex-grow p-3 sm:p-4 flex flex-col justify-between overflow-hidden">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex-grow p-4 sm:p-5 flex flex-col justify-between overflow-hidden">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {statusInfo && (
                   <Badge variant={statusInfo.variant} size="xs">
                     {statusInfo.label}
                   </Badge>
                 )}
                 {score && (
-                  <div className="flex items-center gap-1 bg-[rgba(0,0,0,0.65)] backdrop-blur-sm rounded px-1.5 py-0.5">
-                    <Star size={8} fill="currentColor" className="text-accent-gold" />
-                    <span className="text-[9px] font-bold text-text-primary">{score}</span>
+                  <div className="flex items-center gap-1 bg-accent-gold/15 border border-accent-gold/20 rounded-md px-1.5 py-0.5 shadow-sm">
+                    <Star size={9} fill="currentColor" className="text-accent-gold" />
+                    <span className="text-[10px] font-black text-accent-gold">{score}</span>
                   </div>
                 )}
+                {anime.year && (
+                  <span className="text-[10px] font-bold text-text-muted">
+                    {anime.year}
+                  </span>
+                )}
               </div>
-              <h3 className="text-xs sm:text-sm font-bold text-text-primary line-clamp-2 leading-snug group-hover/card:text-accent-violet transition-colors duration-200">
+              <h3 className="text-xs sm:text-sm md:text-base font-black text-text-primary line-clamp-1 sm:line-clamp-2 leading-snug group-hover/card:text-accent-violet transition-colors duration-200">
                 {title}
               </h3>
-              <p className="hidden sm:block text-[10px] sm:text-[11px] text-text-muted line-clamp-2 sm:line-clamp-3 leading-relaxed">
+              <p className="hidden sm:block text-[11px] text-text-muted line-clamp-2 sm:line-clamp-3 leading-relaxed font-medium">
                 {anime.synopsis || 'No description available.'}
               </p>
             </div>
-            <div className="flex items-center justify-between text-[10px] text-text-secondary mt-1 flex-wrap gap-1 border-t border-border-subtle pt-1.5">
-              <span>{anime.type || 'TV'} · {anime.episodes ? `${anime.episodes} ep` : 'Ongoing'}</span>
+            <div className="flex items-center justify-between text-[10px] sm:text-xs text-text-secondary mt-2 flex-wrap gap-2 border-t border-border-subtle/50 pt-2">
+              <span className="font-semibold text-text-muted">{anime.type || 'TV'} · {anime.episodes ? `${anime.episodes} ep` : 'Ongoing'}</span>
               {anime.studios && anime.studios.length > 0 && (
-                <span className="font-bold text-accent-violet truncate max-w-[100px] uppercase tracking-wider text-[9px]">
+                <span className="font-black text-accent-violet truncate max-w-[120px] uppercase tracking-wider text-[10px]">
                   {anime.studios[0].name}
                 </span>
               )}
@@ -93,61 +98,67 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
       <div className="group/card relative flex flex-col h-full transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] col-span-2 row-span-2 shadow-lg hover:shadow-2xl rounded-xl">
         <Link
           href={`/anime/${anime.mal_id}`}
-          className="block relative h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover"
+          className="block relative w-full h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover min-h-[350px]"
         >
-          <div className="relative w-full h-full min-h-[350px] aspect-[3/4]">
+          {/* Background Image Container */}
+          <div className="absolute inset-0 w-full h-full overflow-hidden bg-surface-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
               alt={title}
-              className="absolute inset-0 w-full h-full object-cover group-hover/card:scale-[1.05] transition-transform duration-500 ease-out"
+              className="w-full h-full object-cover group-hover/card:scale-[1.04] transition-transform duration-700 ease-out"
               loading="lazy"
               referrerPolicy="no-referrer"
             />
             {/* Ambient gradients */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-[#05050A]/40 to-transparent opacity-95" />
-            
-            {/* Top badges */}
-            <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1">
-              {statusInfo && (
-                <Badge variant={statusInfo.variant} size="xs">
-                  {statusInfo.label}
-                </Badge>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-[#05050A]/70 to-[#05050A]/20 opacity-95" />
+          </div>
+          
+          {/* Top badges */}
+          <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
+            {statusInfo && (
+              <Badge variant={statusInfo.variant} size="xs">
+                {statusInfo.label}
+              </Badge>
+            )}
+          </div>
+          {rank && (
+            <div className="absolute top-4 left-4 z-10 w-8 h-8 rounded-lg bg-accent-violet flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(124,91,255,0.4)]">
+              {rank}
+            </div>
+          )}
+
+          {/* Bottom details block */}
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6 space-y-3 z-20 flex flex-col justify-end h-full">
+            <div className="flex items-center gap-2 flex-wrap">
+              {score && (
+                <div className="flex items-center gap-1 bg-accent-gold/25 border border-accent-gold/45 rounded-md px-2 py-0.5 shadow-sm">
+                  <Star size={10} fill="currentColor" className="text-accent-gold" />
+                  <span className="text-[11px] font-black text-accent-gold">{score}</span>
+                </div>
+              )}
+              <span className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider text-white uppercase backdrop-blur-sm">
+                {anime.rating ? anime.rating.split(' ')[0] : 'TV-14'}
+              </span>
+              {anime.year && (
+                <span className="text-[11px] font-bold text-white/60">
+                  {anime.year}
+                </span>
               )}
             </div>
-            {rank && (
-              <div className="absolute top-3 left-3 z-10 w-8 h-8 rounded-lg bg-accent-violet flex items-center justify-center text-xs font-black text-white shadow-lg">
-                {rank}
-              </div>
-            )}
-
-            {/* Bottom details block */}
-            <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6 space-y-2 z-20">
-              <div className="flex items-center gap-2">
-                {score && (
-                  <div className="flex items-center gap-1 bg-accent-gold/20 border border-accent-gold/30 rounded px-2 py-0.5">
-                    <Star size={10} fill="currentColor" className="text-accent-gold" />
-                    <span className="text-[11px] font-bold text-accent-gold">{score}</span>
-                  </div>
-                )}
-                <span className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide text-white uppercase">
-                  {anime.rating ? anime.rating.split(' ')[0] : 'TV-14'}
+            <h3 className="text-base sm:text-xl md:text-2xl font-black text-white line-clamp-2 leading-tight group-hover/card:text-accent-violet transition-colors">
+              {title}
+            </h3>
+            <p className="text-[11px] sm:text-xs text-text-secondary line-clamp-3 sm:line-clamp-4 leading-relaxed font-medium max-w-[90%] opacity-90">
+              {anime.synopsis || 'No description available.'}
+            </p>
+            <div className="flex items-center justify-between text-xs text-text-secondary pt-2.5 border-t border-white/10 mt-1">
+              <span className="font-semibold text-white/70">{anime.type || 'TV'} · {anime.episodes ? `${anime.episodes} ep` : 'Ongoing'}</span>
+              {anime.studios && anime.studios.length > 0 && (
+                <span className="font-black text-accent-violet uppercase tracking-wider text-[10px] sm:text-[11px]">
+                  {anime.studios[0].name}
                 </span>
-              </div>
-              <h3 className="text-sm sm:text-lg md:text-xl font-black text-white line-clamp-2 leading-tight group-hover/card:text-accent-violet transition-colors">
-                {title}
-              </h3>
-              <p className="text-[11px] sm:text-xs text-text-secondary line-clamp-3 leading-relaxed opacity-85">
-                {anime.synopsis || 'No description available.'}
-              </p>
-              <div className="flex items-center justify-between text-xs text-text-muted pt-1 border-t border-white/10">
-                <span>{anime.type || 'TV'} · {anime.episodes ? `${anime.episodes} ep` : 'Ongoing'}</span>
-                {anime.studios && anime.studios.length > 0 && (
-                  <span className="font-bold text-accent-violet uppercase tracking-wider text-[10px]">
-                    {anime.studios[0].name}
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </Link>
