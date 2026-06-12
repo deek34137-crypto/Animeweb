@@ -6,8 +6,13 @@ export default function Footer() {
     <footer className="bg-anime-dark border-t border-anime-border/40 py-10 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
         <div>
-          <Link href="/" className="text-xl font-black tracking-wider text-white">
-            ANI<span className="text-anime-orange">WORLD</span>
+          <Link href="/" className="flex items-center group mb-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/watermark.png"
+              alt="AnimeWorld RJ"
+              className="h-10 md:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+            />
           </Link>
           <p className="text-xs text-anime-muted mt-2">
             © {new Date().getFullYear()} Aniworld. Discover, track, and discuss your favorite anime in style.

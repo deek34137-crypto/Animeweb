@@ -32,7 +32,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: 'Aniworld - Anime Discovery Platform',
+  title: 'AnimeWorld RJ - Premium Anime Streaming & Discovery Platform',
   description: 'High-performance, premium anime discovery website showing trending, top-rated, and seasonal shows, search filters, and real-time streaming availability with subtitles and dubs.',
   keywords: 'anime, discovery, streaming, crunchyroll, netflix, dub, sub, jikan, mal, myanimelist, seasons, reviews',
 };

@@ -1192,8 +1192,12 @@ export default function VideoPlayer({
 
       {/* Loading overlay spinner */}
       {isLoading && !errorMessage && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-xs">
-          <Loader2 className="w-10 h-10 text-accent-violet animate-spin" />
+        <div className="absolute inset-0 z-40 flex flex-col gap-4 items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_30px_rgba(124,91,255,0.4)] animate-pulse">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/app-icon.jpg" alt="Loading..." className="w-full h-full object-cover" />
+          </div>
+          <Loader2 className="w-6 h-6 text-accent-violet animate-spin" />
         </div>
       )}
 

@@ -71,14 +71,13 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* ─── Brand Logo ─── */}
             <div className="flex items-center gap-8">
-              <Link href="/" className="flex items-center gap-1.5 group flex-shrink-0">
-                <div className="w-8 h-8 rounded-lg bg-accent-violet flex items-center justify-center shadow-[0_0_12px_rgba(124,91,255,0.5)] group-hover:shadow-[0_0_20px_rgba(124,91,255,0.7)] transition-shadow">
-                  <span className="text-white font-black text-sm leading-none">A</span>
-                </div>
-                <span className="text-lg font-black tracking-tight text-text-primary hidden sm:block">
-                  ANI<span className="text-accent-violet">WORLD</span>
-                  <span className="text-[10px] font-mono text-accent-violet/60 ml-1 align-top">RJ</span>
-                </span>
+              <Link href="/" className="flex items-center group flex-shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/logo.png"
+                  alt="AnimeWorld RJ"
+                  className="h-10 md:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+                />
               </Link>
 
               {/* Desktop Navigation */}
