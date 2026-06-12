@@ -14,6 +14,7 @@ export interface EpisodeStreamInfo {
   sources: EpisodeSource[]; // legacy compatibility (defaults to sub)
   sub: EpisodeSource[];     // Japanese audio sources
   dub: EpisodeSource[];     // English dubbed audio sources
+  hindi?: EpisodeSource[];  // Hindi dubbed audio sources
   subtitles?: SubtitleTrack[];
   audioLanguage?: string;   // e.g. 'japanese' or 'english'
   providers?: string[];     // list of all registered provider names

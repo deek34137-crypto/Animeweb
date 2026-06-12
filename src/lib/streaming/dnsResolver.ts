@@ -5,7 +5,10 @@ import dns from 'dns';
  * Custom DNS Lookup function to resolve specific streaming hosts using 1.1.1.1 / 8.8.8.8
  */
 const customLookup = (hostname: string, options: any, callback: any) => {
-  const bypassHosts = ['anineko.to', 'vibeplayer.site', 'bibiemb.xyz', 'otakuhg.site', 'otakuvid.online'];
+  const bypassHosts = [
+    'anineko.to', 'vibeplayer.site', 'bibiemb.xyz', 'otakuhg.site', 'otakuvid.online',
+    'raretoonsindia.rt.ht', 'raretoonsindia.com', 'deadtoonsindia.net', 'puretoons.me', 'animetm.com'
+  ];
   
   // Normalize callback and options arguments to handle polymorphic calls safely
   let actualOptions = options;

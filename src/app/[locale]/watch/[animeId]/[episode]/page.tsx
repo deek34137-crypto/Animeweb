@@ -109,6 +109,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
               sources={streamInfo.sources}
               subSources={streamInfo.sub}
               dubSources={streamInfo.dub}
+              hindiSources={streamInfo.hindi}
               subtitles={streamInfo.subtitles}
               animeTitle={mainTitle}
               episodeNumber={epNum}

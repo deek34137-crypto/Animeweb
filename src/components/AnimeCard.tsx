@@ -19,10 +19,24 @@ const STATUS_BADGE_MAP: Record<string, { variant: 'cyan' | 'gold' | 'sakura' | '
   'Finished Airing': { variant: 'default', label: 'Finished' },
 };
 
+const HINDI_FAVORITE_KEYWORDS = [
+  'naruto', 'demon slayer', 'jujutsu', 'hero academia', 'death note', 
+  'attack on titan', 'one piece', 'dragon ball', 'pokemon', 'doraemon', 
+  'shin-chan', 'shin chan', 'crayon', 'hunter x hunter', 'detective conan',
+  'avatar', 'blue lock', 'chainsaw man', 'solo leveling', 'tokyo revengers',
+  'black clover', 'haikyu'
+];
+
+const hasHindiDub = (title: string, malId: number) => {
+  const t = title.toLowerCase();
+  return HINDI_FAVORITE_KEYWORDS.some(keyword => t.includes(keyword)) || [20, 1535, 21, 38000, 40748, 31964, 16498].includes(malId);
+};
+
 export default function AnimeCard({ anime, rank, variant = 'standard', onAddToList }: AnimeCardProps) {
   const title = anime.title_english || anime.title;
   const score = anime.score ? anime.score.toFixed(1) : null;
   const statusInfo = STATUS_BADGE_MAP[anime.status || ''] || null;
+  const isHindiDubbed = hasHindiDub(title, anime.mal_id);
 
   // 1. WIDE VARIANT: Landscape Bento Card (Spans 2 columns x 1 row)
   if (variant === 'wide') {
@@ -64,6 +78,11 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                     <Star size={9} fill="currentColor" className="text-accent-gold" />
                     <span className="text-[10px] font-black text-accent-gold">{score}</span>
                   </div>
+                )}
+                {isHindiDubbed && (
+                  <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-orange-600/20 text-orange-400 border border-orange-500/30">
+                    Hindi Dub
+                  </span>
                 )}
                 {anime.year && (
                   <span className="text-[10px] font-bold text-text-muted">
@@ -140,6 +159,11 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
               <span className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider text-white uppercase backdrop-blur-sm">
                 {anime.rating ? anime.rating.split(' ')[0] : 'TV-14'}
               </span>
+              {isHindiDubbed && (
+                <span className="bg-orange-600/20 border border-orange-500/30 text-orange-400 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider uppercase backdrop-blur-sm">
+                  Hindi Dub
+                </span>
+              )}
               {anime.year && (
                 <span className="text-[11px] font-bold text-white/60">
                   {anime.year}
@@ -198,7 +222,12 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           )}
 
           {/* Top-right status badges */}
-          <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+            {isHindiDubbed && (
+              <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-orange-600/80 backdrop-blur-xs text-white shadow-md">
+                Hindi
+              </span>
+            )}
             {statusInfo && (
               <Badge variant={statusInfo.variant} size="xs">
                 {statusInfo.label}

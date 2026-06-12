@@ -43,23 +43,32 @@ export const StreamingManager = {
     animeId: string,
     episode: number,
     animeTitle?: string,
-    providerName?: string
+    providerName?: string,
+    preferredLanguage?: string
   ): Promise<EpisodeStreamInfo> => {
     const cacheKey = providerName 
-      ? `stream:resolve:${providerName.toLowerCase()}:${animeId}:${episode}`
-      : `stream:resolve:auto:${animeId}:${episode}`;
+      ? `stream:resolve:${providerName.toLowerCase()}:${animeId}:${episode}:${preferredLanguage || 'auto'}`
+      : `stream:resolve:auto:${animeId}:${episode}:${preferredLanguage || 'auto'}`;
 
     const cached = await streamCache.get<EpisodeStreamInfo>(cacheKey);
     if (cached) return cached;
 
     // Get all registered provider names
-    const registeredProviders = registry.getPriorityChain(); // ['consumet', 'animepahe', 'anicli', 'mock']
+    const registeredProviders = registry.getPriorityChain(); // ['raretoons', 'deadtoons', 'puretoons', 'animetm', 'consumet', ... ]
     
     // Sort providers dynamically based on reliability, keeping mock last
     const sortedProviderNames = StreamingHealth.getReorderedProviders(registeredProviders);
 
+    // If Hindi is preferred, elevate Hindi providers to the absolute front of the failover chain
+    let finalChain = [...sortedProviderNames];
+    if (preferredLanguage?.toLowerCase() === 'hindi') {
+      const hindiProviders = ['raretoons', 'deadtoons', 'puretoons', 'animetm'];
+      finalChain = finalChain.filter(p => !hindiProviders.includes(p));
+      finalChain.unshift(...hindiProviders);
+    }
+
     // If a specific provider is requested, prioritize it at the front of the queue
-    let queue = [...sortedProviderNames];
+    let queue = [...finalChain];
     if (providerName) {
       const idx = queue.indexOf(providerName.toLowerCase());
       if (idx > -1) {
@@ -86,7 +95,10 @@ export const StreamingManager = {
         const streamInfo = await provider.getStreamInfo(animeId, episode, animeTitle);
 
         // Validate that provider returned sources
-        const activeSources = streamInfo.sub && streamInfo.sub.length > 0 ? streamInfo.sub : streamInfo.sources;
+        const activeSources = streamInfo.hindi && streamInfo.hindi.length > 0 
+          ? streamInfo.hindi 
+          : (streamInfo.sub && streamInfo.sub.length > 0 ? streamInfo.sub : streamInfo.sources);
+          
         if (!activeSources || activeSources.length === 0) {
           throw new Error('No stream sources returned by provider.');
         }
@@ -110,9 +122,10 @@ export const StreamingManager = {
 
         // Normalize the payload
         const resolvedInfo: EpisodeStreamInfo = {
-          sources: streamInfo.sources || streamInfo.sub,
+          sources: streamInfo.sources || streamInfo.sub || streamInfo.hindi,
           sub: streamInfo.sub || [],
           dub: streamInfo.dub || [],
+          hindi: streamInfo.hindi || [],
           subtitles: streamInfo.subtitles || [],
           audioLanguage: streamInfo.audioLanguage,
           providers: registeredProviders,
@@ -151,15 +164,16 @@ export const StreamingManager = {
       }
     }
 
-    // If we get here, ALL providers including mock failed
+    // If we get here, ALL providers failed
     console.error(`[StreamingManager] All providers failed for "${animeTitle}" (MAL: ${animeId}), ep: ${episode}.`);
     console.error('[StreamingManager] Fallback chain:', JSON.stringify(fallbackChain, null, 2));
 
-    // Return empty with fallback flag rather than throwing — let the UI handle it gracefully
+    // Return empty with fallback flag
     return {
       sources: [],
       sub: [],
       dub: [],
+      hindi: [],
       subtitles: [],
       providers: registeredProviders,
       currentProvider: 'none',

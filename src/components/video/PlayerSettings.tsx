@@ -15,10 +15,11 @@ interface PlayerSettingsProps {
   currentLevel: string;
   onSelectQuality: (level: string) => void;
   
-  currentLanguage: 'sub' | 'dub';
-  onSelectLanguage: (lang: 'sub' | 'dub') => void;
+  currentLanguage: 'sub' | 'dub' | 'hindi';
+  onSelectLanguage: (lang: 'sub' | 'dub' | 'hindi') => void;
   hasSub: boolean;
   hasDub: boolean;
+  hasHindi: boolean;
 
   subtitles: SubtitleTrack[];
   activeSubtitleIdx: number;
@@ -45,6 +46,7 @@ export default function PlayerSettings({
   onSelectLanguage,
   hasSub,
   hasDub,
+  hasHindi,
   subtitles,
   activeSubtitleIdx,
   onSelectSubtitle,
@@ -88,6 +90,7 @@ export default function PlayerSettings({
           }}
           hasSub={hasSub}
           hasDub={hasDub}
+          hasHindi={hasHindi}
           onBack={() => setView('main')}
         />
       </div>

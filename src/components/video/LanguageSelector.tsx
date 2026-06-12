@@ -2,10 +2,11 @@ import React from 'react';
 import { Check } from 'lucide-react';
 
 interface LanguageSelectorProps {
-  currentLanguage: 'sub' | 'dub';
-  onSelectLanguage: (lang: 'sub' | 'dub') => void;
+  currentLanguage: 'sub' | 'dub' | 'hindi';
+  onSelectLanguage: (lang: 'sub' | 'dub' | 'hindi') => void;
   hasSub: boolean;
   hasDub: boolean;
+  hasHindi: boolean;
   onBack: () => void;
 }
 
@@ -14,6 +15,7 @@ export default function LanguageSelector({
   onSelectLanguage,
   hasSub,
   hasDub,
+  hasHindi,
   onBack,
 }: LanguageSelectorProps) {
   return (
@@ -28,6 +30,7 @@ export default function LanguageSelector({
         <span className="text-white font-bold text-xs select-none">Audio / Language</span>
       </div>
       <div className="space-y-1">
+        {/* Japanese Sub */}
         <button
           disabled={!hasSub}
           onClick={() => onSelectLanguage('sub')}
@@ -43,6 +46,7 @@ export default function LanguageSelector({
           {currentLanguage === 'sub' && <Check size={14} className="text-accent-violet" />}
         </button>
         
+        {/* English Dub */}
         <button
           disabled={!hasDub}
           onClick={() => onSelectLanguage('dub')}
@@ -63,6 +67,29 @@ export default function LanguageSelector({
             )}
           </div>
           {currentLanguage === 'dub' && <Check size={14} className="text-accent-violet" />}
+        </button>
+
+        {/* Hindi Dub */}
+        <button
+          disabled={!hasHindi}
+          onClick={() => onSelectLanguage('hindi')}
+          className={`w-full text-left px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-between text-xs ${
+            !hasHindi ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/10'
+          } ${
+            currentLanguage === 'hindi'
+              ? 'text-accent-violet font-semibold bg-accent-violet/5'
+              : 'text-text-secondary'
+          }`}
+        >
+          <div className="flex items-center gap-1.5">
+            <span>Hindi Dubbed</span>
+            {!hasHindi && (
+              <span className="text-[8px] font-black uppercase tracking-wider px-1 py-0.5 rounded bg-white/10 text-text-muted">
+                Unavailable
+              </span>
+            )}
+          </div>
+          {currentLanguage === 'hindi' && <Check size={14} className="text-accent-violet" />}
         </button>
       </div>
     </div>

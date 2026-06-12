@@ -41,6 +41,7 @@ export async function GET(req: Request) {
     const episodeStr = searchParams.get('episode');
     const providerName = searchParams.get('provider') || undefined;
     const animeTitle = searchParams.get('title') || undefined;
+    const preferredLanguage = searchParams.get('lang') || undefined;
 
     if (!animeId || !episodeStr) {
       return NextResponse.json({ error: 'AnimeId and episode are required.' }, { status: 400 });
@@ -56,7 +57,7 @@ export async function GET(req: Request) {
       setTimeout(() => reject(new Error('Request timed out resolving stream source.')), 10000)
     );
 
-    const fetchPromise = StreamingManager.getStreamInfo(animeId, episode, animeTitle, providerName);
+    const fetchPromise = StreamingManager.getStreamInfo(animeId, episode, animeTitle, providerName, preferredLanguage);
 
     const streamInfo = await Promise.race([fetchPromise, timeoutPromise]);
     return NextResponse.json(streamInfo);

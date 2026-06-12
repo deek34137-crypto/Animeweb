@@ -36,6 +36,7 @@ interface VideoPlayerProps {
   sources: EpisodeSource[]; // legacy fallback
   subSources?: EpisodeSource[];
   dubSources?: EpisodeSource[];
+  hindiSources?: EpisodeSource[];
   subtitles?: SubtitleTrack[];
   animeTitle: string;
   episodeNumber: number;
@@ -61,6 +62,7 @@ export default function VideoPlayer({
   sources,
   subSources = [],
   dubSources = [],
+  hindiSources = [],
   subtitles = [],
   animeTitle,
   episodeNumber,
@@ -97,12 +99,14 @@ export default function VideoPlayer({
   // Dynamic Provider & Audio Language States
   const [subSourcesList, setSubSourcesList] = useState<EpisodeSource[]>(subSources.length > 0 ? subSources : sources);
   const [dubSourcesList, setDubSourcesList] = useState<EpisodeSource[]>(dubSources);
+  const [hindiSourcesList, setHindiSourcesList] = useState<EpisodeSource[]>(hindiSources);
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>(subtitles);
   const [providersList, setProvidersList] = useState<string[]>(providers.length > 0 ? providers : ['mock']);
   const [currentProviderName, setCurrentProviderName] = useState<string>(currentProvider);
-  const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub'>('sub');
+  const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub' | 'hindi'>('sub');
   const [isFallbackActive, setIsFallbackActive] = useState<boolean>(isFallback);
   const [fallbackReasonText, setFallbackReasonText] = useState<string | undefined>(fallbackReason);
+  const [hasNativeHindi, setHasNativeHindi] = useState(false);
 
   const [matchedTitle, setMatchedTitle] = useState<string | undefined>(initialMatchedTitle);
   const [matchedSlug, setMatchedSlug] = useState<string | undefined>(initialMatchedSlug);
@@ -351,6 +355,7 @@ export default function VideoPlayer({
   useEffect(() => {
     setSubSourcesList(subSources.length > 0 ? subSources : sources);
     setDubSourcesList(dubSources);
+    setHindiSourcesList(hindiSources);
     setSubtitleTracks(subtitles);
     setProvidersList(providers.length > 0 ? providers : ['mock']);
     setCurrentProviderName(currentProvider);
@@ -360,7 +365,7 @@ export default function VideoPlayer({
     setEpisodeCountFound(initialEpisodeCountFound);
     setProviderSlug(initialProviderSlug);
   }, [
-    sources, subSources, dubSources, subtitles, providers, currentProvider,
+    sources, subSources, dubSources, hindiSources, subtitles, providers, currentProvider,
     initialMatchedTitle, initialMatchedSlug, initialSearchCount, initialEpisodeCountFound, initialProviderSlug
   ]);
 
@@ -422,7 +427,48 @@ export default function VideoPlayer({
     }
   }, []);
 
-  const activeSources = currentLanguage === 'dub' && dubSourcesList.length > 0 ? dubSourcesList : subSourcesList;
+  const syncHlsAudioTrack = (lang: 'sub' | 'dub' | 'hindi', hlsInstance = hlsRef.current) => {
+    if (!hlsInstance) return;
+    const tracks = hlsInstance.audioTracks;
+    if (!tracks || tracks.length <= 1) return;
+
+    let targetIdx = -1;
+    if (lang === 'hindi') {
+      targetIdx = tracks.findIndex(
+        (t: any) =>
+          t.lang?.toLowerCase().startsWith('hi') ||
+          t.name?.toLowerCase().includes('hindi') ||
+          t.name?.toLowerCase().includes('hin')
+      );
+    } else if (lang === 'dub') {
+      targetIdx = tracks.findIndex(
+        (t: any) =>
+          t.lang?.toLowerCase().startsWith('en') ||
+          t.name?.toLowerCase().includes('english') ||
+          t.name?.toLowerCase().includes('dub')
+      );
+    } else if (lang === 'sub') {
+      targetIdx = tracks.findIndex(
+        (t: any) =>
+          t.lang?.toLowerCase().startsWith('ja') ||
+          t.name?.toLowerCase().includes('japanese') ||
+          t.name?.toLowerCase().includes('sub')
+      );
+    }
+
+    if (targetIdx > -1) {
+      console.info(`[HLS Audio] Switching audio track to index ${targetIdx} (${tracks[targetIdx].name}) for language: ${lang}`);
+      hlsInstance.audioTrack = targetIdx;
+    } else {
+      console.info(`[HLS Audio] No matching audio track found in manifest for language: ${lang}`);
+    }
+  };
+
+  const activeSources = currentLanguage === 'hindi' && hindiSourcesList.length > 0
+    ? hindiSourcesList
+    : currentLanguage === 'dub' && dubSourcesList.length > 0
+      ? dubSourcesList
+      : subSourcesList;
   const activeSource = activeSources[activeSourceIdx];
 
   // ─── HLS Load & Failover ───────────────────────────────────────────────────
@@ -499,6 +545,24 @@ export default function VideoPlayer({
                 setCurrentQuality(preferredQ);
               }
             }
+
+            // Detect native multi-audio tracks (HLS AUDIO-GROUP)
+            const tracks = hls.audioTracks;
+            if (tracks && tracks.length > 1) {
+              console.info(`[HLS Audio] Found ${tracks.length} audio tracks in manifest.`);
+              const hasHiTrack = tracks.some(
+                (t: any) =>
+                  t.lang?.toLowerCase().startsWith('hi') ||
+                  t.name?.toLowerCase().includes('hindi') ||
+                  t.name?.toLowerCase().includes('hin')
+              );
+              if (hasHiTrack) {
+                setHasNativeHindi(true);
+              }
+            }
+
+            // Sync the active audio track immediately
+            syncHlsAudioTrack(currentLanguage, hls);
 
             video.currentTime = currentTimeRef.current;
             video.playbackRate = playbackSpeedRef.current;
@@ -742,10 +806,23 @@ export default function VideoPlayer({
     }
   };
 
-  const selectLanguage = (lang: 'sub' | 'dub') => {
+  const selectLanguage = (lang: 'sub' | 'dub' | 'hindi') => {
     setCurrentLanguage(lang);
     localStorage.setItem('preferredLanguage', lang);
-    setActiveSourceIdx(0);
+    
+    const targetSources = lang === 'hindi' 
+      ? hindiSourcesList 
+      : lang === 'dub' 
+        ? dubSourcesList 
+        : subSourcesList;
+
+    if (targetSources && targetSources.length > 0) {
+      console.info(`[Audio Swap] Switching stream sources for language: ${lang}`);
+      setActiveSourceIdx(0);
+    } else {
+      console.info(`[Audio Swap] Toggling in-place HLS audio tracks for language: ${lang}`);
+      syncHlsAudioTrack(lang);
+    }
   };
 
   const selectSubtitle = (idx: number) => {
@@ -1268,6 +1345,7 @@ export default function VideoPlayer({
                     onSelectLanguage={selectLanguage}
                     hasSub={subSourcesList.length > 0}
                     hasDub={dubSourcesList.length > 0}
+                    hasHindi={hindiSourcesList.length > 0 || hasNativeHindi}
                     subtitles={subtitleTracks}
                     activeSubtitleIdx={activeSubtitleIdx}
                     onSelectSubtitle={selectSubtitle}

@@ -3,6 +3,10 @@ import { mockProvider } from './mock';
 import { consumetProvider } from './consumet';
 import { animepaheProvider } from './animepahe';
 import { anicliProvider } from './aniCLI';
+import { raretoonsProvider } from './raretoons';
+import { deadtoonsProvider } from './deadtoons';
+import { puretoonsProvider } from './puretoons';
+import { animetmProvider } from './animetm';
 
 class ProviderRegistry {
   private providers = new Map<string, StreamingProviderInterface>();
@@ -21,7 +25,7 @@ class ProviderRegistry {
   }
 
   public getPriorityChain(): string[] {
-    return ['consumet', 'animepahe', 'anicli', 'mock'];
+    return ['raretoons', 'deadtoons', 'puretoons', 'animetm', 'consumet', 'animepahe', 'anicli', 'mock'];
   }
 
   public getDefault(): StreamingProviderInterface {
@@ -48,6 +52,10 @@ export const registry = new ProviderRegistry();
 registry.register(consumetProvider);
 registry.register(animepaheProvider);
 registry.register(anicliProvider);
+registry.register(raretoonsProvider);
+registry.register(deadtoonsProvider);
+registry.register(puretoonsProvider);
+registry.register(animetmProvider);
 registry.register(mockProvider);
 
 export default registry;

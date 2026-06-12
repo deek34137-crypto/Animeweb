@@ -66,7 +66,34 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
     placeholderData: (prev) => prev
   });
 
-  const animeList = data?.data || [];
+  const [isHindiPreferred, setIsHindiPreferred] = useState(false);
+  useEffect(() => {
+    setIsHindiPreferred(localStorage.getItem('preferredLanguage') === 'hindi');
+  }, []);
+
+  const HINDI_FAVORITE_KEYWORDS = [
+    'naruto', 'demon slayer', 'jujutsu', 'hero academia', 'death note', 
+    'attack on titan', 'one piece', 'dragon ball', 'pokemon', 'doraemon', 
+    'shin-chan', 'shin chan', 'crayon', 'hunter x hunter', 'detective conan',
+    'avatar', 'blue lock', 'chainsaw man', 'solo leveling', 'tokyo revengers',
+    'black clover', 'haikyu'
+  ];
+
+  const hasHindiDub = (title: string, malId: number) => {
+    const t = title.toLowerCase();
+    return HINDI_FAVORITE_KEYWORDS.some(keyword => t.includes(keyword)) || [20, 1535, 21, 38000, 40748, 31964, 16498].includes(malId);
+  };
+
+  const rawList = data?.data || [];
+  const animeList = isHindiPreferred
+    ? [...rawList].sort((a, b) => {
+        const aHas = hasHindiDub(a.title_english || a.title, a.mal_id);
+        const bHas = hasHindiDub(b.title_english || b.title, b.mal_id);
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+        return 0;
+      })
+    : rawList;
 
   const toggleGenre = (genreId: number) => {
     if (selectedGenre === genreId) {
