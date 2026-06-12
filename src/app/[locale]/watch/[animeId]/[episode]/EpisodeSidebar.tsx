@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, Check, Play } from 'lucide-react';
-import { Link } from '@/navigation';
+import { Search, ArrowUpDown, Check, Play, ChevronDown } from 'lucide-react';
+import { Link, useRouter } from '@/navigation';
 
 interface EpisodeItem {
   number: number;
@@ -10,6 +10,13 @@ interface EpisodeItem {
   aired?: string;
   filler?: boolean;
   recap?: boolean;
+}
+
+interface SeasonItem {
+  malId: number;
+  name: string;
+  relation: string;
+  isCurrent: boolean;
 }
 
 interface EpisodeSidebarProps {
@@ -20,6 +27,7 @@ interface EpisodeSidebarProps {
   animeTitle: string;
   animeImage: string;
   totalEpisodes?: number | null;
+  seasons?: SeasonItem[];
 }
 
 export default function EpisodeSidebar({
@@ -30,7 +38,9 @@ export default function EpisodeSidebar({
   animeTitle,
   animeImage,
   totalEpisodes,
+  seasons = [],
 }: EpisodeSidebarProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -100,6 +110,31 @@ export default function EpisodeSidebar({
           />
           <Search size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-disabled" />
         </div>
+
+        {/* Season Selector */}
+        {seasons && seasons.length > 1 && (
+          <div className="relative">
+            <div className="relative">
+              <select
+                value={animeId}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  router.push(`/watch/${selectedId}/1` as '/');
+                }}
+                className="w-full bg-surface-2 border border-border-subtle focus:border-accent-violet rounded-xl py-1.5 pl-3 pr-8 text-xs font-bold text-text-primary outline-none appearance-none cursor-pointer transition-all truncate"
+              >
+                {seasons.map((s) => (
+                  <option key={s.malId} value={String(s.malId)}>
+                    {s.isCurrent ? 'Current Season: ' : `${s.relation}: `}{s.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
+                <ChevronDown size={14} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Episode Rows List */}

@@ -176,9 +176,20 @@ export const AniNekoScraper = {
         }
       }
 
+      // Prioritize CORS-friendly domains (like workers.dev or bibiemb) at the front of the queue
+      const prioritizeCors = (streams: ExtractedStream[]) => {
+        return [...streams].sort((a, b) => {
+          const aCors = a.url.includes('workers.dev') || a.url.includes('bibiemb');
+          const bCors = b.url.includes('workers.dev') || b.url.includes('bibiemb');
+          if (aCors && !bCors) return -1;
+          if (!aCors && bCors) return 1;
+          return 0;
+        });
+      };
+
       return {
-        sub: subStreams,
-        dub: dubStreams,
+        sub: prioritizeCors(subStreams),
+        dub: prioritizeCors(dubStreams),
       };
     } catch (err) {
       console.error(`[AniNekoScraper] Stream resolution failed for "${slug}" ep ${episode}:`, err);

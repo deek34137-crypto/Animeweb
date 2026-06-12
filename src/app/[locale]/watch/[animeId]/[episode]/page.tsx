@@ -178,15 +178,48 @@ export default async function WatchPage({ params }: WatchPageProps) {
         {/* Right Area: Episode Selector Sidebar */}
         <aside className="w-full lg:sticky lg:top-[88px] z-20">
           <Suspense fallback={<div className="h-[520px] w-full rounded-2xl shimmer-loader" />}>
-            <EpisodeSidebar
-              episodes={episodes}
-              animeId={animeId}
-              currentEpisode={epNum}
-              watchedEpisodes={watchedEpisodes}
-              animeTitle={mainTitle}
-              animeImage={anime.images.webp.large_image_url || ''}
-              totalEpisodes={anime.episodes}
-            />
+            {(() => {
+              const seasonsList = [
+                {
+                  malId: malId,
+                  name: mainTitle,
+                  relation: 'Current',
+                  isCurrent: true,
+                }
+              ];
+
+              if (anime.relations) {
+                for (const rel of anime.relations) {
+                  if (['Prequel', 'Sequel', 'Parent story', 'Alternative version', 'Full story', 'Alternative setting'].includes(rel.relation)) {
+                    for (const entry of rel.entry) {
+                      if (entry.type === 'anime' && entry.mal_id) {
+                        if (!seasonsList.some((s) => s.malId === entry.mal_id)) {
+                          seasonsList.push({
+                            malId: entry.mal_id,
+                            name: entry.name,
+                            relation: rel.relation,
+                            isCurrent: false,
+                          });
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              return (
+                <EpisodeSidebar
+                  episodes={episodes}
+                  animeId={animeId}
+                  currentEpisode={epNum}
+                  watchedEpisodes={watchedEpisodes}
+                  animeTitle={mainTitle}
+                  animeImage={anime.images.webp.large_image_url || ''}
+                  totalEpisodes={anime.episodes}
+                  seasons={seasonsList}
+                />
+              );
+            })()}
           </Suspense>
         </aside>
       </div>
