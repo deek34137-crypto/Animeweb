@@ -119,7 +119,20 @@ export default function VideoPlayer({
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>(subtitles);
   const [providersList, setProvidersList] = useState<string[]>(providers.length > 0 ? providers : ['mock']);
   const [currentProviderName, setCurrentProviderName] = useState<string>(currentProvider);
-  const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu'>('sub');
+  const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu'>(() => {
+    // 1. Dynamic server-side/first render fallback
+    const hindiCount = (hindiSources && hindiSources.length) || 0;
+    const tamilCount = (tamilSources && tamilSources.length) || 0;
+    const teluguCount = (teluguSources && teluguSources.length) || 0;
+    const dubCount = (dubSources && dubSources.length) || 0;
+
+    // 2. Default priorities: Hindi -> Tamil -> Telugu -> English Dub -> Japanese Sub
+    if (hindiCount > 0) return 'hindi';
+    if (tamilCount > 0) return 'tamil';
+    if (teluguCount > 0) return 'telugu';
+    if (dubCount > 0) return 'dub';
+    return 'sub';
+  });
   const [isFallbackActive, setIsFallbackActive] = useState<boolean>(isFallback);
   const [fallbackReasonText, setFallbackReasonText] = useState<string | undefined>(fallbackReason);
   const [hasNativeHindi, setHasNativeHindi] = useState(false);
@@ -428,8 +441,8 @@ export default function VideoPlayer({
       setIsAutoplayNext(savedAutoplay === 'true');
     }
     
-    const savedLang = localStorage.getItem('preferredLanguage') as 'sub' | 'dub';
-    if (savedLang === 'sub' || savedLang === 'dub') {
+    const savedLang = localStorage.getItem('preferredLanguage') as any;
+    if (savedLang && ['sub', 'dub', 'hindi', 'tamil', 'telugu'].includes(savedLang)) {
       setCurrentLanguage(savedLang);
     }
 
@@ -465,6 +478,27 @@ export default function VideoPlayer({
       }
     }
   }, [hindiSourcesList, subSourcesList, dubSourcesList, tamilSourcesList, teluguSourcesList, hasNativeHindi, currentLanguage]);
+
+  // Priority language selection when sources change (if no manual preference is set)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const hasUserPref = localStorage.getItem('userSetLanguagePreference') === 'true';
+    if (hasUserPref) return;
+
+    // Default priority order: hindi -> tamil -> telugu -> dub (english) -> sub (japanese)
+    if (hindiSourcesList.length > 0 || hasNativeHindi) {
+      if (currentLanguage !== 'hindi') setCurrentLanguage('hindi');
+    } else if (tamilSourcesList.length > 0) {
+      if (currentLanguage !== 'tamil') setCurrentLanguage('tamil');
+    } else if (teluguSourcesList.length > 0) {
+      if (currentLanguage !== 'telugu') setCurrentLanguage('telugu');
+    } else if (dubSourcesList.length > 0) {
+      if (currentLanguage !== 'dub') setCurrentLanguage('dub');
+    } else if (subSourcesList.length > 0) {
+      if (currentLanguage !== 'sub') setCurrentLanguage('sub');
+    }
+  }, [hindiSourcesList, tamilSourcesList, teluguSourcesList, dubSourcesList, subSourcesList, hasNativeHindi]);
 
   const syncHlsAudioTrack = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu', hlsInstance = hlsRef.current) => {
     if (!hlsInstance) return;
@@ -881,6 +915,7 @@ export default function VideoPlayer({
   const selectLanguage = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu') => {
     setCurrentLanguage(lang);
     localStorage.setItem('preferredLanguage', lang);
+    localStorage.setItem('userSetLanguagePreference', 'true');
     
     const targetSources = lang === 'hindi' 
       ? hindiSourcesList 
