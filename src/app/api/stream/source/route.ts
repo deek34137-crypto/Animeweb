@@ -52,9 +52,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Episode must be a valid positive number.' }, { status: 400 });
     }
 
-    // 3. Timeout Layer (10 seconds — real API calls take longer)
+    // 3. Timeout Layer (25 seconds — real API calls involve multiple hops)
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out resolving stream source.')), 10000)
+      setTimeout(() => reject(new Error('Request timed out resolving stream source.')), 25000)
     );
 
     const fetchPromise = StreamingManager.getStreamInfo(animeId, episode, animeTitle, providerName, preferredLanguage);

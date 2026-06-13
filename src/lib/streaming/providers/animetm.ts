@@ -40,7 +40,7 @@ export const animetmProvider: StreamingProviderInterface = {
 
     const multiAudioSource: EpisodeSource[] = [
       {
-        url: 'https://bitmovin-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
+        url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
         quality: 'auto' as const,
         isM3U8: true,
       },
@@ -53,7 +53,7 @@ export const animetmProvider: StreamingProviderInterface = {
       hindi: multiAudioSource,
       subtitles: [],
       audioLanguage: 'hindi',
-      isFallback: false,
+      isFallback: true,
       matchedTitle: animeTitle || 'AnimeTM Hindi',
       matchedSlug: 'animetm-hindi',
       searchCount: 1,

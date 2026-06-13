@@ -48,7 +48,7 @@ export const mockProvider: StreamingProviderInterface = {
     // Clearly labeled test streams — these are NOT anime content
     const subSources = [
       {
-        url: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
+        url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
         quality: 'auto' as const,
         isM3U8: true,
       },

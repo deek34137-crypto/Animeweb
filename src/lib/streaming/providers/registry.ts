@@ -2,15 +2,17 @@ import { StreamingProviderInterface } from '../types';
 import { mockProvider } from './mock';
 import { consumetProvider } from './consumet';
 import { animepaheProvider } from './animepahe';
-import { anicliProvider } from './aniCLI';
+// anicli is scaffolded but unimplemented — excluded from priority chain
+// import { anicliProvider } from './aniCLI';
 import { raretoonsProvider } from './raretoons';
 import { deadtoonsProvider } from './deadtoons';
 import { puretoonsProvider } from './puretoons';
 import { animetmProvider } from './animetm';
+import { toonworldProvider } from './toonworld';
 
 class ProviderRegistry {
   private providers = new Map<string, StreamingProviderInterface>();
-  private defaultProviderName = 'consumet';
+  private defaultProviderName = 'toonworld'; // Prioritize toonworld as default
 
   public register(provider: StreamingProviderInterface) {
     this.providers.set(provider.name.toLowerCase(), provider);
@@ -25,7 +27,10 @@ class ProviderRegistry {
   }
 
   public getPriorityChain(): string[] {
-    return ['raretoons', 'deadtoons', 'puretoons', 'animetm', 'consumet', 'animepahe', 'anicli', 'mock'];
+    // toonworld first, then consumet (real Consumet API / HiAnime), then animepahe,
+    // then Hindi providers, then mock fallback last.
+    // anicli is not implemented and has been removed from the chain.
+    return ['toonworld', 'consumet', 'animepahe', 'raretoons', 'deadtoons', 'puretoons', 'animetm', 'mock'];
   }
 
   public getDefault(): StreamingProviderInterface {
@@ -49,9 +54,10 @@ class ProviderRegistry {
 export const registry = new ProviderRegistry();
 
 // Register all providers
+registry.register(toonworldProvider);
 registry.register(consumetProvider);
 registry.register(animepaheProvider);
-registry.register(anicliProvider);
+// anicliProvider not registered — not implemented
 registry.register(raretoonsProvider);
 registry.register(deadtoonsProvider);
 registry.register(puretoonsProvider);

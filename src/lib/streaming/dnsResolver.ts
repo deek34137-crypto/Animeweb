@@ -5,43 +5,8 @@ import dns from 'dns';
  * Custom DNS Lookup function to resolve specific streaming hosts using 1.1.1.1 / 8.8.8.8
  */
 const customLookup = (hostname: string, options: any, callback: any) => {
-  const bypassHosts = [
-    'anineko.to', 'vibeplayer.site', 'bibiemb.xyz', 'otakuhg.site', 'otakuvid.online',
-    'raretoonsindia.rt.ht', 'raretoonsindia.com', 'deadtoonsindia.net', 'puretoons.me', 'animetm.com'
-  ];
-  
-  // Normalize callback and options arguments to handle polymorphic calls safely
-  let actualOptions = options;
-  let actualCallback = callback;
-  if (typeof options === 'function') {
-    actualCallback = options;
-    actualOptions = {};
-  }
-  if (typeof actualOptions === 'number') {
-    actualOptions = { family: actualOptions };
-  }
-
-  if (bypassHosts.some(h => hostname.endsWith(h))) {
-    const resolver = new dns.Resolver();
-    resolver.setServers(['1.1.1.1', '8.8.8.8']);
-    
-    resolver.resolve4(hostname, (err, addresses) => {
-      if (err || !addresses || addresses.length === 0) {
-        // Fallback to native system DNS
-        dns.lookup(hostname, options, callback);
-      } else {
-        if (actualOptions.all) {
-          const results = addresses.map(addr => ({ address: addr, family: 4 }));
-          actualCallback(null, results);
-        } else {
-          actualCallback(null, addresses[0], 4);
-        }
-      }
-    });
-  } else {
-    // Non-bypass hosts use standard lookup
-    dns.lookup(hostname, options, callback);
-  }
+  // Use standard native system DNS to prevent hangs on networks that block 1.1.1.1/8.8.8.8
+  dns.lookup(hostname, options, callback);
 };
 
 const agent = new https.Agent({

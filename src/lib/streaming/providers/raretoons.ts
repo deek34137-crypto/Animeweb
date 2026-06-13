@@ -48,13 +48,8 @@ export const raretoonsProvider: StreamingProviderInterface = {
     // We map it to all three arrays (sources, sub, dub, hindi) so it registers for HLS AUDIO-GROUP switching
     const multiAudioSource: EpisodeSource[] = [
       {
-        url: 'https://bitmovin-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
+        url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
         quality: 'auto' as const,
-        isM3U8: true,
-      },
-      {
-        url: 'https://bitmovin-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
-        quality: '1080p' as const,
         isM3U8: true,
       }
     ];
@@ -72,7 +67,7 @@ export const raretoonsProvider: StreamingProviderInterface = {
         }
       ],
       audioLanguage: 'hindi',
-      isFallback: false,
+      isFallback: true,
       matchedTitle: animeTitle || 'RareToons Hindi Dub',
       matchedSlug: 'raretoons-hindi-dub',
       searchCount: 1,

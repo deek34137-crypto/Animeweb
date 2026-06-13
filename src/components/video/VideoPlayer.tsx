@@ -471,6 +471,21 @@ export default function VideoPlayer({
       : subSourcesList;
   const activeSource = activeSources[activeSourceIdx];
 
+  const isIframeSource = activeSource?.url
+    ? activeSource.url.includes('/stream/') ||
+      activeSource.url.includes('vidtube.site') ||
+      activeSource.url.includes('megaplay.buzz') ||
+      activeSource.url.includes('embed') ||
+      activeSource.url.includes('iframe')
+    : false;
+
+  // Trigger loading when iframe source changes
+  useEffect(() => {
+    if (isIframeSource) {
+      setIsLoading(true);
+    }
+  }, [activeSource?.url, isIframeSource]);
+
   // ─── HLS Load & Failover ───────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
@@ -1076,27 +1091,37 @@ export default function VideoPlayer({
         ['--player-accent-l' as any]: accentL,
       }}
     >
-      {/* Native HTML5 Video Element */}
-      <video
-        ref={videoRef}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={handleVideoEnded}
-        onClick={togglePlay}
-        className="w-full h-full object-contain cursor-pointer"
-        playsInline
-        crossOrigin="anonymous"
-      >
-        {subtitleTracks.map((track, i) => (
-          <track
-            key={track.lang + i}
-            kind="subtitles"
-            label={track.label}
-            srcLang={track.lang}
-            src={track.url}
-            default={i === activeSubtitleIdx}
-          />
-        ))}
-      </video>
+      {/* Native HTML5 Video or embedded Iframe Player */}
+      {isIframeSource ? (
+        <iframe
+          src={activeSource.url}
+          className="w-full h-full border-0"
+          allowFullScreen
+          allow="autoplay; encrypted-media; picture-in-picture"
+          onLoad={() => setIsLoading(false)}
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={handleVideoEnded}
+          onClick={togglePlay}
+          className="w-full h-full object-contain cursor-pointer"
+          playsInline
+          crossOrigin="anonymous"
+        >
+          {subtitleTracks.map((track, i) => (
+            <track
+              key={track.lang + i}
+              kind="subtitles"
+              label={track.label}
+              srcLang={track.lang}
+              src={track.url}
+              default={i === activeSubtitleIdx}
+            />
+          ))}
+        </video>
+      )}
 
       {/* Manual Skip Intro / Ending Overlays */}
       {showSkipIntro && (
@@ -1207,7 +1232,7 @@ export default function VideoPlayer({
       )}
 
       {/* Play/Pause Center Indicator */}
-      {!isLoading && !errorMessage && countdown === null && (
+      {!isLoading && !errorMessage && !isIframeSource && countdown === null && (
         <div
           onClick={togglePlay}
           className="absolute inset-0 flex items-center justify-center bg-black/0 active:bg-black/10 transition-colors pointer-events-none"
@@ -1221,7 +1246,7 @@ export default function VideoPlayer({
       )}
 
       {/* ─── Control Bar Overlay ──────────────────────────────────────────────── */}
-      {!errorMessage && (
+      {!errorMessage && !isIframeSource && (
         <div
           className={`absolute bottom-4 left-4 right-4 z-40 bg-[#05050A]/70 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300 shadow-2xl ${
             showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
