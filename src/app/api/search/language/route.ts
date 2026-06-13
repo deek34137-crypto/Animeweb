@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await res.json();
-    const shows = data.success ? (data.series || []) : [];
+    const shows = data.success ? (data.data || []) : [];
 
     const mapped = shows.map((item: any) => ({
       mal_id: item.id,

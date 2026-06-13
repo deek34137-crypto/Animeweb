@@ -62,12 +62,8 @@ const getProviderFriendlyName = (name: string): string => {
   switch (name.toLowerCase()) {
     case 'toonplay': return 'Indian 1';
     case 'toonworld': return 'Indian 2';
-    case 'raretoons': return 'Indian 3';
-    case 'deadtoons': return 'Indian 4';
-    case 'puretoons': return 'Indian 5';
-    case 'animetm': return 'Indian 6';
     case 'consumet': return 'Multilingual 1';
-    case 'mock': return 'Mock Server';
+    case 'animepahe': return 'Multilingual 2';
     default: return name.charAt(0).toUpperCase() + name.slice(1);
   }
 };
