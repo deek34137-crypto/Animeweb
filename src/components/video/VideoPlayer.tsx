@@ -122,15 +122,17 @@ export default function VideoPlayer({
   const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu'>(() => {
     // 1. Dynamic server-side/first render fallback
     const hindiCount = (hindiSources && hindiSources.length) || 0;
+    const subCount = (subSources && subSources.length) || (sources && sources.length) || 0;
+    const dubCount = (dubSources && dubSources.length) || 0;
     const tamilCount = (tamilSources && tamilSources.length) || 0;
     const teluguCount = (teluguSources && teluguSources.length) || 0;
-    const dubCount = (dubSources && dubSources.length) || 0;
 
-    // 2. Default priorities: Hindi -> Tamil -> Telugu -> English Dub -> Japanese Sub
+    // 2. Default priorities: Hindi -> Japanese (SUB) -> English (DUB) -> Tamil -> Telugu
     if (hindiCount > 0) return 'hindi';
+    if (subCount > 0) return 'sub';
+    if (dubCount > 0) return 'dub';
     if (tamilCount > 0) return 'tamil';
     if (teluguCount > 0) return 'telugu';
-    if (dubCount > 0) return 'dub';
     return 'sub';
   });
   const [isFallbackActive, setIsFallbackActive] = useState<boolean>(isFallback);
@@ -486,19 +488,19 @@ export default function VideoPlayer({
     const hasUserPref = localStorage.getItem('userSetLanguagePreference') === 'true';
     if (hasUserPref) return;
 
-    // Default priority order: hindi -> tamil -> telugu -> dub (english) -> sub (japanese)
+    // Default priority order: Hindi -> Japanese (SUB) -> English (DUB) -> Tamil -> Telugu
     if (hindiSourcesList.length > 0 || hasNativeHindi) {
       if (currentLanguage !== 'hindi') setCurrentLanguage('hindi');
+    } else if (subSourcesList.length > 0) {
+      if (currentLanguage !== 'sub') setCurrentLanguage('sub');
+    } else if (dubSourcesList.length > 0) {
+      if (currentLanguage !== 'dub') setCurrentLanguage('dub');
     } else if (tamilSourcesList.length > 0) {
       if (currentLanguage !== 'tamil') setCurrentLanguage('tamil');
     } else if (teluguSourcesList.length > 0) {
       if (currentLanguage !== 'telugu') setCurrentLanguage('telugu');
-    } else if (dubSourcesList.length > 0) {
-      if (currentLanguage !== 'dub') setCurrentLanguage('dub');
-    } else if (subSourcesList.length > 0) {
-      if (currentLanguage !== 'sub') setCurrentLanguage('sub');
     }
-  }, [hindiSourcesList, tamilSourcesList, teluguSourcesList, dubSourcesList, subSourcesList, hasNativeHindi]);
+  }, [hindiSourcesList, subSourcesList, dubSourcesList, tamilSourcesList, teluguSourcesList, hasNativeHindi]);
 
   const syncHlsAudioTrack = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu', hlsInstance = hlsRef.current) => {
     if (!hlsInstance) return;
