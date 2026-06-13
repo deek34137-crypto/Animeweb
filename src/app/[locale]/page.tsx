@@ -11,6 +11,8 @@ import HeroSpotlight, {
   Sparkles,
 } from '@/components/HomeComponents';
 import { SectionSkeleton, HeroSkeleton } from '@/components/ui/Skeleton';
+import { Globe } from 'lucide-react';
+import { Link } from '@/navigation';
 
 export const revalidate = 1800; // Revalidate every 30 minutes
 
@@ -88,6 +90,47 @@ async function WatchLaterSection({ userId }: { userId: string }) {
   return <WatchLaterRail entries={entries} />;
 }
 
+async function BrowseByLanguageSection() {
+  const languages = [
+    { code: 'hindi', name: 'Hindi', label: 'हिंदी', bg: 'from-orange-600 to-amber-500', glow: 'shadow-orange-500/20' },
+    { code: 'japanese', name: 'Japanese', label: '日本語', bg: 'from-red-600 to-rose-500', glow: 'shadow-red-500/20' },
+    { code: 'english', name: 'English', label: 'English', bg: 'from-blue-600 to-indigo-500', glow: 'shadow-blue-500/20' },
+    { code: 'tamil', name: 'Tamil', label: 'தமிழ்', bg: 'from-teal-600 to-emerald-500', glow: 'shadow-teal-500/20' },
+    { code: 'telugu', name: 'Telugu', label: 'తెలుగు', bg: 'from-purple-600 to-pink-500', glow: 'shadow-purple-500/20' },
+  ];
+
+  return (
+    <section className="space-y-4">
+      <SectionHeader title="Browse By Language" icon={<Globe size={20} />} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+        {languages.map((lang) => (
+          <Link
+            key={lang.code}
+            href={`/search?lang=${lang.code}`}
+            className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${lang.bg} p-5 flex flex-col justify-between aspect-[16/10] border border-white/10 shadow-lg ${lang.glow} transition-all duration-300 hover:scale-[1.05] hover:shadow-2xl`}
+          >
+            {/* Ambient Background Light */}
+            <div className="absolute inset-0 bg-black/15 group-hover:bg-black/5 transition-colors duration-300" />
+            <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform duration-300" />
+
+            <span className="text-[10px] font-black tracking-widest uppercase text-white/70 select-none">
+              {lang.name}
+            </span>
+            <div className="space-y-1 z-10">
+              <h3 className="text-sm sm:text-base font-black text-white font-display tracking-tight leading-tight">
+                {lang.name} Dub
+              </h3>
+              <p className="text-[11px] font-bold text-white/85 font-mono tracking-wide">
+                {lang.label}
+              </p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function HomePage() {
   const session = await auth();
   const userId = (session?.user as { id?: string })?.id;
@@ -112,6 +155,9 @@ export default async function HomePage() {
           <WatchLaterSection userId={userId} />
         </Suspense>
       )}
+
+      {/* Browse By Language */}
+      <BrowseByLanguageSection />
 
       {/* Trending */}
       <Suspense fallback={<SectionSkeleton />}>

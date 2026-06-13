@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { AnimeApi } from '@/lib/api';
 import AnimeCard from '@/components/AnimeCard';
-import { Search as SearchIcon, Filter, RefreshCw, Calendar, Eye, Heart } from 'lucide-react';
+import { Search as SearchIcon, Filter, RefreshCw, Calendar, Eye, Heart, Globe } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import { AnimeCardSkeleton } from '@/components/ui/Skeleton';
 
@@ -26,9 +26,10 @@ const YEARS = Array.from({ length: 27 }, (_, i) => String(2026 - i));
 
 interface SearchClientProps {
   initialQuery: string;
+  initialLang?: string;
 }
 
-export default function SearchClient({ initialQuery }: SearchClientProps) {
+export default function SearchClient({ initialQuery, initialLang = '' }: SearchClientProps) {
   const t = useTranslations('Search');
 
   const [query, setQuery] = useState(initialQuery);
@@ -36,6 +37,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
   const [selectedGenre, setSelectedGenre] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [selectedLang, setSelectedLang] = useState<string>(initialLang);
 
   // Debounce the text search input to avoid hitting Jikan API too rapidly
   useEffect(() => {
@@ -52,17 +54,25 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
   useEffect(() => {
     setQuery(initialQuery);
     setDebouncedQuery(initialQuery);
-  }, [initialQuery]);
+    setSelectedLang(initialLang);
+  }, [initialQuery, initialLang]);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['search', debouncedQuery, selectedGenre, selectedYear, selectedStatus],
-    queryFn: () =>
-      AnimeApi.searchAnime(debouncedQuery, {
+    queryKey: ['search', debouncedQuery, selectedGenre, selectedYear, selectedStatus, selectedLang],
+    queryFn: async () => {
+      if (selectedLang) {
+        const res = await fetch(`/api/search/language?lang=${selectedLang}&q=${encodeURIComponent(debouncedQuery)}`);
+        if (!res.ok) throw new Error('Language search failed');
+        const json = await res.json();
+        return json as { data: any[] };
+      }
+      return AnimeApi.searchAnime(debouncedQuery, {
         genres: selectedGenre ? String(selectedGenre) : undefined,
         year: selectedYear || undefined,
         status: selectedStatus || undefined,
         limit: 24
-      }),
+      });
+    },
     placeholderData: (prev) => prev
   });
 
@@ -109,6 +119,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
     setSelectedGenre(null);
     setSelectedYear('');
     setSelectedStatus('');
+    setSelectedLang('');
   };
 
   return (
@@ -134,7 +145,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
         </div>
 
         {/* Input & Dropdowns Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
           {/* Keyword Search Input */}
           <div className="relative">
             <input
@@ -145,6 +156,23 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
               className="w-full bg-surface-2 border border-border-subtle rounded-xl py-2.5 pl-4 pr-10 focus:outline-none focus:border-accent-violet focus:ring-1 focus:ring-accent-violet transition-all text-sm text-text-primary"
             />
             <SearchIcon size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+          </div>
+
+          {/* Language Dropdown */}
+          <div className="relative">
+            <select
+              value={selectedLang}
+              onChange={(e) => setSelectedLang(e.target.value)}
+              className="w-full bg-surface-2 border border-border-subtle rounded-xl py-2.5 px-4 focus:outline-none focus:border-accent-violet focus:ring-1 focus:ring-accent-violet text-sm text-text-primary cursor-pointer appearance-none"
+            >
+              <option value="">Language: All</option>
+              <option value="hindi">Hindi Dub</option>
+              <option value="japanese">Japanese Sub</option>
+              <option value="english">English Dub</option>
+              <option value="tamil">Tamil Dub</option>
+              <option value="telugu">Telugu Dub</option>
+            </select>
+            <Globe size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
           </div>
 
           {/* Year Dropdown */}
@@ -242,7 +270,7 @@ export default function SearchClient({ initialQuery }: SearchClientProps) {
         {/* Dynamic Cards Grid */}
         {!isLoading && !isError && animeList.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-            {animeList.map((anime) => (
+            {animeList.map((anime: any) => (
               <AnimeCard key={anime.mal_id} anime={anime} />
             ))}
           </div>

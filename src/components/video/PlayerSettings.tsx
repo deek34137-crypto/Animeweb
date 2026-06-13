@@ -15,11 +15,13 @@ interface PlayerSettingsProps {
   currentLevel: string;
   onSelectQuality: (level: string) => void;
   
-  currentLanguage: 'sub' | 'dub' | 'hindi';
-  onSelectLanguage: (lang: 'sub' | 'dub' | 'hindi') => void;
+  currentLanguage: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu';
+  onSelectLanguage: (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu') => void;
   hasSub: boolean;
   hasDub: boolean;
   hasHindi: boolean;
+  hasTamil?: boolean;
+  hasTelugu?: boolean;
 
   subtitles: SubtitleTrack[];
   activeSubtitleIdx: number;
@@ -47,6 +49,8 @@ export default function PlayerSettings({
   hasSub,
   hasDub,
   hasHindi,
+  hasTamil = false,
+  hasTelugu = false,
   subtitles,
   activeSubtitleIdx,
   onSelectSubtitle,
@@ -91,6 +95,8 @@ export default function PlayerSettings({
           hasSub={hasSub}
           hasDub={hasDub}
           hasHindi={hasHindi}
+          hasTamil={hasTamil}
+          hasTelugu={hasTelugu}
           onBack={() => setView('main')}
         />
       </div>
@@ -203,7 +209,7 @@ export default function PlayerSettings({
             <ChevronRight size={12} />
           </span>
         </button>
-
+ 
         {/* Audio / Language Button */}
         <button
           onClick={() => setView('language')}

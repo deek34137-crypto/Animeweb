@@ -9,6 +9,7 @@ import { deadtoonsProvider } from './deadtoons';
 import { puretoonsProvider } from './puretoons';
 import { animetmProvider } from './animetm';
 import { toonworldProvider } from './toonworld';
+import { toonplayProvider } from './toonplay';
 
 class ProviderRegistry {
   private providers = new Map<string, StreamingProviderInterface>();
@@ -30,7 +31,7 @@ class ProviderRegistry {
     // toonworld first, then consumet (real Consumet API / HiAnime), then animepahe,
     // then Hindi providers, then mock fallback last.
     // anicli is not implemented and has been removed from the chain.
-    return ['toonworld', 'consumet', 'animepahe', 'raretoons', 'deadtoons', 'puretoons', 'animetm', 'mock'];
+    return ['toonplay', 'toonworld', 'consumet', 'animepahe', 'raretoons', 'deadtoons', 'puretoons', 'animetm', 'mock'];
   }
 
   public getDefault(): StreamingProviderInterface {
@@ -55,6 +56,7 @@ export const registry = new ProviderRegistry();
 
 // Register all providers
 registry.register(toonworldProvider);
+registry.register(toonplayProvider);
 registry.register(consumetProvider);
 registry.register(animepaheProvider);
 // anicliProvider not registered — not implemented

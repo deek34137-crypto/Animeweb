@@ -10,19 +10,21 @@ import EpisodeSidebar from './EpisodeSidebar';
 
 interface WatchPageProps {
   params: Promise<{ animeId: string; episode: string; locale: string }>;
+  searchParams?: Promise<{ start?: string }>;
 }
 
 export const revalidate = 0; // Dynamic route
 
-export default async function WatchPage({ params }: WatchPageProps) {
+export default async function WatchPage({ params, searchParams }: WatchPageProps) {
   const { animeId, episode, locale } = await params;
-  const malId = parseInt(animeId, 10);
+  const sParams = searchParams ? await searchParams : {};
+  const startParam = sParams.start;
+
   const epNum = parseInt(episode, 10);
+  const isMalId = !animeId.startsWith('series-') && !animeId.startsWith('movies-');
 
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  if (isNaN(malId) || isNaN(epNum)) {
+  // Verify parameters
+  if (isNaN(epNum) || (isMalId && isNaN(parseInt(animeId, 10)))) {
     return (
       <div className="py-20 text-center">
         <h1 className="text-2xl font-black text-text-primary">Invalid Route Parameters</h1>
@@ -31,8 +33,63 @@ export default async function WatchPage({ params }: WatchPageProps) {
     );
   }
 
-  // Fetch anime details first (we need the title for stream resolution)
-  const anime = await AnimeApi.getAnimeDetail(malId, userId);
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  let anime: any = null;
+
+  if (!isMalId) {
+    try {
+      const TOONPLAY_HEADERS = {
+        'Origin': 'https://toonplay.in',
+        'Referer': 'https://toonplay.in/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      };
+      const res = await fetch(`https://animesalt.streamindia.co.in/api/info?id=${animeId}`, {
+        headers: TOONPLAY_HEADERS,
+        next: { revalidate: 1800 }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.anime) {
+          const tpAnime = data.anime;
+          anime = {
+            mal_id: animeId as any,
+            title: tpAnime.title,
+            title_english: tpAnime.title,
+            title_japanese: tpAnime.title,
+            synopsis: tpAnime.description || 'No description available.',
+            images: {
+              jpg: {
+                image_url: tpAnime.image || '/app-icon.jpg',
+                small_image_url: tpAnime.image || '/app-icon.jpg',
+                large_image_url: tpAnime.image || '/app-icon.jpg',
+              },
+              webp: {
+                image_url: tpAnime.image || '/app-icon.jpg',
+                small_image_url: tpAnime.image || '/app-icon.jpg',
+                large_image_url: tpAnime.image || '/app-icon.jpg',
+              }
+            },
+            type: tpAnime.type === 'movie' ? 'Movie' : 'TV',
+            episodes: tpAnime.episodesCount || null,
+            score: 8.0,
+            scored_by: 100,
+            status: 'Finished Airing',
+            genres: [],
+            year: tpAnime.year || null,
+            studios: [],
+            producers: [],
+            userTracking: null,
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load ToonPlay details on watch page:', error);
+    }
+  } else {
+    anime = await AnimeApi.getAnimeDetail(parseInt(animeId, 10), userId);
+  }
 
   if (!anime) {
     return (
@@ -49,8 +106,8 @@ export default async function WatchPage({ params }: WatchPageProps) {
   const [streamInfo, episodes, characters, recommendations] = await Promise.all([
     StreamingManager.getStreamInfo(animeId, epNum, mainTitle).catch(() => ({ sources: [], sub: [], dub: [], subtitles: [], providers: [], currentProvider: 'mock', isFallback: true, fallbackReason: 'Stream resolution threw an unhandled error.' } as any)),
     StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []),
-    AnimeApi.getAnimeCharacters(malId).catch(() => []),
-    AnimeApi.getAnimeRecommendations(malId).catch(() => []),
+    isMalId ? AnimeApi.getAnimeCharacters(parseInt(animeId, 10)).catch(() => []) : Promise.resolve([]),
+    isMalId ? AnimeApi.getAnimeRecommendations(parseInt(animeId, 10)).catch(() => []) : Promise.resolve([]),
   ]);
 
   // Fetch last saved position if authenticated
@@ -58,17 +115,19 @@ export default async function WatchPage({ params }: WatchPageProps) {
   let watchedEpisodes: number[] = [];
 
   if (userId) {
-    const progress = await db.watchProgress.findUnique({
-      where: {
-        userId_animeId_episode: {
-          userId,
-          animeId: String(animeId),
-          episode: epNum,
+    if (startParam !== 'beginning') {
+      const progress = await db.watchProgress.findUnique({
+        where: {
+          userId_animeId_episode: {
+            userId,
+            animeId: String(animeId),
+            episode: epNum,
+          },
         },
-      },
-    });
-    if (progress) {
-      initialPosition = progress.position;
+      });
+      if (progress) {
+        initialPosition = progress.position;
+      }
     }
 
     const history = await db.watchHistory.findMany({
@@ -110,6 +169,8 @@ export default async function WatchPage({ params }: WatchPageProps) {
               subSources={streamInfo.sub}
               dubSources={streamInfo.dub}
               hindiSources={streamInfo.hindi}
+              tamilSources={streamInfo.tamil}
+              teluguSources={streamInfo.telugu}
               subtitles={streamInfo.subtitles}
               animeTitle={mainTitle}
               episodeNumber={epNum}
@@ -182,7 +243,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
             {(() => {
               const seasonsList = [
                 {
-                  malId: malId,
+                  malId: isMalId ? parseInt(animeId, 10) : animeId as any,
                   name: mainTitle,
                   relation: 'Current',
                   isCurrent: true,

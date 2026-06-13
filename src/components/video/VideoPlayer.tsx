@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw,
-  SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle, Tv
+  SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle, Tv, Globe, Server
 } from 'lucide-react';
 import { progressService } from '@/lib/streaming/progress';
 import PlayerError from './PlayerError';
@@ -37,6 +37,8 @@ interface VideoPlayerProps {
   subSources?: EpisodeSource[];
   dubSources?: EpisodeSource[];
   hindiSources?: EpisodeSource[];
+  tamilSources?: EpisodeSource[];
+  teluguSources?: EpisodeSource[];
   subtitles?: SubtitleTrack[];
   animeTitle: string;
   episodeNumber: number;
@@ -56,6 +58,20 @@ interface VideoPlayerProps {
   providerSlug?: string;
 }
 
+const getProviderFriendlyName = (name: string): string => {
+  switch (name.toLowerCase()) {
+    case 'toonplay': return 'Indian 1';
+    case 'toonworld': return 'Indian 2';
+    case 'raretoons': return 'Indian 3';
+    case 'deadtoons': return 'Indian 4';
+    case 'puretoons': return 'Indian 5';
+    case 'animetm': return 'Indian 6';
+    case 'consumet': return 'Multilingual 1';
+    case 'mock': return 'Mock Server';
+    default: return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+};
+
 export default function VideoPlayer({
   animeId,
   animeImage,
@@ -63,6 +79,8 @@ export default function VideoPlayer({
   subSources = [],
   dubSources = [],
   hindiSources = [],
+  tamilSources = [],
+  teluguSources = [],
   subtitles = [],
   animeTitle,
   episodeNumber,
@@ -100,10 +118,12 @@ export default function VideoPlayer({
   const [subSourcesList, setSubSourcesList] = useState<EpisodeSource[]>(subSources.length > 0 ? subSources : sources);
   const [dubSourcesList, setDubSourcesList] = useState<EpisodeSource[]>(dubSources);
   const [hindiSourcesList, setHindiSourcesList] = useState<EpisodeSource[]>(hindiSources);
+  const [tamilSourcesList, setTamilSourcesList] = useState<EpisodeSource[]>(tamilSources);
+  const [teluguSourcesList, setTeluguSourcesList] = useState<EpisodeSource[]>(teluguSources);
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>(subtitles);
   const [providersList, setProvidersList] = useState<string[]>(providers.length > 0 ? providers : ['mock']);
   const [currentProviderName, setCurrentProviderName] = useState<string>(currentProvider);
-  const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub' | 'hindi'>('sub');
+  const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu'>('sub');
   const [isFallbackActive, setIsFallbackActive] = useState<boolean>(isFallback);
   const [fallbackReasonText, setFallbackReasonText] = useState<string | undefined>(fallbackReason);
   const [hasNativeHindi, setHasNativeHindi] = useState(false);
@@ -356,6 +376,8 @@ export default function VideoPlayer({
     setSubSourcesList(subSources.length > 0 ? subSources : sources);
     setDubSourcesList(dubSources);
     setHindiSourcesList(hindiSources);
+    setTamilSourcesList(tamilSources);
+    setTeluguSourcesList(teluguSources);
     setSubtitleTracks(subtitles);
     setProvidersList(providers.length > 0 ? providers : ['mock']);
     setCurrentProviderName(currentProvider);
@@ -365,7 +387,7 @@ export default function VideoPlayer({
     setEpisodeCountFound(initialEpisodeCountFound);
     setProviderSlug(initialProviderSlug);
   }, [
-    sources, subSources, dubSources, hindiSources, subtitles, providers, currentProvider,
+    sources, subSources, dubSources, hindiSources, tamilSources, teluguSources, subtitles, providers, currentProvider,
     initialMatchedTitle, initialMatchedSlug, initialSearchCount, initialEpisodeCountFound, initialProviderSlug
   ]);
 
@@ -427,7 +449,7 @@ export default function VideoPlayer({
     }
   }, []);
 
-  const syncHlsAudioTrack = (lang: 'sub' | 'dub' | 'hindi', hlsInstance = hlsRef.current) => {
+  const syncHlsAudioTrack = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu', hlsInstance = hlsRef.current) => {
     if (!hlsInstance) return;
     const tracks = hlsInstance.audioTracks;
     if (!tracks || tracks.length <= 1) return;
@@ -439,6 +461,20 @@ export default function VideoPlayer({
           t.lang?.toLowerCase().startsWith('hi') ||
           t.name?.toLowerCase().includes('hindi') ||
           t.name?.toLowerCase().includes('hin')
+      );
+    } else if (lang === 'tamil') {
+      targetIdx = tracks.findIndex(
+        (t: any) =>
+          t.lang?.toLowerCase().startsWith('ta') ||
+          t.name?.toLowerCase().includes('tamil') ||
+          t.name?.toLowerCase().includes('tam')
+      );
+    } else if (lang === 'telugu') {
+      targetIdx = tracks.findIndex(
+        (t: any) =>
+          t.lang?.toLowerCase().startsWith('te') ||
+          t.name?.toLowerCase().includes('telugu') ||
+          t.name?.toLowerCase().includes('tel')
       );
     } else if (lang === 'dub') {
       targetIdx = tracks.findIndex(
@@ -466,9 +502,13 @@ export default function VideoPlayer({
 
   const activeSources = currentLanguage === 'hindi' && hindiSourcesList.length > 0
     ? hindiSourcesList
-    : currentLanguage === 'dub' && dubSourcesList.length > 0
-      ? dubSourcesList
-      : subSourcesList;
+    : currentLanguage === 'tamil' && tamilSourcesList.length > 0
+      ? tamilSourcesList
+      : currentLanguage === 'telugu' && teluguSourcesList.length > 0
+        ? teluguSourcesList
+        : currentLanguage === 'dub' && dubSourcesList.length > 0
+          ? dubSourcesList
+          : subSourcesList;
   const activeSource = activeSources[activeSourceIdx];
 
   const isIframeSource = activeSource?.url
@@ -821,15 +861,19 @@ export default function VideoPlayer({
     }
   };
 
-  const selectLanguage = (lang: 'sub' | 'dub' | 'hindi') => {
+  const selectLanguage = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu') => {
     setCurrentLanguage(lang);
     localStorage.setItem('preferredLanguage', lang);
     
     const targetSources = lang === 'hindi' 
       ? hindiSourcesList 
-      : lang === 'dub' 
-        ? dubSourcesList 
-        : subSourcesList;
+      : lang === 'tamil'
+        ? tamilSourcesList
+        : lang === 'telugu'
+          ? teluguSourcesList
+          : lang === 'dub' 
+            ? dubSourcesList 
+            : subSourcesList;
 
     if (targetSources && targetSources.length > 0) {
       console.info(`[Audio Swap] Switching stream sources for language: ${lang}`);
@@ -863,6 +907,9 @@ export default function VideoPlayer({
       setCurrentProviderName(data.currentProvider || provider);
       setSubSourcesList(data.sub || []);
       setDubSourcesList(data.dub || []);
+      setHindiSourcesList(data.hindi || []);
+      setTamilSourcesList(data.tamil || []);
+      setTeluguSourcesList(data.telugu || []);
       setSubtitleTracks(data.subtitles || []);
       setIsFallbackActive(data.isFallback || false);
       setFallbackReasonText(data.fallbackReason);
@@ -1073,417 +1120,495 @@ export default function VideoPlayer({
   };
 
   return (
-    <div
-      ref={playerRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden group/player shadow-2xl border border-border-subtle ${
-        isFullscreen ? 'rounded-none border-none' : ''
-      }`}
-      style={{
-        cursor: showControls ? 'default' : 'none',
-        ['--player-accent' as any]: accentColor,
-        ['--player-accent-h' as any]: accentH,
-        ['--player-accent-s' as any]: accentS,
-        ['--player-accent-l' as any]: accentL,
-      }}
-    >
-      {/* Native HTML5 Video or embedded Iframe Player */}
-      {isIframeSource ? (
-        <iframe
-          src={activeSource.url}
-          className="w-full h-full border-0"
-          allowFullScreen
-          allow="autoplay; encrypted-media; picture-in-picture"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-          onLoad={() => setIsLoading(false)}
-        />
-      ) : (
-        <video
-          ref={videoRef}
-          onTimeUpdate={handleTimeUpdate}
-          onEnded={handleVideoEnded}
-          onClick={togglePlay}
-          className="w-full h-full object-contain cursor-pointer"
-          playsInline
-          crossOrigin="anonymous"
-        >
-          {subtitleTracks.map((track, i) => (
-            <track
-              key={track.lang + i}
-              kind="subtitles"
-              label={track.label}
-              srcLang={track.lang}
-              src={track.url}
-              default={i === activeSubtitleIdx}
-            />
-          ))}
-        </video>
-      )}
-
-      {/* Manual Skip Intro / Ending Overlays */}
-      {showSkipIntro && (
-        <button
-          onClick={skipIntro}
-          className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
-            showControls ? 'bottom-32' : 'bottom-8'
-          }`}
-        >
-          ⏩ Skip Intro
-        </button>
-      )}
-      {showSkipEnding && (
-        <button
-          onClick={skipEnding}
-          className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
-            showControls ? 'bottom-32' : 'bottom-8'
-          }`}
-        >
-          ⏩ Skip Ending
-        </button>
-      )}
-
-      {/* Auto Next Countdown Overlay */}
-      {countdown !== null && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs text-center">
-          <div className="space-y-4 max-w-xs animate-fade-up">
-            <p className="text-[10px] font-black uppercase tracking-wider text-accent-violet select-none">
-              Up Next
-            </p>
-            <h3 className="text-base font-bold text-white leading-tight font-display select-none">
-              Episode {episodeNumber + 1} Starts In
-            </h3>
-            <div className="w-16 h-16 rounded-full bg-accent-violet/10 border border-accent-violet/30 flex items-center justify-center mx-auto text-white font-black text-2xl select-none">
-              {countdown}
-            </div>
-            <div className="flex items-center justify-center gap-3">
-              <button
-                onClick={() => setCountdown(null)}
-                className="px-4 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setCountdown(null);
-                  handleNext();
-                }}
-                className="px-4 py-1.5 rounded-lg bg-accent-violet hover:bg-accent-violet-hover text-white font-bold text-xs transition-colors"
-              >
-                Play Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Long Press 2x Speed Indicator */}
-      {isLongPressing2x && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-3 py-1.5 rounded-full bg-black/60 border border-white/10 text-white font-bold text-[10px] tracking-widest uppercase flex items-center gap-1.5">
-          <Loader2 className="w-3.5 h-3.5 text-accent-violet animate-spin" />
-          <span>2X Speed Active</span>
-        </div>
-      )}
-
-      {/* Gesture Volume Indicator */}
-      {showVolumeIndicator && (
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 bg-black/60 border border-white/10 rounded-full py-4 px-2 w-10 text-white">
-          <Volume2 size={16} />
-          <div className="w-1 h-20 bg-white/20 rounded-full relative overflow-hidden">
-            <div
-              className="absolute bottom-0 left-0 right-0 bg-accent-violet transition-all duration-75"
-              style={{ height: `${gestureVolume * 100}%` }}
-            />
-          </div>
-          <span className="text-[8px] font-mono select-none">{Math.round(gestureVolume * 100)}</span>
-        </div>
-      )}
-
-      {/* Touch seeking feedback overlay */}
-      {touchFeedback === 'back' && (
-        <div className="absolute left-[15%] top-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 animate-ping text-white text-xs bg-black/40 rounded-full p-4">
-          <RotateCcw className="w-6 h-6 text-white" />
-          <span>-10s</span>
-        </div>
-      )}
-      {touchFeedback === 'forward' && (
-        <div className="absolute right-[15%] top-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 animate-ping text-white text-xs bg-black/40 rounded-full p-4">
-          <SkipForward className="w-6 h-6 text-white" />
-          <span>+10s</span>
-        </div>
-      )}
-
-      {/* Loading overlay spinner */}
-      {isLoading && !errorMessage && (
-        <div className="absolute inset-0 z-40 flex flex-col gap-4 items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_30px_rgba(124,91,255,0.4)] animate-pulse">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/app-icon.jpg" alt="Loading..." className="w-full h-full object-cover" />
-          </div>
-          <Loader2 className="w-6 h-6 text-accent-violet animate-spin" />
-        </div>
-      )}
-
-      {/* Error fallback overlay */}
-      {errorMessage && (
-        <PlayerError message={errorMessage} onRetry={handleSourceError} />
-      )}
-
-      {/* Play/Pause Center Indicator */}
-      {!isLoading && !errorMessage && !isIframeSource && countdown === null && (
-        <div
-          onClick={togglePlay}
-          className="absolute inset-0 flex items-center justify-center bg-black/0 active:bg-black/10 transition-colors pointer-events-none"
-        >
-          {!isPlaying && (
-            <div className="w-16 h-16 rounded-full bg-accent-violet/70 backdrop-blur-xs flex items-center justify-center text-white scale-95 opacity-0 group-hover/player:scale-100 group-hover/player:opacity-100 transition-all duration-200 shadow-lg pointer-events-auto cursor-pointer">
-              <PlayCircle className="w-12 h-12 text-white fill-white/10" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── Control Bar Overlay ──────────────────────────────────────────────── */}
-      {!errorMessage && !isIframeSource && (
-        <div
-          className={`absolute bottom-4 left-4 right-4 z-40 bg-[#05050A]/70 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300 shadow-2xl ${
-            showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-          }`}
-        >
-          {/* Progress Bar and Scrubber */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-text-secondary select-none">
-              {formatTime(currentTime)}
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              value={currentTime}
-              onChange={handleSeek}
-              className="flex-grow h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 focus:outline-none"
-              style={{
-                accentColor: 'var(--player-accent)',
-                background: `linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) ${
-                  duration ? (currentTime / duration) * 100 : 0
-                }%, rgba(255, 255, 255, 0.2) ${
-                  duration ? (currentTime / duration) * 100 : 0
-                }%, rgba(255, 255, 255, 0.2) 100%)`,
-              }}
-            />
-            <span className="text-xs font-mono text-text-secondary select-none">
-              {formatTime(duration)}
-            </span>
-          </div>
-
-          {/* Controls Bar Row */}
-          <div className="flex items-center justify-between">
-            {/* Left Actions (Play, Skip, Next/Prev) */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={togglePlay}
-                className="text-text-secondary hover:text-white transition-colors"
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
-              </button>
-
-              <button
-                onClick={() => {
-                  const video = videoRef.current;
-                  if (video) video.currentTime = Math.max(video.currentTime - 10, 0);
-                }}
-                className="text-text-secondary hover:text-white transition-colors"
-                title="Rewind 10s"
-              >
-                <RotateCcw size={16} />
-              </button>
-
-              {(onPrevEpisode || episodeNumber > 1) && (
-                <button
-                  onClick={handlePrev}
-                  className="text-text-secondary hover:text-white transition-colors"
-                  aria-label="Previous Episode"
-                >
-                  <SkipBack size={18} />
-                </button>
-              )}
-
-              {(onNextEpisode || (totalEpisodes && episodeNumber < totalEpisodes)) && (
-                <button
-                  onClick={handleNext}
-                  className="text-text-secondary hover:text-white transition-colors"
-                  aria-label="Next Episode"
-                >
-                  <SkipForward size={18} />
-                </button>
-              )}
-
-              <button
-                onClick={() => {
-                  const video = videoRef.current;
-                  if (video) video.currentTime = Math.min(video.currentTime + 10, video.duration);
-                }}
-                className="text-text-secondary hover:text-white transition-colors"
-                title="Skip 10s"
-              >
-                <SkipForward size={16} />
-              </button>
-
-              <div className="hidden sm:flex flex-col gap-0 min-w-0">
-                <span className="text-[11px] font-black text-white tracking-wide truncate leading-tight">
-                  {animeTitle}
-                </span>
-                <span className="text-[9px] font-semibold text-white/50 tracking-wider truncate leading-tight">
-                  Episode {episodeNumber} · {currentQuality} · {currentLanguage.toUpperCase()}
-                </span>
-              </div>
-            </div>
-
-            {/* Right Actions */}
-            <div className="flex items-center gap-4 relative">
-              
-              {/* Keyboard Shortcuts Help */}
-              <button
-                onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
-                className="text-text-secondary hover:text-white transition-colors"
-                title="Keyboard Shortcuts"
-              >
-                <HelpCircle size={17} />
-              </button>
-
-              {/* Settings Dropdown Button */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="text-text-secondary hover:text-white transition-colors"
-                  aria-label="Settings"
-                >
-                  <Settings size={18} />
-                </button>
-
-                {/* Settings Panel */}
-                {showSettings && (
-                  <PlayerSettings
-                    levels={qualityLevels}
-                    currentLevel={currentQuality}
-                    onSelectQuality={selectQuality}
-                    currentLanguage={currentLanguage}
-                    onSelectLanguage={selectLanguage}
-                    hasSub={subSourcesList.length > 0}
-                    hasDub={dubSourcesList.length > 0}
-                    hasHindi={hindiSourcesList.length > 0 || hasNativeHindi}
-                    subtitles={subtitleTracks}
-                    activeSubtitleIdx={activeSubtitleIdx}
-                    onSelectSubtitle={selectSubtitle}
-                    playbackSpeed={playbackSpeed}
-                    onChangeSpeed={changeSpeed}
-                    isAutoplayNext={isAutoplayNext}
-                    onToggleAutoplay={() => {
-                      const next = !isAutoplayNext;
-                      setIsAutoplayNext(next);
-                      localStorage.setItem('autoplay_next', String(next));
-                    }}
-                    providers={providersList}
-                    currentProvider={currentProviderName}
-                    onSelectProvider={selectProvider}
-                    onClose={() => setShowSettings(false)}
-                  />
-                )}
-              </div>
-
-              {/* Volume Scrubber */}
-              <div className="flex items-center gap-1.5 group/volume">
-                <button
-                  onClick={toggleMute}
-                  className="text-text-secondary hover:text-white transition-colors"
-                  aria-label={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="w-0 group-hover/volume:w-16 focus:w-16 h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 focus:outline-none transition-all duration-300"
-                  style={{
-                    accentColor: 'var(--player-accent)',
-                    background: `linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) ${
-                      isMuted ? 0 : volume * 100
-                    }%, rgba(255, 255, 255, 0.2) ${
-                      isMuted ? 0 : volume * 100
-                    }%, rgba(255, 255, 255, 0.2) 100%)`,
-                  }}
-                />
-              </div>
-
-              {/* Picture-in-Picture Button */}
-              {isPiPSupported && (
-                <button
-                  onClick={togglePiP}
-                  className="text-text-secondary hover:text-white transition-colors"
-                  title="Picture-in-Picture"
-                >
-                  <Tv size={17} />
-                </button>
-              )}
-
-              {/* Fullscreen Button */}
-              <button
-                onClick={toggleFullscreen}
-                className="text-text-secondary hover:text-white transition-colors"
-                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-              >
-                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Fallback Test Stream Banner */}
-      {isFallbackActive && (
-        <div className="absolute top-0 left-0 right-0 z-[55] bg-amber-600/90 backdrop-blur-sm text-white text-center py-1.5 px-4 text-xs font-bold tracking-wide">
-          ⚠ Fallback Test Stream — Real anime sources could not be resolved
-        </div>
-      )}
-
-      {/* Stream Debug Panel */}
-      <StreamDebugPanel
-        debugInfo={{
-          activeProvider: currentProviderName,
-          streamUrl: activeSource?.url || '',
-          sourceType: activeSource?.isM3U8 ? 'HLS' : 'MP4',
-          isFallback: isFallbackActive,
-          fallbackReason: fallbackReasonText,
-          subtitleCount: subtitleTracks.length,
-          subtitleLangs: subtitleTracks.map((t) => t.lang),
-          qualityLevels,
-          currentQuality,
-          audioLanguage: currentLanguage,
-          providers: providersList,
-          // Advanced Diagnostics
-          resolvedSourcesCount: activeSources.length,
-          animeId,
-          episodeNumber,
-          providerSlug,
-          matchedTitle,
-          matchedSlug,
-          searchCount,
-          episodeCountFound,
-          lastError: isFallbackActive ? fallbackReasonText : undefined,
+    <div className="flex flex-col gap-4 w-full">
+      <div
+        ref={playerRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden group/player shadow-2xl border border-border-subtle ${
+          isFullscreen ? 'rounded-none border-none' : ''
+        }`}
+        style={{
+          cursor: showControls ? 'default' : 'none',
+          ['--player-accent' as any]: accentColor,
+          ['--player-accent-h' as any]: accentH,
+          ['--player-accent-s' as any]: accentS,
+          ['--player-accent-l' as any]: accentL,
         }}
-      />
+      >
+        {/* Native HTML5 Video or embedded Iframe Player */}
+        {isIframeSource ? (
+          <iframe
+            src={activeSource.url}
+            className="w-full h-full border-0"
+            allowFullScreen
+            allow="autoplay; encrypted-media; picture-in-picture"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+            onLoad={() => setIsLoading(false)}
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={handleVideoEnded}
+            onClick={togglePlay}
+            className="w-full h-full object-contain cursor-pointer"
+            playsInline
+            crossOrigin="anonymous"
+          >
+            {subtitleTracks.map((track, i) => (
+              <track
+                key={track.lang + i}
+                kind="subtitles"
+                label={track.label}
+                srcLang={track.lang}
+                src={track.url}
+                default={i === activeSubtitleIdx}
+              />
+            ))}
+          </video>
+        )}
 
-      {/* Keyboard Shortcuts Overlay Modal */}
-      {showShortcutsHelp && (
-        <ShortcutsOverlay onClose={() => setShowShortcutsHelp(false)} />
+        {/* Manual Skip Intro / Ending Overlays */}
+        {showSkipIntro && (
+          <button
+            onClick={skipIntro}
+            className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
+              showControls ? 'bottom-32' : 'bottom-8'
+            }`}
+          >
+            ⏩ Skip Intro
+          </button>
+        )}
+        {showSkipEnding && (
+          <button
+            onClick={skipEnding}
+            className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
+              showControls ? 'bottom-32' : 'bottom-8'
+            }`}
+          >
+            ⏩ Skip Ending
+          </button>
+        )}
+
+        {/* Auto Next Countdown Overlay */}
+        {countdown !== null && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs text-center">
+            <div className="space-y-4 max-w-xs animate-fade-up">
+              <p className="text-[10px] font-black uppercase tracking-wider text-accent-violet select-none">
+                Up Next
+              </p>
+              <h3 className="text-base font-bold text-white leading-tight font-display select-none">
+                Episode {episodeNumber + 1} Starts In
+              </h3>
+              <div className="w-16 h-16 rounded-full bg-accent-violet/10 border border-accent-violet/30 flex items-center justify-center mx-auto text-white font-black text-2xl select-none">
+                {countdown}
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setCountdown(null)}
+                  className="px-4 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setCountdown(null);
+                    handleNext();
+                  }}
+                  className="px-4 py-1.5 rounded-lg bg-accent-violet hover:bg-accent-violet-hover text-white font-bold text-xs transition-colors"
+                >
+                  Play Now
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Long Press 2x Speed Indicator */}
+        {isLongPressing2x && (
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-3 py-1.5 rounded-full bg-black/60 border border-white/10 text-white font-bold text-[10px] tracking-widest uppercase flex items-center gap-1.5">
+            <Loader2 className="w-3.5 h-3.5 text-accent-violet animate-spin" />
+            <span>2X Speed Active</span>
+          </div>
+        )}
+
+        {/* Gesture Volume Indicator */}
+        {showVolumeIndicator && (
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 bg-black/60 border border-white/10 rounded-full py-4 px-2 w-10 text-white">
+            <Volume2 size={16} />
+            <div className="w-1 h-20 bg-white/20 rounded-full relative overflow-hidden">
+              <div
+                className="absolute bottom-0 left-0 right-0 bg-accent-violet transition-all duration-75"
+                style={{ height: `${gestureVolume * 100}%` }}
+              />
+            </div>
+            <span className="text-[8px] font-mono select-none">{Math.round(gestureVolume * 100)}</span>
+          </div>
+        )}
+
+        {/* Touch seeking feedback overlay */}
+        {touchFeedback === 'back' && (
+          <div className="absolute left-[15%] top-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 animate-ping text-white text-xs bg-black/40 rounded-full p-4">
+            <RotateCcw className="w-6 h-6 text-white" />
+            <span>-10s</span>
+          </div>
+        )}
+        {touchFeedback === 'forward' && (
+          <div className="absolute right-[15%] top-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 animate-ping text-white text-xs bg-black/40 rounded-full p-4">
+            <SkipForward className="w-6 h-6 text-white" />
+            <span>+10s</span>
+          </div>
+        )}
+
+        {/* Loading overlay spinner */}
+        {isLoading && !errorMessage && (
+          <div className="absolute inset-0 z-40 flex flex-col gap-4 items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_30px_rgba(124,91,255,0.4)] animate-pulse">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/app-icon.jpg" alt="Loading..." className="w-full h-full object-cover" />
+            </div>
+            <Loader2 className="w-6 h-6 text-accent-violet animate-spin" />
+          </div>
+        )}
+
+        {/* Error fallback overlay */}
+        {errorMessage && (
+          <PlayerError message={errorMessage} onRetry={handleSourceError} />
+        )}
+
+        {/* Play/Pause Center Indicator */}
+        {!isLoading && !errorMessage && !isIframeSource && countdown === null && (
+          <div
+            onClick={togglePlay}
+            className="absolute inset-0 flex items-center justify-center bg-black/0 active:bg-black/10 transition-colors pointer-events-none"
+          >
+            {!isPlaying && (
+              <div className="w-16 h-16 rounded-full bg-accent-violet/70 backdrop-blur-xs flex items-center justify-center text-white scale-95 opacity-0 group-hover/player:scale-100 group-hover/player:opacity-100 transition-all duration-200 shadow-lg pointer-events-auto cursor-pointer">
+                <PlayCircle className="w-12 h-12 text-white fill-white/10" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Control Bar Overlay ──────────────────────────────────────────────── */}
+        {!errorMessage && !isIframeSource && (
+          <div
+            className={`absolute bottom-4 left-4 right-4 z-40 bg-[#05050A]/70 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300 shadow-2xl ${
+              showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+            }`}
+          >
+            {/* Progress Bar and Scrubber */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono text-text-secondary select-none">
+                {formatTime(currentTime)}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                value={currentTime}
+                onChange={handleSeek}
+                className="flex-grow h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 focus:outline-none"
+                style={{
+                  accentColor: 'var(--player-accent)',
+                  background: `linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) ${
+                    duration ? (currentTime / duration) * 100 : 0
+                  }%, rgba(255, 255, 255, 0.2) ${
+                    duration ? (currentTime / duration) * 100 : 0
+                  }%, rgba(255, 255, 255, 0.2) 100%)`,
+                }}
+              />
+              <span className="text-xs font-mono text-text-secondary select-none">
+                {formatTime(duration)}
+              </span>
+            </div>
+
+            {/* Controls Bar Row */}
+            <div className="flex items-center justify-between">
+              {/* Left Actions (Play, Skip, Next/Prev) */}
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={togglePlay}
+                  className="text-text-secondary hover:text-white transition-colors"
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                </button>
+
+                <button
+                  onClick={() => {
+                    const video = videoRef.current;
+                    if (video) video.currentTime = Math.max(video.currentTime - 10, 0);
+                  }}
+                  className="text-text-secondary hover:text-white transition-colors"
+                  title="Rewind 10s"
+                >
+                  <RotateCcw size={16} />
+                </button>
+
+                {(onPrevEpisode || episodeNumber > 1) && (
+                  <button
+                    onClick={handlePrev}
+                    className="text-text-secondary hover:text-white transition-colors"
+                    aria-label="Previous Episode"
+                  >
+                    <SkipBack size={18} />
+                  </button>
+                )}
+
+                {(onNextEpisode || (totalEpisodes && episodeNumber < totalEpisodes)) && (
+                  <button
+                    onClick={handleNext}
+                    className="text-text-secondary hover:text-white transition-colors"
+                    aria-label="Next Episode"
+                  >
+                    <SkipForward size={18} />
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    const video = videoRef.current;
+                    if (video) video.currentTime = Math.min(video.currentTime + 10, video.duration);
+                  }}
+                  className="text-text-secondary hover:text-white transition-colors"
+                  title="Skip 10s"
+                >
+                  <SkipForward size={16} />
+                </button>
+
+                <div className="hidden sm:flex flex-col gap-0 min-w-0">
+                  <span className="text-[11px] font-black text-white tracking-wide truncate leading-tight">
+                    {animeTitle}
+                  </span>
+                  <span className="text-[9px] font-semibold text-white/50 tracking-wider truncate leading-tight">
+                    Episode {episodeNumber} · {currentQuality} · {currentLanguage.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Actions */}
+              <div className="flex items-center gap-4 relative">
+                
+                {/* Keyboard Shortcuts Help */}
+                <button
+                  onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
+                  className="text-text-secondary hover:text-white transition-colors"
+                  title="Keyboard Shortcuts"
+                >
+                  <HelpCircle size={17} />
+                </button>
+
+                {/* Settings Dropdown Button */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="text-text-secondary hover:text-white transition-colors"
+                    aria-label="Settings"
+                  >
+                    <Settings size={18} />
+                  </button>
+
+                  {/* Settings Panel */}
+                  {showSettings && (
+                    <PlayerSettings
+                      levels={qualityLevels}
+                      currentLevel={currentQuality}
+                      onSelectQuality={selectQuality}
+                      currentLanguage={currentLanguage}
+                      onSelectLanguage={selectLanguage}
+                      hasSub={subSourcesList.length > 0}
+                      hasDub={dubSourcesList.length > 0}
+                      hasHindi={hindiSourcesList.length > 0 || hasNativeHindi}
+                      hasTamil={tamilSourcesList.length > 0}
+                      hasTelugu={teluguSourcesList.length > 0}
+                      subtitles={subtitleTracks}
+                      activeSubtitleIdx={activeSubtitleIdx}
+                      onSelectSubtitle={selectSubtitle}
+                      playbackSpeed={playbackSpeed}
+                      onChangeSpeed={changeSpeed}
+                      isAutoplayNext={isAutoplayNext}
+                      onToggleAutoplay={() => {
+                        const next = !isAutoplayNext;
+                        setIsAutoplayNext(next);
+                        localStorage.setItem('autoplay_next', String(next));
+                      }}
+                      providers={providersList}
+                      currentProvider={currentProviderName}
+                      onSelectProvider={selectProvider}
+                      onClose={() => setShowSettings(false)}
+                    />
+                  )}
+                </div>
+
+                {/* Volume Scrubber */}
+                <div className="flex items-center gap-1.5 group/volume">
+                  <button
+                    onClick={toggleMute}
+                    className="text-text-secondary hover:text-white transition-colors"
+                    aria-label={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="w-0 group-hover/volume:w-16 focus:w-16 h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 focus:outline-none transition-all duration-300"
+                    style={{
+                      accentColor: 'var(--player-accent)',
+                      background: `linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) ${
+                        isMuted ? 0 : volume * 100
+                      }%, rgba(255, 255, 255, 0.2) ${
+                        isMuted ? 0 : volume * 100
+                      }%, rgba(255, 255, 255, 0.2) 100%)`,
+                    }}
+                  />
+                </div>
+
+                {/* Picture-in-Picture Button */}
+                {isPiPSupported && (
+                  <button
+                    onClick={togglePiP}
+                    className="text-text-secondary hover:text-white transition-colors"
+                    title="Picture-in-Picture"
+                  >
+                    <Tv size={17} />
+                  </button>
+                )}
+
+                {/* Fullscreen Button */}
+                <button
+                  onClick={toggleFullscreen}
+                  className="text-text-secondary hover:text-white transition-colors"
+                  aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                >
+                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fallback Test Stream Banner */}
+        {isFallbackActive && (
+          <div className="absolute top-0 left-0 right-0 z-[55] bg-amber-600/90 backdrop-blur-sm text-white text-center py-1.5 px-4 text-xs font-bold tracking-wide">
+            ⚠ Fallback Test Stream — Real anime sources could not be resolved
+          </div>
+        )}
+
+        {/* Stream Debug Panel */}
+        <StreamDebugPanel
+          debugInfo={{
+            activeProvider: currentProviderName,
+            streamUrl: activeSource?.url || '',
+            sourceType: activeSource?.isM3U8 ? 'HLS' : 'MP4',
+            isFallback: isFallbackActive,
+            fallbackReason: fallbackReasonText,
+            subtitleCount: subtitleTracks.length,
+            subtitleLangs: subtitleTracks.map((t) => t.lang),
+            qualityLevels,
+            currentQuality,
+            audioLanguage: currentLanguage,
+            providers: providersList,
+            // Advanced Diagnostics
+            resolvedSourcesCount: activeSources.length,
+            animeId,
+            episodeNumber,
+            providerSlug,
+            matchedTitle,
+            matchedSlug,
+            searchCount,
+            episodeCountFound,
+            lastError: isFallbackActive ? fallbackReasonText : undefined,
+          }}
+        />
+
+        {/* Keyboard Shortcuts Overlay Modal */}
+        {showShortcutsHelp && (
+          <ShortcutsOverlay onClose={() => setShowShortcutsHelp(false)} />
+        )}
+      </div>
+
+      {/* Custom Inline Language & Server Selectors */}
+      {!isFullscreen && (
+        <div className="w-full bg-[#05050A]/70 backdrop-blur-md border border-white/10 rounded-2xl p-5 space-y-4 shadow-2xl">
+          {/* Language Selector Row */}
+          <div className="flex flex-col sm:flex-row sm:items-start md:items-center gap-3">
+            <div className="flex items-center gap-2 text-white/80 font-bold text-xs uppercase tracking-wider min-w-[120px] select-none py-1.5">
+              <Globe className="w-4 h-4 text-accent-violet" style={{ color: 'var(--player-accent)' }} />
+              <span>Languages</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'hindi', label: 'Hindi', available: hindiSourcesList.length > 0 || hasNativeHindi },
+                { key: 'sub', label: 'Japanese (SUB)', available: subSourcesList.length > 0 },
+                { key: 'dub', label: 'English (DUB)', available: dubSourcesList.length > 0 },
+                { key: 'tamil', label: 'Tamil', available: tamilSourcesList.length > 0 },
+                { key: 'telugu', label: 'Telugu', available: teluguSourcesList.length > 0 },
+              ].map((lang) => {
+                const isActive = currentLanguage === lang.key;
+                return (
+                  <button
+                    key={lang.key}
+                    disabled={!lang.available}
+                    onClick={() => selectLanguage(lang.key as any)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-accent-violet text-white shadow-lg shadow-accent-violet/20 border border-transparent'
+                        : lang.available
+                          ? 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5'
+                          : 'bg-white/[0.02] text-white/30 border border-white/[0.02] cursor-not-allowed'
+                    }`}
+                    style={isActive ? { backgroundColor: 'var(--player-accent)' } : undefined}
+                  >
+                    <span>{lang.label}</span>
+                    {!lang.available && <span className="text-[9px] font-medium opacity-65">(N/A)</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-white/5 w-full" />
+
+          {/* Servers / Providers Selector Row */}
+          <div className="flex flex-col sm:flex-row sm:items-start md:items-center gap-3">
+            <div className="flex items-center gap-2 text-white/80 font-bold text-xs uppercase tracking-wider min-w-[120px] select-none py-1.5">
+              <Server className="w-4 h-4 text-accent-violet" style={{ color: 'var(--player-accent)' }} />
+              <span>Servers</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {providersList.map((prov) => {
+                const isActive = currentProviderName === prov;
+                const friendlyName = getProviderFriendlyName(prov);
+                return (
+                  <button
+                    key={prov}
+                    onClick={() => selectProvider(prov)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-accent-violet text-white shadow-lg shadow-accent-violet/20 border border-transparent'
+                        : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5'
+                    }`}
+                    style={isActive ? { backgroundColor: 'var(--player-accent)' } : undefined}
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: isActive ? '#fff' : 'var(--player-accent)' }} />
+                    <span>{friendlyName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

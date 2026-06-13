@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { AnimeApi } from '@/lib/api';
+import { AnimeApi, UnifiedAnimeDetail } from '@/lib/api';
 import { auth } from '@/auth';
 import {
   Star, Clock, Tv, Users, Heart, Share2, Play, MessageSquare,
@@ -11,6 +11,8 @@ import Badge from '@/components/ui/Badge';
 import Progress from '@/components/ui/Progress';
 import { SectionSkeleton } from '@/components/ui/Skeleton';
 import AnimeDetailTabs from '@/components/AnimeDetailTabs';
+import { db } from '@/lib/db';
+import WatchActions from '@/components/video/WatchActions';
 import type { AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
 
 export const revalidate = 1800;
@@ -47,21 +49,155 @@ async function loadDetailData(animeId: number, userId?: string) {
 
 export default async function AnimeDetailPage({ params }: DetailPageProps) {
   const { id } = await params;
-  const animeId = parseInt(id, 10);
-
   const session = await auth();
   const userId = session?.user?.id;
 
-  if (isNaN(animeId)) {
-    return (
-      <div className="py-20 text-center">
-        <h1 className="text-2xl font-black text-text-primary">Invalid Anime ID</h1>
-        <Link href="/" className="mt-4 inline-block text-accent-violet hover:underline">← Back to Home</Link>
-      </div>
-    );
+  let latestProgress = null;
+  if (userId) {
+    latestProgress = await db.watchProgress.findFirst({
+      where: {
+        userId,
+        animeId: String(id),
+      },
+      orderBy: {
+        lastWatchedAt: 'desc',
+      },
+    });
   }
 
-  const { anime, characters, recommendations, episodes } = await loadDetailData(animeId, userId);
+  const isMalId = !id.startsWith('series-') && !id.startsWith('movies-');
+
+  let anime: UnifiedAnimeDetail | null = null;
+  let characters: CharacterRoster[] = [];
+  let recommendations: RecommendationItem[] = [];
+  let episodes: EpisodeData[] = [];
+
+  if (!isMalId) {
+    try {
+      const TOONPLAY_HEADERS = {
+        'Origin': 'https://toonplay.in',
+        'Referer': 'https://toonplay.in/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      };
+      const res = await fetch(`https://animesalt.streamindia.co.in/api/info?id=${id}`, {
+        headers: TOONPLAY_HEADERS,
+        next: { revalidate: 1800 }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.anime) {
+          const tpAnime = data.anime;
+          anime = {
+            mal_id: id as any,
+            title: tpAnime.title,
+            title_english: tpAnime.title,
+            title_japanese: tpAnime.title,
+            synopsis: tpAnime.description || 'No description available.',
+            images: {
+              jpg: {
+                image_url: tpAnime.image || '/app-icon.jpg',
+                small_image_url: tpAnime.image || '/app-icon.jpg',
+                large_image_url: tpAnime.image || '/app-icon.jpg',
+              },
+              webp: {
+                image_url: tpAnime.image || '/app-icon.jpg',
+                small_image_url: tpAnime.image || '/app-icon.jpg',
+                large_image_url: tpAnime.image || '/app-icon.jpg',
+              }
+            },
+            type: tpAnime.type === 'movie' ? 'Movie' : 'TV',
+            episodes: tpAnime.episodesCount || null,
+            score: 8.0,
+            scored_by: 100,
+            status: 'Finished Airing',
+            genres: [],
+            year: tpAnime.year || null,
+            studios: [],
+            producers: [],
+            userTracking: null,
+          } as unknown as UnifiedAnimeDetail;
+
+          if (userId) {
+            const entry = await db.listEntry.findUnique({
+              where: {
+                userId_animeId: {
+                  userId,
+                  animeId: id,
+                },
+              },
+            });
+            if (entry) {
+              anime.userTracking = {
+                status: entry.status,
+                score: entry.score,
+                episodesWatched: entry.episodesWatched,
+                rewatchCount: entry.rewatchCount,
+                startedAt: entry.startedAt,
+                completedAt: entry.completedAt,
+                notes: entry.notes,
+                isPrivate: entry.isPrivate,
+              };
+            }
+          }
+
+          const seasons = tpAnime.seasonsList || [];
+          let count = 1;
+          seasons.forEach((season: any) => {
+            if (season.episodes && Array.isArray(season.episodes)) {
+              season.episodes.forEach((ep: any) => {
+                episodes.push({
+                  mal_id: count,
+                  url: '',
+                  title: ep.title || `Episode ${ep.number}`,
+                  title_japanese: null,
+                  title_romanji: null,
+                  aired: null,
+                  score: null,
+                  filler: false,
+                  recap: false,
+                  forum_url: null,
+                });
+                count++;
+              });
+            }
+          });
+
+          if (episodes.length === 0 && tpAnime.type === 'movie') {
+            episodes.push({
+              mal_id: 1,
+              url: '',
+              title: 'Full Feature Film',
+              title_japanese: null,
+              title_romanji: null,
+              aired: null,
+              score: null,
+              filler: false,
+              recap: false,
+              forum_url: null,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load ToonPlay direct catalog info:', error);
+    }
+  } else {
+    const animeId = parseInt(id, 10);
+    if (isNaN(animeId)) {
+      return (
+        <div className="py-20 text-center">
+          <h1 className="text-2xl font-black text-text-primary">Invalid Anime ID</h1>
+          <Link href="/" className="mt-4 inline-block text-accent-violet hover:underline">← Back to Home</Link>
+        </div>
+      );
+    }
+
+    const data = await loadDetailData(animeId, userId);
+    anime = data.anime;
+    characters = data.characters;
+    recommendations = data.recommendations;
+    episodes = data.episodes;
+  }
 
   if (!anime) {
     return (
@@ -69,7 +205,7 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
         <div className="text-5xl">⚠️</div>
         <h1 className="text-2xl font-black text-text-primary">Anime Not Found</h1>
         <p className="text-text-secondary text-sm">
-          The Jikan API may be rate-limited. Please try again in a moment.
+          The Jikan API may be rate-limited or the requested custom catalog item does not exist.
         </p>
         <Link href="/" className="inline-flex items-center gap-2 mt-2 px-6 py-3 rounded-xl bg-accent-violet text-white font-semibold text-sm hover:bg-[#6b4ae6] transition-colors">
           ← Return Home
@@ -206,14 +342,8 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-              <Link
-                href={`/anime/${animeId}#episodes`}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-violet text-white font-bold text-sm shadow-[0_0_24px_rgba(124,91,255,0.35)] hover:shadow-[0_0_36px_rgba(124,91,255,0.55)] hover:bg-[#6b4ae6] transition-all duration-200 hover:-translate-y-px"
-              >
-                <Play size={16} fill="currentColor" />
-                Watch Episodes
-              </Link>
-              <AddToListButton animeId={String(animeId)} animeTitle={mainTitle} animeImage={anime.images.webp.large_image_url || ''} episodes={anime.episodes} isLoggedIn={!!userId} existingStatus={tracking?.status} />
+              <WatchActions animeId={String(id)} latestProgress={latestProgress} />
+              <AddToListButton animeId={String(id)} animeTitle={mainTitle} animeImage={anime.images.webp.large_image_url || ''} episodes={anime.episodes} isLoggedIn={!!userId} existingStatus={tracking?.status} />
             </div>
           </div>
         </div>
@@ -352,8 +482,8 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
               </h3>
               <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
                 {[
-                  { label: 'Twitter', color: 'hover:bg-sky-500/20 hover:border-sky-500/40 hover:text-sky-400', href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${mainTitle} on AnimeWorld!`)}&url=${encodeURIComponent(`https://animeworldrj.vercel.app/anime/${animeId}`)}` },
-                  { label: 'Reddit', color: 'hover:bg-orange-500/20 hover:border-orange-500/40 hover:text-orange-400', href: `https://reddit.com/submit?url=${encodeURIComponent(`https://animeworldrj.vercel.app/anime/${animeId}`)}&title=${encodeURIComponent(mainTitle)}` },
+                  { label: 'Twitter', color: 'hover:bg-sky-500/20 hover:border-sky-500/40 hover:text-sky-400', href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${mainTitle} on AnimeWorld!`)}&url=${encodeURIComponent(`https://animeworldrj.vercel.app/anime/${id}`)}` },
+                  { label: 'Reddit', color: 'hover:bg-orange-500/20 hover:border-orange-500/40 hover:text-orange-400', href: `https://reddit.com/submit?url=${encodeURIComponent(`https://animeworldrj.vercel.app/anime/${id}`)}&title=${encodeURIComponent(mainTitle)}` },
                 ].map(({ label, color, href }) => (
                   <a
                     key={label}
