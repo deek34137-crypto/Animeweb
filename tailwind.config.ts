@@ -56,10 +56,10 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['var(--font-display)', 'Syne', 'sans-serif'],
-        body: ['var(--font-body)', 'Inter', 'sans-serif'],
+        display: ['var(--font-display)', 'Outfit', 'sans-serif'],
+        body: ['var(--font-body)', 'Plus Jakarta Sans', 'sans-serif'],
         mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
-        sans: ['var(--font-body)', 'Inter', 'sans-serif'],
+        sans: ['var(--font-body)', 'Plus Jakarta Sans', 'sans-serif'],
       },
     },
   },

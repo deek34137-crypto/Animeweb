@@ -7,17 +7,17 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CommandPalette from '@/components/ui/CommandPalette';
 import { Analytics } from '@vercel/analytics/next';
-import { Syne, Inter, JetBrains_Mono } from 'next/font/google';
+import { Outfit, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import '../globals.css';
 
-const syne = Syne({
+const outfit = Outfit({
   subsets: ['latin'],
-  weight: ['700', '800'],
+  weight: ['500', '600', '700', '800'],
   variable: '--font-display',
   display: 'swap',
 });
 
-const inter = Inter({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-body',
@@ -48,7 +48,7 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`${inter.variable} ${syne.variable} ${jetbrainsMono.variable} h-full scroll-smooth`}>
+    <html lang={locale} className={`${plusJakartaSans.variable} ${outfit.variable} ${jetbrainsMono.variable} h-full scroll-smooth`}>
       <head>
         {/* Font loading is handled via next/font */}
       </head>
