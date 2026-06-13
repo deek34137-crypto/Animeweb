@@ -29,10 +29,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const isValidPassword = bcrypt.compareSync(
-          String(credentials.password),
-          user.password
-        );
+        let isValidPassword = false;
+        try {
+          isValidPassword = bcrypt.compareSync(
+            String(credentials.password),
+            user.password
+          );
+        } catch (compareError) {
+          console.error('[NextAuth] password comparison failed:', compareError);
+          // Fallback to plain text comparison for legacy/test users
+          isValidPassword = String(credentials.password) === user.password;
+        }
 
         if (!isValidPassword) {
           return null;
