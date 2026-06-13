@@ -33,10 +33,13 @@ const hasHindiDub = (title: string, malId: number) => {
 };
 
 export default function AnimeCard({ anime, rank, variant = 'standard', onAddToList }: AnimeCardProps) {
+  const cardAnime = anime as any;
   const title = anime.title_english || anime.title;
   const score = anime.score ? anime.score.toFixed(1) : null;
   const statusInfo = STATUS_BADGE_MAP[anime.status || ''] || null;
-  const isHindiDubbed = hasHindiDub(title, anime.mal_id);
+  const isHindiDubbed = cardAnime.is_hindi_dubbed || hasHindiDub(title, anime.mal_id);
+  const isTamilDubbed = cardAnime.is_tamil_dubbed;
+  const isTeluguDubbed = cardAnime.is_telugu_dubbed;
 
   // 1. WIDE VARIANT: Landscape Bento Card (Spans 2 columns x 1 row)
   if (variant === 'wide') {
@@ -82,6 +85,16 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                 {isHindiDubbed && (
                   <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-orange-600/20 text-orange-400 border border-orange-500/30">
                     Hindi Dub
+                  </span>
+                )}
+                {isTamilDubbed && (
+                  <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-teal-600/20 text-teal-400 border border-teal-500/30">
+                    Tamil Dub
+                  </span>
+                )}
+                {isTeluguDubbed && (
+                  <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-400 border border-purple-500/30">
+                    Telugu Dub
                   </span>
                 )}
                 {anime.year && (
@@ -164,6 +177,16 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                   Hindi Dub
                 </span>
               )}
+              {isTamilDubbed && (
+                <span className="bg-teal-600/20 border border-teal-500/30 text-teal-400 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider uppercase backdrop-blur-sm">
+                  Tamil Dub
+                </span>
+              )}
+              {isTeluguDubbed && (
+                <span className="bg-purple-600/20 border border-purple-500/30 text-purple-400 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider uppercase backdrop-blur-sm">
+                  Telugu Dub
+                </span>
+              )}
               {anime.year && (
                 <span className="text-[11px] font-bold text-white/60">
                   {anime.year}
@@ -222,10 +245,20 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           )}
 
           {/* Top-right status badges */}
-          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 flex-wrap justify-end max-w-[120px]">
             {isHindiDubbed && (
-              <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-orange-600/80 backdrop-blur-xs text-white shadow-md">
+              <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-orange-600/95 backdrop-blur-xs text-white shadow-md">
                 Hindi
+              </span>
+            )}
+            {isTamilDubbed && (
+              <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-teal-600/95 backdrop-blur-xs text-white shadow-md">
+                Tamil
+              </span>
+            )}
+            {isTeluguDubbed && (
+              <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-purple-600/95 backdrop-blur-xs text-white shadow-md">
+                Telugu
               </span>
             )}
             {statusInfo && (

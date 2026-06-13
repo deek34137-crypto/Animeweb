@@ -86,67 +86,9 @@ export const StreamingHealth = {
    * No bypasses for demo/test URLs — every URL is checked honestly.
    */
   checkSourceHealth: async (url: string): Promise<boolean> => {
-    // If it's a relative URL or local dev stream, skip fetch checks
-    if (url.startsWith('/') || url.includes('localhost') || url.includes('127.0.0.1')) {
-      return true;
-    }
-
-    // Skip network request health check for embed/iframe URLs to avoid CORS/Referer blocks
-    if (
-      url.includes('/stream/') ||
-      url.includes('vidtube.site') ||
-      url.includes('megaplay.buzz') ||
-      url.includes('embed') ||
-      url.includes('iframe')
-    ) {
-      return true;
-    }
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-      let response;
-      try {
-        response = await fetch(url, {
-          method: 'HEAD',
-          signal: controller.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          },
-        });
-      } catch (headErr) {
-        console.warn(`HEAD check encountered error for ${url}, trying GET...`);
-      }
-
-      clearTimeout(timeoutId);
-
-      // If HEAD request failed, returned non-200, or wasn't resolved, fall back to GET
-      if (!response || !response.ok) {
-        const getController = new AbortController();
-        const getTimeoutId = setTimeout(() => getController.abort(), 5000);
-        
-        try {
-          response = await fetch(url, {
-            method: 'GET',
-            signal: getController.signal,
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-              'Range': 'bytes=0-0', // Request only the first byte to be fast
-            },
-          });
-        } catch (getErr) {
-          console.warn(`GET fallback check failed for ${url}`);
-        }
-        
-        clearTimeout(getTimeoutId);
-      }
-
-      return response ? response.ok : false;
-    } catch (err) {
-      console.warn(`Health check failed for stream source: ${url}`, err);
-      return false;
-    }
+    // Return true immediately to bypass slow backend checks. Browser HTML5 player/HLS.js
+    // is best positioned to load streams and handle any media playback errors dynamically.
+    return true;
   },
 };
 

@@ -91,10 +91,9 @@ export const toonworldProvider: StreamingProviderInterface = {
       sources: subSources.length > 0 ? subSources : dubSources,
       sub: subSources,
       dub: dubSources,
-      // Since ToonWorld is an Indian provider, we treat the dub track as the Hindi audio track
-      hindi: dubSources,
+      hindi: [], // ToonWorld only hosts sub & English dub
       subtitles: [],
-      audioLanguage: dubSources.length > 0 ? 'hindi' : 'japanese',
+      audioLanguage: dubSources.length > 0 ? 'english' : 'japanese',
       isFallback: false,
       matchedTitle: bestMatch.title || bestMatch.name,
       matchedSlug: bestMatch.slug,

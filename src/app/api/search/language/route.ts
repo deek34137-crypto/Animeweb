@@ -63,18 +63,30 @@ export async function GET(req: NextRequest) {
       }
 
       if (tpList.length === 0) {
+        // If ToonPlay has no results at all (e.g. search failed), fall back to Jikan list
         return NextResponse.json({ data: jikanList });
       }
 
-      const normalizedTpTitles = new Set(tpList.map(item => normalizeTitle(item.title)));
-      
+      // Filter tpList strictly to only keep items that have the selected language category
+      const filteredTpList = tpList.filter(item => {
+        const cats = (item.categories || []).map((c: any) => String(c).toLowerCase());
+        return cats.includes(tpLang);
+      });
+
+      // Map of normalized titles of the filtered tp items to their matching tp item details
+      const tpMatchMap = new Map<string, any>();
+      filteredTpList.forEach(item => {
+        tpMatchMap.set(normalizeTitle(item.title), item);
+      });
+
       const filtered = jikanList.filter((anime: any) => {
         const title = anime.title || '';
         const titleEng = anime.title_english || '';
         const normTitle = normalizeTitle(title);
         const normTitleEng = normalizeTitle(titleEng);
 
-        for (const tpTitle of normalizedTpTitles) {
+        let matchItem = null;
+        for (const [tpTitle, item] of tpMatchMap.entries()) {
           if (
             tpTitle === normTitle ||
             tpTitle === normTitleEng ||
@@ -83,14 +95,28 @@ export async function GET(req: NextRequest) {
             tpTitle.includes(normTitle) ||
             tpTitle.includes(normTitleEng)
           ) {
-            return true;
+            matchItem = item;
+            break;
           }
+        }
+
+        if (matchItem) {
+          // Enrich with language flags based on match categories
+          const cats = (matchItem.categories || []).map((c: any) => String(c).toLowerCase());
+          if (cats.includes('hindi')) (anime as any).is_hindi_dubbed = true;
+          if (cats.includes('tamil')) (anime as any).is_tamil_dubbed = true;
+          if (cats.includes('telugu')) (anime as any).is_telugu_dubbed = true;
+          if (cats.includes('english')) (anime as any).is_english_dubbed = true;
+          if (cats.includes('japanese')) (anime as any).is_japanese_subbed = true;
+          
+          // Map mal_id to the custom string ID to bypass Jikan and load ToonPlay stream directly
+          (anime as any).mal_id = matchItem.id;
+          return true;
         }
         return false;
       });
 
-      const finalData = filtered.length > 0 ? filtered : jikanList;
-      return NextResponse.json({ data: finalData });
+      return NextResponse.json({ data: filtered });
     }
 
     // ─── CASE 2: No query ──────────────────────────────────────────────────
@@ -104,30 +130,41 @@ export async function GET(req: NextRequest) {
     const data = await res.json();
     const shows = data.success ? (data.data || []) : [];
 
-    const mapped = shows.map((item: any) => ({
-      mal_id: item.id,
-      title: item.title,
-      title_english: item.title,
-      synopsis: 'Direct ToonPlay catalog entry. Select to watch episodes and streams.',
-      images: {
-        jpg: {
-          image_url: item.image || '/app-icon.jpg',
-          small_image_url: item.image || '/app-icon.jpg',
-          large_image_url: item.image || '/app-icon.jpg',
+    const mapped = shows.map((item: any) => {
+      const entry: any = {
+        mal_id: item.id,
+        title: item.title,
+        title_english: item.title,
+        synopsis: 'Direct ToonPlay catalog entry. Select to watch episodes and streams.',
+        images: {
+          jpg: {
+            image_url: item.image || '/app-icon.jpg',
+            small_image_url: item.image || '/app-icon.jpg',
+            large_image_url: item.image || '/app-icon.jpg',
+          },
+          webp: {
+            image_url: item.image || '/app-icon.jpg',
+            small_image_url: item.image || '/app-icon.jpg',
+            large_image_url: item.image || '/app-icon.jpg',
+          }
         },
-        webp: {
-          image_url: item.image || '/app-icon.jpg',
-          small_image_url: item.image || '/app-icon.jpg',
-          large_image_url: item.image || '/app-icon.jpg',
-        }
-      },
-      type: item.type === 'movie' ? 'Movie' : 'TV',
-      episodes: item.episodesCount || null,
-      score: 8.0,
-      status: 'Finished Airing',
-      genres: [],
-      year: item.year || null,
-    }));
+        type: item.type === 'movie' ? 'Movie' : 'TV',
+        episodes: item.episodesCount || null,
+        score: 8.0,
+        status: 'Finished Airing',
+        genres: [],
+        year: item.year || null,
+      };
+
+      // Set the respective language flag based on current search parameter
+      if (tpLang === 'hindi') entry.is_hindi_dubbed = true;
+      if (tpLang === 'tamil') entry.is_tamil_dubbed = true;
+      if (tpLang === 'telugu') entry.is_telugu_dubbed = true;
+      if (tpLang === 'english') entry.is_english_dubbed = true;
+      if (tpLang === 'japanese') entry.is_japanese_subbed = true;
+
+      return entry;
+    });
 
     return NextResponse.json({ data: mapped });
   } catch (error) {

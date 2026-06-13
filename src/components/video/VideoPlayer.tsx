@@ -445,6 +445,27 @@ export default function VideoPlayer({
     }
   }, []);
 
+  // Auto-switch language if the currently selected language is not available on the active provider
+  useEffect(() => {
+    const isAvailable = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu'): boolean => {
+      if (lang === 'hindi') return hindiSourcesList.length > 0 || hasNativeHindi;
+      if (lang === 'sub') return subSourcesList.length > 0;
+      if (lang === 'dub') return dubSourcesList.length > 0;
+      if (lang === 'tamil') return tamilSourcesList.length > 0;
+      if (lang === 'telugu') return teluguSourcesList.length > 0;
+      return false;
+    };
+
+    if (!isAvailable(currentLanguage)) {
+      const priorities: ('hindi' | 'sub' | 'dub' | 'tamil' | 'telugu')[] = ['hindi', 'sub', 'dub', 'tamil', 'telugu'];
+      const fallback = priorities.find(lang => isAvailable(lang));
+      if (fallback) {
+        console.info(`[Language Auto-Switch] Swapping from unavailable language "${currentLanguage}" to "${fallback}"`);
+        setCurrentLanguage(fallback);
+      }
+    }
+  }, [hindiSourcesList, subSourcesList, dubSourcesList, tamilSourcesList, teluguSourcesList, hasNativeHindi, currentLanguage]);
+
   const syncHlsAudioTrack = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu', hlsInstance = hlsRef.current) => {
     if (!hlsInstance) return;
     const tracks = hlsInstance.audioTracks;
