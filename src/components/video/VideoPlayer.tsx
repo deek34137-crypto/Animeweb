@@ -1215,6 +1215,7 @@ export default function VideoPlayer({
             className="w-full h-full border-0"
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"
             onLoad={() => setIsLoading(false)}
           />
         ) : (
