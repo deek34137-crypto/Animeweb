@@ -19,9 +19,9 @@ export default function Footer() {
           </p>
         </div>
         <div className="flex space-x-6 text-xs text-anime-muted">
-          <a href="#" className="hover:text-anime-orange transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-anime-orange transition-colors">Terms of Service</a>
-          <a href="#" className="hover:text-anime-orange transition-colors">Contact Us</a>
+          <Link href="/privacy" className="hover:text-anime-orange transition-colors">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-anime-orange transition-colors">Terms of Service</Link>
+          <Link href="/contact" className="hover:text-anime-orange transition-colors">Contact Us</Link>
         </div>
       </div>
     </footer>
