@@ -44,35 +44,35 @@ export async function POST(req: Request) {
       },
     });
 
-    // 2. Check Auto-Completion (Watch Progress >= 95% or ended)
+    // 2. Record WatchHistory immediately so it registers in the user's history tab
+    await db.watchHistory.upsert({
+      where: {
+        userId_animeId_episode: {
+          userId,
+          animeId: String(animeId),
+          episode: epNum,
+        },
+      },
+      update: {
+        completedAt: new Date(),
+      },
+      create: {
+        userId,
+        animeId: String(animeId),
+        animeTitle: animeTitle || 'Unknown Anime',
+        animeImage: animeImage || '',
+        episode: epNum,
+      },
+    });
+    const historyCreated = true;
+
+    // 3. Check Auto-Completion (Watch Progress >= 95% or ended) for list/tracker synchronization
     const completionRatio = posSec / durSec;
     const isCompleted = completionRatio >= 0.95;
 
-    let historyCreated = false;
     let listEntryUpdated = false;
 
     if (isCompleted) {
-      // 2a. Record WatchHistory (Clean upsert on rewatches to update timestamp and prevent duplication)
-      await db.watchHistory.upsert({
-        where: {
-          userId_animeId_episode: {
-            userId,
-            animeId: String(animeId),
-            episode: epNum,
-          },
-        },
-        update: {
-          completedAt: new Date(),
-        },
-        create: {
-          userId,
-          animeId: String(animeId),
-          animeTitle: animeTitle || 'Unknown Anime',
-          animeImage: animeImage || '',
-          episode: epNum,
-        },
-      });
-      historyCreated = true;
 
       // 2b. Auto list tracking updates
       // Find user's list entry for this anime

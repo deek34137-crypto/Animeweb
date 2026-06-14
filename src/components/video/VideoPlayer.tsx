@@ -594,6 +594,22 @@ export default function VideoPlayer({
     }
   }, [activeSource?.url, isIframeSource]);
 
+  // Save progress immediately when playing inside an iframe source (as timeupdates do not fire for cross-origin iframes)
+  useEffect(() => {
+    if (isIframeSource && activeSource) {
+      console.info(`[VideoPlayer] Recording iframe watch progress for ep ${episodeNumber}`);
+      progressService.updateProgress({
+        animeId,
+        animeTitle,
+        animeImage,
+        episode: episodeNumber,
+        position: 1,
+        duration: 1200, // mock duration (20 minutes)
+        force: true,
+      });
+    }
+  }, [animeId, episodeNumber, activeSource, isIframeSource, animeTitle, animeImage]);
+
   // ─── HLS Load & Failover ───────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
