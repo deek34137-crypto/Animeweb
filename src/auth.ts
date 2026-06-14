@@ -59,15 +59,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        // Fetch username from DB for profile path
+      }
+      
+      if (trigger === 'update' && session) {
+        if (session.name) token.name = session.name;
+        if (session.image) token.picture = session.image;
+        if (session.username) token.username = session.username;
+      } else {
         const dbUser = await db.user.findUnique({
-          where: { id: user.id },
-          select: { username: true },
+          where: { id: token.id },
+          select: { username: true, avatar: true, displayName: true },
         });
-        token.username = dbUser?.username || user.name || undefined;
+        if (dbUser) {
+          token.username = dbUser.username;
+          token.picture = dbUser.avatar;
+          token.name = dbUser.displayName || dbUser.username;
+        }
       }
       return token;
     },
@@ -75,6 +85,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token) {
         session.user.id = token.id;
         session.user.username = token.username;
+        session.user.image = token.picture;
+        session.user.name = token.name;
       }
       return session;
     },

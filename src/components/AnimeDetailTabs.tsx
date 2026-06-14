@@ -2,9 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  MessageSquare, Users, Play, Star, Calendar, Check, Heart, ArrowRight
+  MessageSquare, Users, Play, Star, Calendar, Check, Heart, ArrowRight, Loader2
 } from 'lucide-react';
-import { Link } from '@/navigation';
+import { Link, useRouter } from '@/navigation';
 import Badge from '@/components/ui/Badge';
 import Progress from '@/components/ui/Progress';
 import type { AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
@@ -27,6 +27,7 @@ interface AnimeDetailTabsProps {
   recommendations: RecommendationItem[];
   tracking: TrackingData | null;
   userId?: string;
+  watchedEpisodes?: number[];
 }
 
 type Tab = 'overview' | 'episodes';
@@ -38,6 +39,7 @@ export default function AnimeDetailTabs({
   recommendations,
   tracking,
   userId,
+  watchedEpisodes = [],
 }: AnimeDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const tabBarRef = useRef<HTMLDivElement>(null);
@@ -102,7 +104,7 @@ export default function AnimeDetailTabs({
           <OverviewTab anime={anime} characters={characters} recommendations={recommendations} tracking={tracking} />
         )}
         {activeTab === 'episodes' && (
-          <EpisodesTab episodes={episodes} anime={anime} tracking={tracking} userId={userId} />
+          <EpisodesTab episodes={episodes} anime={anime} tracking={tracking} userId={userId} watchedEpisodes={watchedEpisodes} />
         )}
       </div>
     </div>
@@ -251,14 +253,22 @@ function EpisodesTab({
   anime,
   tracking,
   userId,
+  watchedEpisodes,
 }: {
   episodes: EpisodeData[];
   anime: AnimeData;
   tracking: TrackingData | null;
   userId?: string;
+  watchedEpisodes: number[];
 }) {
+  const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'watched' | 'unwatched'>('all');
-  const episodesWatched = tracking?.episodesWatched || 0;
+  const [localWatched, setLocalWatched] = useState<number[]>(watchedEpisodes);
+  const [isToggling, setIsToggling] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLocalWatched(watchedEpisodes);
+  }, [watchedEpisodes]);
 
   // Fallback: if Jikan returned empty episodes (rate limit), generate numbered stubs from anime.episodes
   const resolvedEpisodes = episodes.length > 0
@@ -281,8 +291,50 @@ function EpisodesTab({
   const filtered = filter === 'all'
     ? resolvedEpisodes
     : filter === 'watched'
-      ? resolvedEpisodes.filter((ep) => ep.mal_id <= episodesWatched)
-      : resolvedEpisodes.filter((ep) => ep.mal_id > episodesWatched);
+      ? resolvedEpisodes.filter((ep) => localWatched.includes(ep.mal_id))
+      : resolvedEpisodes.filter((ep) => !localWatched.includes(ep.mal_id));
+
+  const handleToggleWatched = async (e: React.MouseEvent | React.FormEvent, epNum: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!userId) return;
+    if (isToggling !== null) return;
+    setIsToggling(epNum);
+
+    const isCurrentlyWatched = localWatched.includes(epNum);
+    const nextWatched = isCurrentlyWatched
+      ? localWatched.filter((n) => n !== epNum)
+      : [...localWatched, epNum];
+
+    setLocalWatched(nextWatched);
+
+    try {
+      const res = await fetch('/api/user/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          animeId: String(anime.mal_id),
+          animeTitle: anime.title_english || anime.title,
+          animeImage: anime.images.webp.large_image_url || anime.images.jpg.large_image_url || '',
+          episode: epNum,
+          watched: !isCurrentlyWatched,
+          totalEpisodes: episodes.length || anime.episodes,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to toggle watch state');
+      }
+
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+      setLocalWatched(localWatched);
+    } finally {
+      setIsToggling(null);
+    }
+  };
 
   if (!resolvedEpisodes.length) {
     return (
@@ -297,9 +349,8 @@ function EpisodesTab({
     );
   }
 
-  // Progress summary
   const totalEps = resolvedEpisodes.length || anime.episodes || 0;
-  const pct = totalEps > 0 ? Math.round((episodesWatched / totalEps) * 100) : 0;
+  const pct = totalEps > 0 ? Math.round((localWatched.length / totalEps) * 100) : 0;
 
   return (
     <div className="space-y-4">
@@ -307,10 +358,10 @@ function EpisodesTab({
       {userId && totalEps > 0 && (
         <div className="glass-panel border border-border-default rounded-2xl p-4 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-text-primary">{episodesWatched} / {totalEps} watched</span>
+            <span className="font-semibold text-text-primary">{localWatched.length} / {totalEps} watched</span>
             <span className="text-accent-violet font-bold">{pct}%</span>
           </div>
-          <Progress value={episodesWatched} max={totalEps} variant="violet" size="sm" />
+          <Progress value={localWatched.length} max={totalEps} variant="violet" size="sm" />
         </div>
       )}
 
@@ -334,7 +385,7 @@ function EpisodesTab({
       {/* Episode list */}
       <div className="space-y-1.5 max-h-[600px] overflow-y-auto no-scrollbar">
         {filtered.map((ep) => {
-          const isWatched = ep.mal_id <= episodesWatched;
+          const isWatched = localWatched.includes(ep.mal_id);
           return (
             <Link
               key={ep.mal_id}
@@ -345,14 +396,32 @@ function EpisodesTab({
                   : 'bg-surface-2 border-border-subtle hover:border-border-emphasis'
               }`}
             >
-              {/* Episode number */}
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${
-                isWatched
-                  ? 'bg-green-500/15 text-green-400 border border-green-500/20'
-                  : 'bg-surface-3 text-text-muted border border-border-subtle'
-              }`}>
-                {isWatched ? <Check size={14} /> : ep.mal_id}
-              </div>
+              {/* Episode number / Interactive toggle */}
+              {userId ? (
+                <button
+                  type="button"
+                  onClick={(e) => handleToggleWatched(e, ep.mal_id)}
+                  disabled={isToggling === ep.mal_id}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 transition-all border ${
+                    isWatched
+                      ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 shadow-sm'
+                      : 'bg-surface-3 border-border-subtle text-text-muted hover:border-accent-violet hover:text-accent-violet'
+                  }`}
+                  title={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
+                >
+                  {isToggling === ep.mal_id ? (
+                    <Loader2 size={12} className="animate-spin text-accent-violet" />
+                  ) : isWatched ? (
+                    <Check size={14} strokeWidth={3} />
+                  ) : (
+                    ep.mal_id
+                  )}
+                </button>
+              ) : (
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 bg-surface-3 text-text-muted border border-border-subtle">
+                  {ep.mal_id}
+                </div>
+              )}
 
               {/* Title & date */}
               <div className="flex-grow min-w-0">

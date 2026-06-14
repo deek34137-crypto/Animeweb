@@ -13,6 +13,7 @@ import { SectionSkeleton } from '@/components/ui/Skeleton';
 import AnimeDetailTabs from '@/components/AnimeDetailTabs';
 import { db } from '@/lib/db';
 import WatchActions from '@/components/video/WatchActions';
+import AddToListButton from '@/components/AddToListButton';
 import type { AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
 
 export const revalidate = 1800;
@@ -53,16 +54,30 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
   const userId = session?.user?.id;
 
   let latestProgress = null;
+  let watchedEpisodes: number[] = [];
   if (userId) {
-    latestProgress = await db.watchProgress.findFirst({
-      where: {
-        userId,
-        animeId: String(id),
-      },
-      orderBy: {
-        lastWatchedAt: 'desc',
-      },
-    });
+    const [progress, history] = await Promise.all([
+      db.watchProgress.findFirst({
+        where: {
+          userId,
+          animeId: String(id),
+        },
+        orderBy: {
+          lastWatchedAt: 'desc',
+        },
+      }),
+      db.watchHistory.findMany({
+        where: {
+          userId,
+          animeId: String(id),
+        },
+        select: {
+          episode: true,
+        },
+      }),
+    ]);
+    latestProgress = progress;
+    watchedEpisodes = history.map((h) => h.episode);
   }
 
   const isMalId = !id.startsWith('series-') && !id.startsWith('movies-');
@@ -343,7 +358,14 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3 justify-center md:justify-start">
               <WatchActions animeId={String(id)} latestProgress={latestProgress} />
-              <AddToListButton animeId={String(id)} animeTitle={mainTitle} animeImage={anime.images.webp.large_image_url || ''} episodes={anime.episodes} isLoggedIn={!!userId} existingStatus={tracking?.status} />
+              <AddToListButton
+                animeId={String(id)}
+                animeTitle={mainTitle}
+                animeImage={anime.images.webp.large_image_url || ''}
+                episodes={anime.episodes}
+                isLoggedIn={!!userId}
+                initialTracking={tracking}
+              />
             </div>
           </div>
         </div>
@@ -363,6 +385,7 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
                 recommendations={recommendations}
                 tracking={tracking ?? null}
                 userId={userId}
+                watchedEpisodes={watchedEpisodes}
               />
             </Suspense>
           </div>
@@ -512,64 +535,4 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
   );
 }
 
-// ─── Add To List Button (Client Component shell) ─────────────────────────────
-function AddToListButton({
-  animeId,
-  animeTitle,
-  animeImage,
-  episodes,
-  isLoggedIn,
-  existingStatus,
-}: {
-  animeId: string;
-  animeTitle: string;
-  animeImage: string;
-  episodes?: number | null;
-  isLoggedIn: boolean;
-  existingStatus?: string;
-}) {
-  if (!isLoggedIn) {
-    return (
-      <Link
-        href="/login"
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-2 border border-border-default text-text-secondary font-semibold text-sm hover:border-border-emphasis hover:text-text-primary transition-all duration-200"
-      >
-        <Plus size={16} /> Add to List
-      </Link>
-    );
-  }
 
-  const statusIcons: Record<string, React.ReactNode> = {
-    watching: <Play size={16} />,
-    completed: <CheckCircle2 size={16} />,
-    paused: <Pause size={16} />,
-    dropped: <XCircle size={16} />,
-    planning: <BookMarked size={16} />,
-    rewatching: <RefreshCw size={16} />,
-  };
-
-  if (existingStatus) {
-    return (
-      <span className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-2 border border-border-default text-sm font-semibold capitalize ${STATUS_COLORS[existingStatus] || 'text-text-secondary'}`}>
-        {statusIcons[existingStatus] || <BookMarked size={16} />}
-        {existingStatus}
-      </span>
-    );
-  }
-
-  return (
-    <form action={`/api/list/entry`} method="POST">
-      <input type="hidden" name="animeId" value={animeId} />
-      <input type="hidden" name="animeTitle" value={animeTitle} />
-      <input type="hidden" name="animeImage" value={animeImage} />
-      <input type="hidden" name="animeEpisodes" value={episodes || ''} />
-      <input type="hidden" name="status" value="planning" />
-      <button
-        type="submit"
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-2 border border-border-default text-text-secondary font-semibold text-sm hover:border-border-emphasis hover:text-text-primary transition-all duration-200"
-      >
-        <Plus size={16} /> Add to List
-      </button>
-    </form>
-  );
-}

@@ -28,6 +28,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
       email: true,
       displayName: true,
       avatar: true,
+      banner: true,
       bio: true,
       malUsername: true,
       anilistUsername: true,

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   User, Link2, Unlink, Loader2, Save, CheckCircle, ShieldAlert,
   Settings, Check, AlertTriangle
@@ -13,12 +14,50 @@ interface UserSettings {
   email: string;
   displayName: string | null;
   avatar: string | null;
+  banner: string | null;
   bio: string | null;
   malUsername: string | null;
   anilistUsername: string | null;
   syncToMal: boolean;
   syncToAnilist: boolean;
 }
+
+const compressImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
 
 interface SettingsClientProps {
   user: UserSettings;
@@ -27,10 +66,13 @@ interface SettingsClientProps {
 export default function SettingsClient({ user }: SettingsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { update: updateSession } = useSession();
 
   // Profile forms state
   const [displayName, setDisplayName] = useState(user.displayName || '');
   const [bio, setBio] = useState(user.bio || '');
+  const [avatar, setAvatar] = useState(user.avatar || '');
+  const [banner, setBanner] = useState(user.banner || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -84,11 +126,19 @@ export default function SettingsClient({ user }: SettingsClientProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ displayName, bio }),
+        body: JSON.stringify({ displayName, bio, avatar, banner }),
       });
 
       if (!res.ok) {
         throw new Error('Failed to update profile.');
+      }
+
+      // Refresh Client session in NextAuth
+      if (updateSession) {
+        await updateSession({
+          image: avatar || null,
+          name: displayName || user.username,
+        });
       }
 
       setProfileMessage({ type: 'success', text: 'Profile updated successfully!' });
@@ -295,6 +345,127 @@ export default function SettingsClient({ user }: SettingsClientProps) {
               />
             </div>
 
+            {/* Avatar & Banner Design */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-border-subtle">
+              {/* Avatar Uploader */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Avatar (Profile Picture)</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-surface-3 border border-border-subtle overflow-hidden flex items-center justify-center flex-shrink-0 relative">
+                    {avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatar} alt="Avatar Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[10px] text-text-muted font-bold uppercase">No PFP</span>
+                    )}
+                  </div>
+                  <div className="flex-grow space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="avatar-file-input"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const compressed = await compressImage(file, 256, 256);
+                            setAvatar(compressed);
+                          } catch (err) {
+                            console.error('Failed to compress avatar:', err);
+                          }
+                        }
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById('avatar-file-input')?.click()}
+                        className="px-3 py-1.5 bg-surface-3 border border-border-subtle text-text-primary rounded-xl text-xs font-semibold hover:border-border-emphasis transition"
+                      >
+                        Upload PFP
+                      </button>
+                      {avatar && (
+                        <button
+                          type="button"
+                          onClick={() => setAvatar('')}
+                          className="px-3 py-1.5 border border-red-500/20 hover:border-red-500 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-semibold rounded-xl transition"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Or paste image URL..."
+                      value={avatar.startsWith('data:') ? '' : avatar}
+                      onChange={(e) => setAvatar(e.target.value)}
+                      className="w-full bg-surface-2 border border-border-subtle focus:border-accent-violet focus:outline-none rounded-xl px-3 py-1.5 text-xs text-text-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Banner Uploader */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Custom Banner</label>
+                <div className="flex flex-col gap-3">
+                  <div className="w-full h-16 rounded-xl bg-surface-3 border border-border-subtle overflow-hidden flex items-center justify-center relative">
+                    {banner ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={banner} alt="Banner Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[10px] text-text-muted font-bold uppercase">No Banner</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="banner-file-input"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const compressed = await compressImage(file, 800, 300);
+                            setBanner(compressed);
+                          } catch (err) {
+                            console.error('Failed to compress banner:', err);
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('banner-file-input')?.click()}
+                      className="px-3 py-1.5 bg-surface-3 border border-border-subtle text-text-primary rounded-xl text-xs font-semibold hover:border-border-emphasis transition"
+                    >
+                      Upload Banner
+                    </button>
+                    {banner && (
+                      <button
+                        type="button"
+                        onClick={() => setBanner('')}
+                        className="px-3 py-1.5 border border-red-500/20 hover:border-red-500 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-semibold rounded-xl transition"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Or paste banner URL..."
+                    value={banner.startsWith('data:') ? '' : banner}
+                    onChange={(e) => setBanner(e.target.value)}
+                    className="w-full bg-surface-2 border border-border-subtle focus:border-accent-violet focus:outline-none rounded-xl px-3 py-1.5 text-xs text-text-primary"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+
             {profileMessage && (
               <p
                 className={`text-xs font-semibold ${
@@ -313,6 +484,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
               {isSavingProfile ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
               <span>Save Profile Changes</span>
             </button>
+            </div>
           </form>
         </div>
 

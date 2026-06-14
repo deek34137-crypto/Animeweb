@@ -145,8 +145,18 @@ export default function Navbar() {
                     className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl bg-surface-2 border border-border-subtle hover:border-border-emphasis transition-all duration-200"
                     aria-expanded={userMenuOpen}
                   >
-                    <div className="w-6 h-6 rounded-full bg-accent-violet/20 border border-accent-violet/40 flex items-center justify-center text-xs font-bold text-accent-violet">
-                      {(session.user?.name || session.user?.email || 'U')[0].toUpperCase()}
+                    <div className="w-6 h-6 rounded-full bg-accent-violet/20 border border-accent-violet/40 flex items-center justify-center text-xs font-bold text-accent-violet overflow-hidden flex-shrink-0">
+                      {session.user?.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={session.user.image}
+                          alt={session.user?.name || 'User'}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        (session.user?.name || session.user?.email || 'U')[0].toUpperCase()
+                      )}
                     </div>
                     <span className="text-xs font-medium text-text-secondary max-w-[80px] truncate">
                       {session.user?.name || 'Profile'}

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, Check, Play, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, ArrowUpDown, Check, Play, ChevronDown, Loader2 } from 'lucide-react';
 import { Link, useRouter } from '@/navigation';
 
 interface EpisodeItem {
@@ -43,6 +43,53 @@ export default function EpisodeSidebar({
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortAsc, setSortAsc] = useState(true);
+  const [localWatched, setLocalWatched] = useState<number[]>(watchedEpisodes);
+  const [isToggling, setIsToggling] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLocalWatched(watchedEpisodes);
+  }, [watchedEpisodes]);
+
+  const handleToggleWatched = async (e: React.MouseEvent, epNum: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isToggling !== null) return;
+    setIsToggling(epNum);
+
+    const isCurrentlyWatched = localWatched.includes(epNum);
+    const nextWatched = isCurrentlyWatched
+      ? localWatched.filter((n) => n !== epNum)
+      : [...localWatched, epNum];
+
+    setLocalWatched(nextWatched);
+
+    try {
+      const res = await fetch('/api/user/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          animeId,
+          animeTitle,
+          animeImage,
+          episode: epNum,
+          watched: !isCurrentlyWatched,
+          totalEpisodes: totalEpisodes || episodes.length,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to toggle watch state');
+      }
+
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+      setLocalWatched(localWatched);
+    } finally {
+      setIsToggling(null);
+    }
+  };
 
   // Fallback: if no episodes from provider, generate stubs from totalEpisodes
   const resolvedEpisodes = useMemo(() => {
@@ -146,13 +193,13 @@ export default function EpisodeSidebar({
         ) : (
           filteredEpisodes.map((ep) => {
             const isActive = ep.number === currentEpisode;
-            const isWatched = watchedEpisodes.includes(ep.number);
+            const isWatched = localWatched.includes(ep.number);
 
             return (
               <Link
                 key={ep.number}
                 href={`/watch/${animeId}/${ep.number}` as '/'}
-                className={`block rounded-xl border overflow-hidden transition-all duration-200 group ${
+                className={`block rounded-xl border overflow-hidden transition-all duration-200 group relative ${
                   isActive
                     ? 'border-l-2 border-accent-violet bg-accent-violet/10 shadow-[0_0_16px_rgba(124,91,255,0.15)]'
                     : isWatched
@@ -166,7 +213,7 @@ export default function EpisodeSidebar({
                     <img
                       src={animeImage}
                       alt={ep.title || `Episode ${ep.number}`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover animate-fade-in"
                       referrerPolicy="no-referrer"
                       loading="lazy"
                     />
@@ -175,11 +222,25 @@ export default function EpisodeSidebar({
                         <Play size={18} fill="currentColor" className="text-accent-violet animate-pulse" />
                       </div>
                     )}
-                    {isWatched && !isActive && (
-                      <div className="absolute bottom-0.5 right-0.5">
-                        <Check size={12} className="text-green-400 drop-shadow-md" />
-                      </div>
-                    )}
+
+                    {/* Checkmark click target overlay */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleWatched(e, ep.number)}
+                      disabled={isToggling === ep.number}
+                      className={`absolute top-1 right-1 z-20 w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
+                        isWatched
+                          ? 'bg-emerald-500 border-emerald-400 text-white shadow-sm opacity-100'
+                          : 'bg-black/60 border-white/20 text-white/50 opacity-0 group-hover:opacity-100 hover:text-white hover:border-white'
+                      }`}
+                      title={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
+                    >
+                      {isToggling === ep.number ? (
+                        <Loader2 size={10} className="animate-spin text-white" />
+                      ) : (
+                        <Check size={10} strokeWidth={3} />
+                      )}
+                    </button>
                   </div>
 
                   {/* Episode info */}
