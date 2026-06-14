@@ -384,22 +384,37 @@ export default function VideoPlayer({
 
   // Sync prop changes
   useEffect(() => {
-    setSubSourcesList(subSources.length > 0 ? subSources : sources);
-    setDubSourcesList(dubSources);
-    setHindiSourcesList(hindiSources);
-    setTamilSourcesList(tamilSources);
-    setTeluguSourcesList(teluguSources);
-    setSubtitleTracks(subtitles);
-    setProvidersList(providers.length > 0 ? providers : ['mock']);
-    setCurrentProviderName(currentProvider);
-    setMatchedTitle(initialMatchedTitle);
-    setMatchedSlug(initialMatchedSlug);
-    setSearchCount(initialSearchCount);
-    setEpisodeCountFound(initialEpisodeCountFound);
-    setProviderSlug(initialProviderSlug);
+    const isDifferentArray = (a: any[] | undefined, b: any[] | undefined) => {
+      if (!a && !b) return false;
+      if (!a || !b) return true;
+      if (a.length !== b.length) return true;
+      for (let i = 0; i < a.length; i++) {
+        if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) return true;
+      }
+      return false;
+    };
+
+    const nextSubs = subSources.length > 0 ? subSources : sources;
+    if (isDifferentArray(subSourcesList, nextSubs)) setSubSourcesList(nextSubs);
+    if (isDifferentArray(dubSourcesList, dubSources)) setDubSourcesList(dubSources);
+    if (isDifferentArray(hindiSourcesList, hindiSources)) setHindiSourcesList(hindiSources);
+    if (isDifferentArray(tamilSourcesList, tamilSources)) setTamilSourcesList(tamilSources);
+    if (isDifferentArray(teluguSourcesList, teluguSources)) setTeluguSourcesList(teluguSources);
+    if (isDifferentArray(subtitleTracks, subtitles)) setSubtitleTracks(subtitles);
+    
+    const nextProviders = providers.length > 0 ? providers : ['mock'];
+    if (isDifferentArray(providersList, nextProviders)) setProvidersList(nextProviders);
+    if (currentProviderName !== currentProvider) setCurrentProviderName(currentProvider);
+    if (matchedTitle !== initialMatchedTitle) setMatchedTitle(initialMatchedTitle);
+    if (matchedSlug !== initialMatchedSlug) setMatchedSlug(initialMatchedSlug);
+    if (searchCount !== initialSearchCount) setSearchCount(initialSearchCount);
+    if (episodeCountFound !== initialEpisodeCountFound) setEpisodeCountFound(initialEpisodeCountFound);
+    if (providerSlug !== initialProviderSlug) setProviderSlug(initialProviderSlug);
   }, [
     sources, subSources, dubSources, hindiSources, tamilSources, teluguSources, subtitles, providers, currentProvider,
-    initialMatchedTitle, initialMatchedSlug, initialSearchCount, initialEpisodeCountFound, initialProviderSlug
+    initialMatchedTitle, initialMatchedSlug, initialSearchCount, initialEpisodeCountFound, initialProviderSlug,
+    subSourcesList, dubSourcesList, hindiSourcesList, tamilSourcesList, teluguSourcesList, subtitleTracks, providersList,
+    currentProviderName, matchedTitle, matchedSlug, searchCount, episodeCountFound, providerSlug
   ]);
 
   // Sync refs
@@ -1200,7 +1215,6 @@ export default function VideoPlayer({
             className="w-full h-full border-0"
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             onLoad={() => setIsLoading(false)}
           />
         ) : (
