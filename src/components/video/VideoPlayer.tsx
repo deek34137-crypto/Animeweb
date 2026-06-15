@@ -1020,6 +1020,32 @@ export default function VideoPlayer({
       setEpisodeCountFound(data.episodeCountFound);
       setProviderSlug(data.providerSlug);
       setActiveSourceIdx(0);
+
+      // Auto-switch language if the current language has no sources in the new provider
+      const hasSub = data.sub && data.sub.length > 0;
+      const hasDub = data.dub && data.dub.length > 0;
+      const hasHindi = data.hindi && data.hindi.length > 0;
+      const hasTamil = data.tamil && data.tamil.length > 0;
+      const hasTelugu = data.telugu && data.telugu.length > 0;
+
+      let newLang = currentLanguage;
+      if (currentLanguage === 'sub' && !hasSub) {
+        if (hasHindi) newLang = 'hindi';
+        else if (hasDub) newLang = 'dub';
+        else if (hasTamil) newLang = 'tamil';
+        else if (hasTelugu) newLang = 'telugu';
+      } else if (currentLanguage === 'hindi' && !hasHindi) {
+        if (hasSub) newLang = 'sub';
+        else if (hasDub) newLang = 'dub';
+      } else if (currentLanguage === 'dub' && !hasDub) {
+        if (hasSub) newLang = 'sub';
+        else if (hasHindi) newLang = 'hindi';
+      }
+
+      if (newLang !== currentLanguage) {
+        setCurrentLanguage(newLang);
+        localStorage.setItem('preferredLanguage', newLang);
+      }
     } catch (err) {
       console.warn(`Failed to swap provider in place to ${provider}:`, err);
       setToastMessage(`${getProviderFriendlyName(provider)} unavailable — try another server`);

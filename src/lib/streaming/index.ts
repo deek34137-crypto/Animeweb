@@ -67,14 +67,10 @@ export const StreamingManager = {
       finalChain.unshift(...hindiProviders);
     }
 
-    // If a specific provider is requested, prioritize it at the front of the queue
+    // If a specific provider is requested, resolve only that provider (no fallback failover)
     let queue = [...finalChain];
     if (providerName) {
-      const idx = queue.indexOf(providerName.toLowerCase());
-      if (idx > -1) {
-        queue.splice(idx, 1);
-      }
-      queue.unshift(providerName.toLowerCase());
+      queue = [providerName.toLowerCase()];
     }
 
     let lastError: any = null;
