@@ -78,7 +78,9 @@ async function searchAnimePahe(title: string): Promise<string> {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
-  const query = cleanTitle
+  const baseTitle = cleanTitle.split(':')[0].trim();
+
+  const query = baseTitle
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/[^\w\s]/g, '')
     .trim();
