@@ -1,4 +1,5 @@
 import { StreamingProviderInterface, EpisodeItem, EpisodeStreamInfo, EpisodeSource } from '../types';
+import { AnimeApi } from '@/lib/api';
 
 export const toonworldProvider: StreamingProviderInterface = {
   name: 'toonworld',
@@ -9,7 +10,15 @@ export const toonworldProvider: StreamingProviderInterface = {
       throw new Error('ToonWorld provider requires animeTitle for episode resolution.');
     }
 
-    const bestMatch = await findBestAnimeMatch(animeTitle);
+    const malId = parseInt(animeId, 10);
+    let isMovie = false;
+    if (!isNaN(malId)) {
+      try {
+        const detail = await AnimeApi.getAnimeDetail(malId);
+        isMovie = detail.type?.toLowerCase() === 'movie';
+      } catch (e) {}
+    }
+    const bestMatch = await findBestAnimeMatch(animeTitle, isMovie);
     if (!bestMatch) {
       throw new Error(`No matching anime found on ToonWorld for "${animeTitle}"`);
     }
@@ -24,7 +33,15 @@ export const toonworldProvider: StreamingProviderInterface = {
       throw new Error('ToonWorld provider requires animeTitle for stream resolution.');
     }
 
-    const bestMatch = await findBestAnimeMatch(animeTitle);
+    const malId = parseInt(animeId, 10);
+    let isMovie = false;
+    if (!isNaN(malId)) {
+      try {
+        const detail = await AnimeApi.getAnimeDetail(malId);
+        isMovie = detail.type?.toLowerCase() === 'movie';
+      } catch (e) {}
+    }
+    const bestMatch = await findBestAnimeMatch(animeTitle, isMovie);
     if (!bestMatch) {
       throw new Error(`No matching anime found on ToonWorld for "${animeTitle}"`);
     }
@@ -113,9 +130,10 @@ interface ToonWorldAnime {
   title?: string;
   name?: string;
   slug?: string;
+  type?: string;
 }
 
-async function findBestAnimeMatch(title: string): Promise<ToonWorldAnime | null> {
+async function findBestAnimeMatch(title: string, isMovie: boolean = false): Promise<ToonWorldAnime | null> {
   const query = title
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/[^\w\s]/g, '')
@@ -142,13 +160,37 @@ async function findBestAnimeMatch(title: string): Promise<ToonWorldAnime | null>
       return null;
     }
 
-    // Best match resolution: Prioritize exact matches
+    // Best match resolution: Prioritize exact matches and type matching
     const normalizedTarget = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    
+    // 1. Exact match of title & type
     let bestMatch = animes.find(anime => {
       const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-      return normName === normalizedTarget;
+      const itemIsMovie = String(anime.type).toLowerCase() === 'movie';
+      return normName === normalizedTarget && itemIsMovie === isMovie;
     });
 
+    // 2. Exact match of title only
+    if (!bestMatch) {
+      bestMatch = animes.find(anime => {
+        const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+        return normName === normalizedTarget;
+      });
+    }
+
+    // 3. Substring match & type match
+    if (!bestMatch) {
+      for (const anime of animes) {
+        const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+        const itemIsMovie = String(anime.type).toLowerCase() === 'movie';
+        if (itemIsMovie === isMovie && (normName.includes(normalizedTarget) || normalizedTarget.includes(normName))) {
+          bestMatch = anime;
+          break;
+        }
+      }
+    }
+
+    // 4. Substring match only
     if (!bestMatch) {
       for (const anime of animes) {
         const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();

@@ -17,13 +17,13 @@ export const toonplayProvider: StreamingProviderInterface = {
     const isMalId = !animeId.startsWith('series-') && !animeId.startsWith('movies-');
 
     if (isMalId) {
+      const malId = parseInt(animeId, 10);
+      const detail = await AnimeApi.getAnimeDetail(malId);
       if (!animeTitle) {
-        // Fallback to fetch details to get the title
-        const malId = parseInt(animeId, 10);
-        const detail = await AnimeApi.getAnimeDetail(malId);
         animeTitle = detail.title_english || detail.title;
       }
-      const bestMatch = await findBestAnimeMatch(animeTitle);
+      const isMovie = detail.type?.toLowerCase() === 'movie';
+      const bestMatch = await findBestAnimeMatch(animeTitle, isMovie);
       if (!bestMatch) {
         throw new Error(`No matching anime found on ToonPlay for "${animeTitle}"`);
       }
@@ -80,12 +80,13 @@ export const toonplayProvider: StreamingProviderInterface = {
     const isMalId = !animeId.startsWith('series-') && !animeId.startsWith('movies-');
 
     if (isMalId) {
+      const malId = parseInt(animeId, 10);
+      const detail = await AnimeApi.getAnimeDetail(malId);
       if (!animeTitle) {
-        const malId = parseInt(animeId, 10);
-        const detail = await AnimeApi.getAnimeDetail(malId);
         animeTitle = detail.title_english || detail.title;
       }
-      const bestMatch = await findBestAnimeMatch(animeTitle);
+      const isMovie = detail.type?.toLowerCase() === 'movie';
+      const bestMatch = await findBestAnimeMatch(animeTitle, isMovie);
       if (!bestMatch) {
         throw new Error(`No matching anime found on ToonPlay for "${animeTitle}"`);
       }
@@ -257,7 +258,7 @@ interface ToonPlaySearchResult {
   type: string;
 }
 
-async function findBestAnimeMatch(title: string): Promise<ToonPlaySearchResult | null> {
+async function findBestAnimeMatch(title: string, isMovie: boolean = false): Promise<ToonPlaySearchResult | null> {
   const query = title
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/[^\w\s]/g, '')
@@ -284,13 +285,37 @@ async function findBestAnimeMatch(title: string): Promise<ToonPlaySearchResult |
       return null;
     }
 
-    // Fuzzy matching: Prioritize exact matches
+    // Fuzzy matching: Prioritize exact matches and type matching
     const normalizedTarget = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    
+    // 1. Exact match of title & type
     let bestMatch = results.find(item => {
       const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-      return normName === normalizedTarget;
+      const itemIsMovie = item.type === 'movie';
+      return normName === normalizedTarget && itemIsMovie === isMovie;
     });
 
+    // 2. Exact match of title only
+    if (!bestMatch) {
+      bestMatch = results.find(item => {
+        const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        return normName === normalizedTarget;
+      });
+    }
+
+    // 3. Substring match & type match
+    if (!bestMatch) {
+      for (const item of results) {
+        const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        const itemIsMovie = item.type === 'movie';
+        if (itemIsMovie === isMovie && (normName.includes(normalizedTarget) || normalizedTarget.includes(normName))) {
+          bestMatch = item;
+          break;
+        }
+      }
+    }
+
+    // 4. Substring match only
     if (!bestMatch) {
       for (const item of results) {
         const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
