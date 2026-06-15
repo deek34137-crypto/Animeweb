@@ -284,16 +284,25 @@ async function findBestAnimeMatch(title: string): Promise<ToonPlaySearchResult |
       return null;
     }
 
-    // Fuzzy matching
+    // Fuzzy matching: Prioritize exact matches
     const normalizedTarget = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-    let bestMatch = results[0];
-
-    for (const item of results) {
+    let bestMatch = results.find(item => {
       const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-      if (normName === normalizedTarget || normName.includes(normalizedTarget) || normalizedTarget.includes(normName)) {
-        bestMatch = item;
-        break;
+      return normName === normalizedTarget;
+    });
+
+    if (!bestMatch) {
+      for (const item of results) {
+        const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        if (normName.includes(normalizedTarget) || normalizedTarget.includes(normName)) {
+          bestMatch = item;
+          break;
+        }
       }
+    }
+
+    if (!bestMatch) {
+      bestMatch = results[0];
     }
 
     return bestMatch;

@@ -142,16 +142,25 @@ async function findBestAnimeMatch(title: string): Promise<ToonWorldAnime | null>
       return null;
     }
 
-    // Best match resolution
+    // Best match resolution: Prioritize exact matches
     const normalizedTarget = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-    let bestMatch = animes[0];
-
-    for (const anime of animes) {
+    let bestMatch = animes.find(anime => {
       const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-      if (normName === normalizedTarget || normName.includes(normalizedTarget) || normalizedTarget.includes(normName)) {
-        bestMatch = anime;
-        break;
+      return normName === normalizedTarget;
+    });
+
+    if (!bestMatch) {
+      for (const anime of animes) {
+        const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+        if (normName.includes(normalizedTarget) || normalizedTarget.includes(normName)) {
+          bestMatch = anime;
+          break;
+        }
       }
+    }
+
+    if (!bestMatch) {
+      bestMatch = animes[0];
     }
 
     return bestMatch;
