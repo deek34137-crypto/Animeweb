@@ -32,7 +32,11 @@ export const piratexplayProvider: StreamingProviderInterface = {
     }
 
     // 1. Search for the anime on PirateXPlay
-    const query = animeTitle
+    const cleanTitle = animeTitle
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    const query = cleanTitle
       .replace(/\s*\(.*?\)\s*/g, ' ')
       .replace(/[^\w\s]/g, '')
       .trim();
@@ -69,7 +73,7 @@ export const piratexplayProvider: StreamingProviderInterface = {
 
     for (const matchPath of allMatches) {
       const cleanSlug = matchPath.split('/').pop() || '';
-      const normSlug = cleanSlug.replace(/-/g, ' ').toLowerCase();
+      const normSlug = cleanSlug.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/-/g, ' ').toLowerCase();
       if (normSlug.includes(normalizedTarget) || normalizedTarget.includes(normSlug)) {
         bestMatchPath = matchPath;
         break;

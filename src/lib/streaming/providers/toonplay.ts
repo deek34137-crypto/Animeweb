@@ -258,79 +258,116 @@ interface ToonPlaySearchResult {
   type: string;
 }
 
+const GENERIC_WORDS = new Set([
+  'the', 'series', 'season', 'beginning', 'first', 'classic', 'indigo', 'league', 'tv', 'show',
+  'dub', 'sub', 'hindi', 'english', 'uncut', 'part', 'vol', 'volume', 'edition', 'version',
+  'of', 'and', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'a', 'an', 'arc'
+]);
+
+function getMatchScore(itemTitle: string, itemType: string, targetTitle: string, isMovieTarget: boolean): number {
+  const normItem = itemTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+  const normTarget = targetTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+
+  const itemIsMovie = itemType.toLowerCase() === 'movie';
+  const typeMatch = itemIsMovie === isMovieTarget;
+
+  if (normItem === normTarget) {
+    return 1000 + (typeMatch ? 200 : 0);
+  }
+
+  const itemWords = normItem.split(/\s+/).filter(Boolean);
+  const targetWords = normTarget.split(/\s+/).filter(Boolean);
+
+  const isSubstring = normItem.includes(normTarget) || normTarget.includes(normItem);
+  if (!isSubstring) {
+    return 0; // Not a match
+  }
+
+  let score = 100;
+  if (typeMatch) {
+    score += 200;
+  } else {
+    score -= 200;
+  }
+
+  // Penalize extra words in itemTitle that are not in targetTitle
+  const targetWordSet = new Set(targetWords);
+  for (const word of itemWords) {
+    if (!targetWordSet.has(word)) {
+      if (GENERIC_WORDS.has(word) || /^\d+$/.test(word)) {
+        score -= 1; // minor penalty
+      } else {
+        score -= 50; // high penalty
+      }
+    }
+  }
+
+  return score;
+}
+
 async function findBestAnimeMatch(title: string, isMovie: boolean = false): Promise<ToonPlaySearchResult | null> {
-  const query = title
+  const cleanTitle = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const query = cleanTitle
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/[^\w\s]/g, '')
     .trim();
 
-  const url = `https://animesalt.streamindia.co.in/api/search?q=${encodeURIComponent(query)}`;
-  console.info(`[ToonPlay] Searching: ${url}`);
+  console.info(`[ToonPlay] Searching for: "${query}"`);
 
   try {
-    const res = await fetch(url, {
-      headers: TOONPLAY_HEADERS,
-      signal: AbortSignal.timeout(8000),
+    const pages = [1, 2, 3];
+    const fetchPromises = pages.map(async (page) => {
+      const pageUrl = `https://animesalt.streamindia.co.in/api/search?q=${encodeURIComponent(query)}&page=${page}`;
+      try {
+        const res = await fetch(pageUrl, {
+          headers: TOONPLAY_HEADERS,
+          signal: AbortSignal.timeout(8000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data.success ? (data.data || []) : [];
+        }
+      } catch (e) {}
+      return [];
     });
 
-    if (!res.ok) {
-      throw new Error(`Search failed with status ${res.status}`);
-    }
+    const responses = await Promise.all(fetchPromises);
+    const results: ToonPlaySearchResult[] = [];
+    const seenIds = new Set<string>();
 
-    const data = await res.json();
-    const results: ToonPlaySearchResult[] = data.success ? (data.data || []) : [];
+    for (const list of responses) {
+      for (const item of list) {
+        if (item && item.id && !seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          results.push(item);
+        }
+      }
+    }
 
     if (results.length === 0) {
       console.warn(`[ToonPlay] No search results found for "${query}"`);
       return null;
     }
 
-    // Fuzzy matching: Prioritize exact matches and type matching
-    const normalizedTarget = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-    
-    // 1. Exact match of title & type
-    let bestMatch = results.find(item => {
-      const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-      const itemIsMovie = item.type === 'movie';
-      return normName === normalizedTarget && itemIsMovie === isMovie;
+    // Evaluate all candidates using getMatchScore
+    const scoredCandidates = results.map(item => {
+      const score = getMatchScore(item.title, item.type, cleanTitle, isMovie);
+      return { item, score };
     });
 
-    // 2. Exact match of title only
-    if (!bestMatch) {
-      bestMatch = results.find(item => {
-        const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        return normName === normalizedTarget;
-      });
+    // Sort by score descending
+    scoredCandidates.sort((a, b) => b.score - a.score);
+
+    console.info(`[ToonPlay] Best match: "${scoredCandidates[0].item.title}" (score: ${scoredCandidates[0].score}, id: "${scoredCandidates[0].item.id}")`);
+
+    if (scoredCandidates[0].score > 0) {
+      return scoredCandidates[0].item;
     }
 
-    // 3. Substring match & type match
-    if (!bestMatch) {
-      for (const item of results) {
-        const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        const itemIsMovie = item.type === 'movie';
-        if (itemIsMovie === isMovie && (normName.includes(normalizedTarget) || normalizedTarget.includes(normName))) {
-          bestMatch = item;
-          break;
-        }
-      }
-    }
-
-    // 4. Substring match only
-    if (!bestMatch) {
-      for (const item of results) {
-        const normName = item.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        if (normName.includes(normalizedTarget) || normalizedTarget.includes(normName)) {
-          bestMatch = item;
-          break;
-        }
-      }
-    }
-
-    if (!bestMatch) {
-      bestMatch = results[0];
-    }
-
-    return bestMatch;
+    return results[0];
   } catch (err: any) {
     console.error(`[ToonPlay] findBestAnimeMatch error: ${err.message}`);
     return null;

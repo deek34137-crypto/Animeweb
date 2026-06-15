@@ -33,7 +33,11 @@ export const desidubanimeProvider: StreamingProviderInterface = {
     }
 
     // Construct slug: lowercase, hyphenated, alphanumeric only
-    const slug = animeTitle
+    const cleanTitle = animeTitle
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    const slug = cleanTitle
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');

@@ -82,7 +82,11 @@ export const consumetProvider: StreamingProviderInterface = {
 // ─────────────────────────────────────────────
 
 async function searchZoro(title: string): Promise<string> {
-  const query = title
+  const cleanTitle = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const query = cleanTitle
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/[^\w\s]/g, '')
     .trim();
@@ -113,12 +117,12 @@ async function searchZoro(title: string): Promise<string> {
   }
 
   // Find best match
-  const normalizedTarget = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+  const normalizedTarget = cleanTitle.toLowerCase().replace(/[^\w\s]/g, '').trim();
   let bestMatch = results[0];
   for (const r of results) {
     const titleFields = [r.title, r.japaneseTitle, r.otherName].filter(Boolean);
     for (const t of titleFields) {
-      const norm = String(t).toLowerCase().replace(/[^\w\s]/g, '').trim();
+      const norm = String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').trim();
       if (norm === normalizedTarget || norm.includes(normalizedTarget) || normalizedTarget.includes(norm)) {
         bestMatch = r;
         break;

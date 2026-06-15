@@ -133,84 +133,124 @@ interface ToonWorldAnime {
   type?: string;
 }
 
+const GENERIC_WORDS = new Set([
+  'the', 'series', 'season', 'beginning', 'first', 'classic', 'indigo', 'league', 'tv', 'show',
+  'dub', 'sub', 'hindi', 'english', 'uncut', 'part', 'vol', 'volume', 'edition', 'version',
+  'of', 'and', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'a', 'an', 'arc'
+]);
+
+function getMatchScore(itemTitle: string, itemType: string, targetTitle: string, isMovieTarget: boolean): number {
+  const normItem = itemTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+  const normTarget = targetTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+
+  const itemIsMovie = itemType.toLowerCase() === 'movie';
+  const typeMatch = itemIsMovie === isMovieTarget;
+
+  if (normItem === normTarget) {
+    return 1000 + (typeMatch ? 200 : 0);
+  }
+
+  const itemWords = normItem.split(/\s+/).filter(Boolean);
+  const targetWords = normTarget.split(/\s+/).filter(Boolean);
+
+  const isSubstring = normItem.includes(normTarget) || normTarget.includes(normItem);
+  if (!isSubstring) {
+    return 0; // Not a match
+  }
+
+  let score = 100;
+  if (typeMatch) {
+    score += 200;
+  } else {
+    score -= 200;
+  }
+
+  // Penalize extra words in itemTitle that are not in targetTitle
+  const targetWordSet = new Set(targetWords);
+  for (const word of itemWords) {
+    if (!targetWordSet.has(word)) {
+      if (GENERIC_WORDS.has(word) || /^\d+$/.test(word)) {
+        score -= 1; // minor penalty
+      } else {
+        score -= 50; // high penalty
+      }
+    }
+  }
+
+  return score;
+}
+
 async function findBestAnimeMatch(title: string, isMovie: boolean = false): Promise<ToonWorldAnime | null> {
-  const query = title
+  const cleanTitle = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const query = cleanTitle
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/[^\w\s]/g, '')
     .trim();
 
-  const url = `https://toonworld.in/api/proxy.php?action=search&keyword=${encodeURIComponent(query)}&page=1`;
-  console.info(`[ToonWorld] Searching: ${url}`);
+  console.info(`[ToonWorld] Searching for: "${query}"`);
 
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      signal: AbortSignal.timeout(8000),
+    const pages = [1, 2];
+    const fetchPromises = pages.map(async (page) => {
+      const pageUrl = `https://toonworld.in/api/proxy.php?action=search&keyword=${encodeURIComponent(query)}&page=${page}`;
+      try {
+        const res = await fetch(pageUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data?.results?.response || data?.results?.animes || data?.results?.data || data?.results || [];
+        }
+      } catch (e) {}
+      return [];
     });
 
-    if (!res.ok) {
-      throw new Error(`Search failed with status ${res.status}`);
+    const responses = await Promise.all(fetchPromises);
+    const animes: ToonWorldAnime[] = [];
+    const seenIds = new Set<string>();
+
+    for (const list of responses) {
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (item && item.id && !seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            animes.push(item);
+          }
+        }
+      }
     }
 
-    const data = await res.json();
-    const animes: ToonWorldAnime[] = data?.results?.response || data?.results?.animes || data?.results?.data || data?.results || [];
-
-    if (!Array.isArray(animes) || animes.length === 0) {
+    if (animes.length === 0) {
       console.warn(`[ToonWorld] No search results found for "${query}"`);
       return null;
     }
 
-    // Best match resolution: Prioritize exact matches and type matching
-    const normalizedTarget = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-    
-    // 1. Exact match of title & type
-    let bestMatch = animes.find(anime => {
-      const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-      const itemIsMovie = String(anime.type).toLowerCase() === 'movie';
-      return normName === normalizedTarget && itemIsMovie === isMovie;
+    // Evaluate all candidates using getMatchScore
+    const scoredCandidates = animes.map(anime => {
+      const score = getMatchScore(anime.title || anime.name || '', anime.type || '', cleanTitle, isMovie);
+      return { anime, score };
     });
 
-    // 2. Exact match of title only
-    if (!bestMatch) {
-      bestMatch = animes.find(anime => {
-        const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-        return normName === normalizedTarget;
-      });
+    // Sort by score descending
+    scoredCandidates.sort((a, b) => b.score - a.score);
+
+    console.info(`[ToonWorld] Best match: "${scoredCandidates[0].anime.title || scoredCandidates[0].anime.name}" (score: ${scoredCandidates[0].score}, id: "${scoredCandidates[0].anime.id}")`);
+
+    if (scoredCandidates[0].score > 0) {
+      return scoredCandidates[0].anime;
     }
 
-    // 3. Substring match & type match
-    if (!bestMatch) {
-      for (const anime of animes) {
-        const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-        const itemIsMovie = String(anime.type).toLowerCase() === 'movie';
-        if (itemIsMovie === isMovie && (normName.includes(normalizedTarget) || normalizedTarget.includes(normName))) {
-          bestMatch = anime;
-          break;
-        }
-      }
-    }
-
-    // 4. Substring match only
-    if (!bestMatch) {
-      for (const anime of animes) {
-        const normName = String(anime.title || anime.name || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-        if (normName.includes(normalizedTarget) || normalizedTarget.includes(normName)) {
-          bestMatch = anime;
-          break;
-        }
-      }
-    }
-
-    if (!bestMatch) {
-      bestMatch = animes[0];
-    }
-
-    return bestMatch;
+    return animes[0];
   } catch (err: any) {
     console.error(`[ToonWorld] findBestAnimeMatch error: ${err.message}`);
     return null;
   }
 }
+
 
 async function fetchEpisodesList(animeId: string): Promise<(EpisodeItem & { episodeId: string })[]> {
   const url = `https://toonworld.in/api/proxy.php?action=episodes&id=${encodeURIComponent(animeId)}`;

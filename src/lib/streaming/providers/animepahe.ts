@@ -74,7 +74,11 @@ export const animepaheProvider: StreamingProviderInterface = {
 // ─────────────────────────────────────────────
 
 async function searchAnimePahe(title: string): Promise<string> {
-  const query = title
+  const cleanTitle = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const query = cleanTitle
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/[^\w\s]/g, '')
     .trim();
@@ -105,10 +109,10 @@ async function searchAnimePahe(title: string): Promise<string> {
   }
 
   // Best match
-  const normalizedTarget = title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+  const normalizedTarget = cleanTitle.toLowerCase().replace(/[^\w\s]/g, '').trim();
   let bestMatch = results[0];
   for (const r of results) {
-    const norm = String(r.title || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+    const norm = String(r.title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').trim();
     if (norm === normalizedTarget || norm.includes(normalizedTarget) || normalizedTarget.includes(norm)) {
       bestMatch = r;
       break;
