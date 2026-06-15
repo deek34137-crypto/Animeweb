@@ -3,6 +3,8 @@ import { consumetProvider } from './consumet';
 import { animepaheProvider } from './animepahe';
 import { toonworldProvider } from './toonworld';
 import { toonplayProvider } from './toonplay';
+import { desidubanimeProvider } from './desidubanime';
+import { piratexplayProvider } from './piratexplay';
 
 class ProviderRegistry {
   private providers = new Map<string, StreamingProviderInterface>();
@@ -21,7 +23,7 @@ class ProviderRegistry {
   }
 
   public getPriorityChain(): string[] {
-    return ['toonplay', 'toonworld', 'consumet', 'animepahe'];
+    return ['toonplay', 'toonworld', 'desidubanime', 'piratexplay'];
   }
 
   public getDefault(): StreamingProviderInterface {
@@ -45,8 +47,11 @@ export const registry = new ProviderRegistry();
 // Register working providers
 registry.register(toonworldProvider);
 registry.register(toonplayProvider);
+registry.register(desidubanimeProvider);
+registry.register(piratexplayProvider);
 registry.register(consumetProvider);
 registry.register(animepaheProvider);
 
 export default registry;
+
 

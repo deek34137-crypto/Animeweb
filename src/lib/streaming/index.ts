@@ -62,7 +62,7 @@ export const StreamingManager = {
     // If Hindi is preferred, elevate Hindi providers to the absolute front of the failover chain
     let finalChain = [...sortedProviderNames];
     if (preferredLanguage?.toLowerCase() === 'hindi') {
-      const hindiProviders = ['toonplay', 'toonworld'];
+      const hindiProviders = ['toonplay', 'toonworld', 'desidubanime', 'piratexplay'];
       finalChain = finalChain.filter(p => !hindiProviders.includes(p));
       finalChain.unshift(...hindiProviders);
     }

@@ -60,8 +60,10 @@ interface VideoPlayerProps {
 
 const getProviderFriendlyName = (name: string): string => {
   switch (name.toLowerCase()) {
-    case 'toonplay': return 'Indian 1';
-    case 'toonworld': return 'Indian 2';
+    case 'toonplay': return 'ToonPlay';
+    case 'toonworld': return 'ToonWorld';
+    case 'desidubanime': return 'Hindi Dub';
+    case 'piratexplay': return 'PirateX';
     case 'consumet': return 'Multilingual 1';
     case 'animepahe': return 'Multilingual 2';
     default: return name.charAt(0).toUpperCase() + name.slice(1);
@@ -158,6 +160,14 @@ export default function VideoPlayer({
   const [isAutoplayNext, setIsAutoplayNext] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   // Settings & Overlays
   const [showSettings, setShowSettings] = useState(false);
@@ -584,7 +594,9 @@ export default function VideoPlayer({
       activeSource.url.includes('vidtube.site') ||
       activeSource.url.includes('megaplay.buzz') ||
       activeSource.url.includes('embed') ||
-      activeSource.url.includes('iframe')
+      activeSource.url.includes('iframe') ||
+      activeSource.url.includes('desidubanime.me') ||
+      activeSource.url.includes('piratexplay.cc')
     : false;
 
   // Trigger loading when iframe source changes
@@ -989,6 +1001,10 @@ export default function VideoPlayer({
       if (!res.ok) throw new Error('Provider resolved failed status.');
       const data = await res.json();
       
+      if (!data?.sources?.length && !data?.streams?.length && !data?.sub?.length && !data?.dub?.length && !data?.hindi?.length) {
+        throw new Error('No stream found');
+      }
+
       setCurrentProviderName(data.currentProvider || provider);
       setSubSourcesList(data.sub || []);
       setDubSourcesList(data.dub || []);
@@ -1006,7 +1022,7 @@ export default function VideoPlayer({
       setActiveSourceIdx(0);
     } catch (err) {
       console.warn(`Failed to swap provider in place to ${provider}:`, err);
-      setErrorMessage(`Failed to switch provider to ${provider}.`);
+      setToastMessage(`${getProviderFriendlyName(provider)} unavailable — try another server`);
       setIsLoading(false);
     }
   };
@@ -1231,6 +1247,7 @@ export default function VideoPlayer({
             className="w-full h-full border-0"
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture"
+            sandbox={activeSource?.url?.includes('piratexplay.cc') ? "allow-scripts allow-same-origin allow-forms allow-popups" : undefined}
             onLoad={() => setIsLoading(false)}
           />
         ) : (
@@ -1618,6 +1635,13 @@ export default function VideoPlayer({
         {/* Keyboard Shortcuts Overlay Modal */}
         {showShortcutsHelp && (
           <ShortcutsOverlay onClose={() => setShowShortcutsHelp(false)} />
+        )}
+
+        {toastMessage && (
+          <div className="absolute top-4 right-4 z-50 bg-[#0D0D14]/90 border border-red-500/30 text-white font-medium text-xs px-4 py-2.5 rounded-xl shadow-2xl animate-fade-in flex items-center gap-2 select-none backdrop-blur-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+            <span>{toastMessage}</span>
+          </div>
         )}
       </div>
 
