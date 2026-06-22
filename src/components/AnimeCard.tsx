@@ -1,10 +1,13 @@
 'use client';
 
-import React from 'react';
-import { Link } from '@/navigation';
+import React, { useState } from 'react';
+import { Link, useRouter } from '@/navigation';
 import { AnimeData } from '@/services/jikan';
-import { Star, Plus, Play } from 'lucide-react';
+import { Star, Plus, Play, Check, Loader2 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
+import { useSession } from 'next-auth/react';
+import { useWatchlistStore } from '@/store/useWatchlistStore';
+import { getEpisodeDisplay } from '@/lib/episode';
 
 interface AnimeCardProps {
   anime: AnimeData;
@@ -13,15 +16,9 @@ interface AnimeCardProps {
   onAddToList?: (anime: AnimeData) => void;
 }
 
-const STATUS_BADGE_MAP: Record<string, { variant: 'cyan' | 'gold' | 'sakura' | 'success' | 'default'; label: string }> = {
-  'Currently Airing': { variant: 'cyan', label: 'Airing' },
-  'Not yet aired': { variant: 'gold', label: 'Upcoming' },
-  'Finished Airing': { variant: 'default', label: 'Finished' },
-};
-
 const HINDI_FAVORITE_KEYWORDS = [
-  'naruto', 'demon slayer', 'jujutsu', 'hero academia', 'death note', 
-  'attack on titan', 'one piece', 'dragon ball', 'pokemon', 'doraemon', 
+  'naruto', 'demon slayer', 'jujutsu', 'hero academia', 'death note',
+  'attack on titan', 'one piece', 'dragon ball', 'pokemon', 'doraemon',
   'shin-chan', 'shin chan', 'crayon', 'hunter x hunter', 'detective conan',
   'avatar', 'blue lock', 'chainsaw man', 'solo leveling', 'tokyo revengers',
   'black clover', 'haikyu'
@@ -36,10 +33,60 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
   const cardAnime = anime as any;
   const title = anime.title_english || anime.title;
   const score = anime.score ? anime.score.toFixed(1) : null;
-  const statusInfo = STATUS_BADGE_MAP[anime.status || ''] || null;
   const isHindiDubbed = cardAnime.is_hindi_dubbed || hasHindiDub(title, anime.mal_id);
   const isTamilDubbed = cardAnime.is_tamil_dubbed;
   const isTeluguDubbed = cardAnime.is_telugu_dubbed;
+
+  const router = useRouter();
+  const { data: session } = useSession();
+  const { entries, upsertEntry, deleteEntry } = useWatchlistStore();
+  const [listLoading, setListLoading] = useState(false);
+
+  const isLoggedIn = !!session;
+  const listEntry = entries[String(anime.mal_id)];
+  const hasEntry = !!listEntry;
+
+  // Toggle watchlist logic
+  const handleToggleWatchlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isLoggedIn) {
+      router.push('/login');
+      return;
+    }
+
+    setListLoading(true);
+    try {
+      if (hasEntry) {
+        await deleteEntry(String(anime.mal_id));
+      } else {
+        await upsertEntry({
+          animeId: String(anime.mal_id),
+          animeTitle: title,
+          animeImage: anime.images.webp.large_image_url || anime.images.jpg.large_image_url,
+          animeEpisodes: anime.episodes,
+          status: 'planning',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to toggle library item:', err);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  const handleQuickPlay = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const episode = listEntry ? listEntry.episodesWatched + 1 : 1;
+    router.push(`/watch/${anime.mal_id}/${episode}` as '/');
+  };
+
+  // Watched percentage
+  const watchedPct = hasEntry && anime.episodes && listEntry.episodesWatched
+    ? Math.round((listEntry.episodesWatched / anime.episodes) * 100)
+    : 0;
 
   // 1. WIDE VARIANT: Landscape Bento Card (Spans 2 columns x 1 row)
   if (variant === 'wide') {
@@ -59,10 +106,9 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
               loading="lazy"
               referrerPolicy="no-referrer"
             />
-            {/* Rank badge */}
             {rank && (
-              <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded bg-accent-violet flex items-center justify-center text-[10px] font-black text-white shadow-lg">
-                {rank}
+              <div className="absolute top-2 left-2 z-10 w-7.5 h-7.5 rounded-lg bg-accent-violet flex items-center justify-center text-[11px] font-semibold text-white shadow-lg">
+                #{rank}
               </div>
             )}
           </div>
@@ -71,11 +117,6 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           <div className="flex-grow p-4 sm:p-5 flex flex-col justify-between overflow-hidden">
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                {statusInfo && (
-                  <Badge variant={statusInfo.variant} size="xs">
-                    {statusInfo.label}
-                  </Badge>
-                )}
                 {score && (
                   <div className="flex items-center gap-1 bg-accent-gold/15 border border-accent-gold/20 rounded-md px-1.5 py-0.5 shadow-sm">
                     <Star size={9} fill="currentColor" className="text-accent-gold" />
@@ -85,16 +126,6 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                 {isHindiDubbed && (
                   <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-orange-600/20 text-orange-400 border border-orange-500/30">
                     Hindi Dub
-                  </span>
-                )}
-                {isTamilDubbed && (
-                  <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-teal-600/20 text-teal-400 border border-teal-500/30">
-                    Tamil Dub
-                  </span>
-                )}
-                {isTeluguDubbed && (
-                  <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-400 border border-purple-500/30">
-                    Telugu Dub
                   </span>
                 )}
                 {anime.year && (
@@ -111,7 +142,10 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
               </p>
             </div>
             <div className="flex items-center justify-between text-[10px] sm:text-xs text-text-secondary mt-2 flex-wrap gap-2 border-t border-border-subtle/50 pt-2">
-              <span className="font-semibold text-text-muted">{anime.type || 'TV'} · {anime.episodes ? `${anime.episodes} ep` : 'Ongoing'}</span>
+              <span className="font-semibold text-text-muted">
+                {anime.type || 'TV'} · {getEpisodeDisplay({ title, episodes: anime.episodes, malId: anime.mal_id })}
+                {hasEntry && ` · Watched ${listEntry.episodesWatched}`}
+              </span>
               {anime.studios && anime.studios.length > 0 && (
                 <span className="font-black text-accent-violet truncate max-w-[120px] uppercase tracking-wider text-[10px]">
                   {anime.studios[0].name}
@@ -132,7 +166,6 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           href={`/anime/${anime.mal_id}`}
           className="block relative w-full h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover min-h-[350px]"
         >
-          {/* Background Image Container */}
           <div className="absolute inset-0 w-full h-full overflow-hidden bg-surface-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -142,25 +175,15 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
               loading="lazy"
               referrerPolicy="no-referrer"
             />
-            {/* Ambient gradients */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-[#05050A]/70 to-[#05050A]/20 opacity-95" />
           </div>
-          
-          {/* Top badges */}
-          <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
-            {statusInfo && (
-              <Badge variant={statusInfo.variant} size="xs">
-                {statusInfo.label}
-              </Badge>
-            )}
-          </div>
+
           {rank && (
-            <div className="absolute top-4 left-4 z-10 w-8 h-8 rounded-lg bg-accent-violet flex items-center justify-center text-xs font-black text-white shadow-[0_0_15px_rgba(124,91,255,0.4)]">
-              {rank}
+            <div className="absolute top-4 left-4 z-10 w-9.5 h-9.5 rounded-xl bg-accent-violet flex items-center justify-center text-xs font-semibold text-white shadow-lg">
+              #{rank}
             </div>
           )}
 
-          {/* Bottom details block */}
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6 space-y-3 z-20 flex flex-col justify-end h-full">
             <div className="flex items-center gap-2 flex-wrap">
               {score && (
@@ -169,22 +192,9 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                   <span className="text-[11px] font-black text-accent-gold">{score}</span>
                 </div>
               )}
-              <span className="bg-white/10 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider text-white uppercase backdrop-blur-sm">
-                {anime.rating ? anime.rating.split(' ')[0] : 'TV-14'}
-              </span>
               {isHindiDubbed && (
                 <span className="bg-orange-600/20 border border-orange-500/30 text-orange-400 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider uppercase backdrop-blur-sm">
                   Hindi Dub
-                </span>
-              )}
-              {isTamilDubbed && (
-                <span className="bg-teal-600/20 border border-teal-500/30 text-teal-400 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider uppercase backdrop-blur-sm">
-                  Tamil Dub
-                </span>
-              )}
-              {isTeluguDubbed && (
-                <span className="bg-purple-600/20 border border-purple-500/30 text-purple-400 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider uppercase backdrop-blur-sm">
-                  Telugu Dub
                 </span>
               )}
               {anime.year && (
@@ -200,7 +210,10 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
               {anime.synopsis || 'No description available.'}
             </p>
             <div className="flex items-center justify-between text-xs text-text-secondary pt-2.5 border-t border-white/10 mt-1">
-              <span className="font-semibold text-white/70">{anime.type || 'TV'} · {anime.episodes ? `${anime.episodes} ep` : 'Ongoing'}</span>
+              <span className="font-semibold text-white/70">
+                {anime.type || 'TV'} · {getEpisodeDisplay({ title, episodes: anime.episodes, malId: anime.mal_id })}
+                {hasEntry && ` · Watched ${listEntry.episodesWatched}`}
+              </span>
               {anime.studios && anime.studios.length > 0 && (
                 <span className="font-black text-accent-violet uppercase tracking-wider text-[10px] sm:text-[11px]">
                   {anime.studios[0].name}
@@ -213,123 +226,111 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
     );
   }
 
-  // 3. STANDARD VARIANT: Vertical card with slide-up hover details
+  // 3. STANDARD VARIANT: Vertical card with slide-up overlays
   return (
-    <div className="group relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:scale-[1.03] shadow-sm hover:shadow-lg rounded-xl">
-      <Link
-        href={`/anime/${anime.mal_id}`}
-        className="block relative rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover"
-      >
-        {/* Poster */}
-        <div className="relative aspect-[3/4] w-full overflow-hidden">
+    <div className="group relative w-full select-none flex flex-col h-full bg-bg-secondary/40 border border-border-subtle rounded-2xl overflow-hidden hover:border-[#7c3aed]/40 hover:shadow-[0_8px_24px_rgba(124,58,237,0.1)] hover:-translate-y-1 transition-all duration-300">
+      <Link href={`/anime/${anime.mal_id}`} className="w-full flex-1 flex flex-col">
+        {/* Poster Container */}
+        <div className="relative aspect-[2/3] w-full overflow-hidden bg-bg-elevated/20">
+          {/* Poster Image */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-[1.06] transition-transform duration-500 ease-out"
+            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
             loading="lazy"
             referrerPolicy="no-referrer"
           />
 
-          {/* Gradient overlay - darkens on hover */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-[#05050A]/20 to-transparent opacity-80 group-hover:opacity-60 transition-opacity duration-300" />
-
-          {/* Hover Action Overlay */}
-          <div className="absolute inset-0 bg-accent-violet/0 group-hover:bg-accent-violet/5 transition-colors duration-300" />
-
-          {/* Rank badge */}
-          {rank && (
-            <div className="absolute top-2 left-2 z-10 w-7 h-7 rounded-lg bg-accent-violet flex items-center justify-center text-[11px] font-black text-white shadow-lg">
-              {rank}
+          {/* Dynamic Progress Bar overlay */}
+          {watchedPct > 0 && (
+            <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20">
+              <div
+                className="h-full bg-gradient-to-r from-[#7c3aed] to-[#ec4899] transition-all duration-300"
+                style={{ width: `${watchedPct}%` }}
+              />
             </div>
           )}
 
-          {/* Top-right status badges */}
-          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 flex-wrap justify-end max-w-[120px]">
-            {isHindiDubbed && (
-              <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-orange-600/95 backdrop-blur-xs text-white shadow-md">
+          {/* Quick Play & Library Action Overlay on Hover */}
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
+            {/* Quick Play */}
+            <button
+              onClick={handleQuickPlay}
+              className="w-10 h-10 rounded-full bg-accent-violet hover:bg-[#6b4ae6] text-white flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105"
+              title="Quick Play"
+            >
+              <Play size={15} fill="white" className="ml-0.5" />
+            </button>
+
+            {/* Quick Library Toggle */}
+            <button
+              onClick={handleToggleWatchlist}
+              disabled={listLoading}
+              className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105 ${
+                hasEntry
+                  ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                  : 'bg-white/10 hover:bg-white/20 border border-white/20 text-white'
+              }`}
+              title={hasEntry ? 'In Library (Click to Remove)' : 'Add to Plan to Watch'}
+            >
+              {listLoading ? (
+                <Loader2 size={13} className="animate-spin text-white" />
+              ) : hasEntry ? (
+                <Check size={14} strokeWidth={2.5} />
+              ) : (
+                <Plus size={14} strokeWidth={2.5} />
+              )}
+            </button>
+          </div>
+
+          {/* Episodes Badge */}
+          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-bg-primary/75 text-text-primary text-[9px] font-black z-10 backdrop-blur-sm">
+            {getEpisodeDisplay({ title, episodes: anime.episodes, malId: anime.mal_id })}
+          </div>
+
+          {/* Lang badge (SUB / DUB) */}
+          <div className="absolute bottom-2 right-2 z-10">
+            {isHindiDubbed ? (
+              <span className="text-[7.5px] font-black uppercase tracking-wider px-1 py-0.2 rounded bg-orange-600/80 text-white backdrop-blur-sm">
                 Hindi
               </span>
-            )}
-            {isTamilDubbed && (
-              <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-teal-600/95 backdrop-blur-xs text-white shadow-md">
-                Tamil
+            ) : isTeluguDubbed || isTamilDubbed ? (
+              <span className="text-[7.5px] font-black uppercase tracking-wider px-1 py-0.2 rounded bg-accent-pink/80 text-white backdrop-blur-sm">
+                Dub
               </span>
-            )}
-            {isTeluguDubbed && (
-              <span className="text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-purple-600/95 backdrop-blur-xs text-white shadow-md">
-                Telugu
+            ) : (
+              <span className="text-[7.5px] font-black uppercase tracking-wider px-1 py-0.2 rounded bg-accent-cyan/80 text-white backdrop-blur-sm">
+                Sub
               </span>
-            )}
-            {statusInfo && (
-              <Badge variant={statusInfo.variant} size="xs">
-                {statusInfo.label}
-              </Badge>
             )}
           </div>
 
-          {/* Score badge */}
-          {score && (
-            <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-0.5">
-              <Star size={10} fill="currentColor" className="text-accent-gold" />
-              <span className="text-[11px] font-bold text-text-primary">{score}</span>
+          {/* Rank overlay badge */}
+          {rank && (
+            <div className="absolute bottom-2 left-2 z-10 w-7.5 h-7.5 rounded-lg bg-accent-violet text-white text-[11px] font-semibold flex items-center justify-center shadow-lg">
+              #{rank}
             </div>
           )}
-
-          {/* Quick-add button — appears on hover */}
-          {onAddToList && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onAddToList(anime);
-              }}
-              className="absolute bottom-2 right-2 z-10 w-7 h-7 rounded-lg bg-accent-violet shadow-[0_0_12px_rgba(124,91,255,0.5)] flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-200"
-              aria-label={`Add ${title} to list`}
-            >
-              <Plus size={14} className="text-white" />
-            </button>
-          )}
-
-          {/* Play icon overlay on hover */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-            <div className="w-12 h-12 rounded-full bg-accent-violet/80 backdrop-blur-sm flex items-center justify-center shadow-xl translate-y-2 group-hover:translate-y-0 transition-transform duration-200">
-              <Play size={20} fill="white" className="text-white ml-0.5" />
-            </div>
-          </div>
-
-          {/* Sliding Details Overlay on Hover */}
-          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-[#05050A]/95 via-[#05050A]/90 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex flex-col gap-1.5 z-20">
-            {/* Rating / Season */}
-            <div className="flex items-center justify-between text-[9px] font-bold text-text-secondary">
-              <span className="bg-white/10 px-1 py-0.5 rounded text-[8px] tracking-wide text-white uppercase">
-                {anime.rating ? anime.rating.split(' ')[0] : 'TV-14'}
-              </span>
-              <span className="text-text-muted capitalize truncate max-w-[80px]">
-                {anime.season ? `${anime.season} ${anime.year || ''}` : anime.year || 'Ongoing'}
-              </span>
-            </div>
-            {/* Studio */}
-            {anime.studios && anime.studios.length > 0 && (
-              <p className="text-[9px] font-bold text-accent-violet uppercase tracking-wider truncate border-t border-white/5 pt-1.5">
-                {anime.studios[0].name}
-              </p>
-            )}
-          </div>
         </div>
 
-        {/* Info Area below image (static) */}
-        <div className="p-2.5 space-y-1">
-          <h3 className="text-xs font-semibold text-text-primary line-clamp-2 leading-snug group-hover:text-accent-violet transition-colors duration-200">
+        {/* Text Area */}
+        <div className="p-3 flex flex-col justify-between flex-1 min-h-[62px]">
+          <h3 className="font-display font-semibold text-xs text-text-primary line-clamp-2 leading-tight group-hover:text-accent-primary transition-colors duration-200">
             {title}
           </h3>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
-              {anime.type || 'TV'}
-            </span>
-            <span className="text-[10px] text-text-muted">
-              {anime.episodes ? `${anime.episodes} ep` : 'Ongoing'}
-            </span>
+
+          <div className="flex items-center justify-between text-[9px] text-text-secondary mt-1.5 border-t border-border-subtle/30 pt-1.5">
+            <span className="uppercase font-extrabold tracking-wider">{anime.type || 'TV'}</span>
+            <div className="flex items-center gap-1.5">
+              {score && (
+                <span className="flex items-center gap-0.5 text-accent-gold font-extrabold">
+                  <Star size={9} fill="currentColor" /> {score}
+                </span>
+              )}
+              <span className="text-text-muted">·</span>
+              <span className="font-medium text-text-muted">{anime.year || 'Ongoing'}</span>
+            </div>
           </div>
         </div>
       </Link>

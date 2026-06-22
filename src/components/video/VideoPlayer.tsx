@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw,
-  SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle, Tv, Globe, Server
+  SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle, Tv, Globe, Server,
+  Expand, Shrink
 } from 'lucide-react';
 import { progressService } from '@/lib/streaming/progress';
+import { LOCAL_SKIP_TIMES } from '@/lib/streaming/skiptimes';
 import PlayerError from './PlayerError';
 import PlayerSettings from './PlayerSettings';
 import ShortcutsOverlay from './ShortcutsOverlay';
@@ -46,6 +48,7 @@ interface VideoPlayerProps {
   onPrevEpisode?: () => void;
   onNextEpisode?: () => void;
   onProgress?: (position: number, duration: number) => void;
+  onTheaterModeChange?: (isTheater: boolean) => void;
   initialPosition?: number;
   providers?: string[];
   currentProvider?: string;
@@ -62,8 +65,11 @@ const getProviderFriendlyName = (name: string): string => {
   switch (name.toLowerCase()) {
     case 'toonplay': return 'ToonPlay';
     case 'toonworld': return 'ToonWorld';
+    case 'vidnest': return 'VidNest';
     case 'desidubanime': return 'Hindi Dub';
     case 'piratexplay': return 'PirateX';
+    case 'tryembed': return 'TryEmbed';
+    case 'animeplay': return 'AnimePlay';
     case 'consumet': return 'Multilingual 1';
     case 'animepahe': return 'Multilingual 2';
     default: return name.charAt(0).toUpperCase() + name.slice(1);
@@ -95,6 +101,7 @@ export default function VideoPlayer({
   searchCount: initialSearchCount,
   episodeCountFound: initialEpisodeCountFound,
   providerSlug: initialProviderSlug,
+  onTheaterModeChange,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -149,6 +156,13 @@ export default function VideoPlayer({
 
   // Player States
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Sync media session playback state
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [isPlaying]);
   const [currentTime, setCurrentTime] = useState(initialPosition);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -158,6 +172,8 @@ export default function VideoPlayer({
   const [activeSourceIdx, setActiveSourceIdx] = useState(0);
   const [activeSubtitleIdx, setActiveSubtitleIdx] = useState(-1); // -1 = off
   const [isAutoplayNext, setIsAutoplayNext] = useState(true);
+  const [isAutoSkipGlobal, setIsAutoSkipGlobal] = useState(false);
+  const [isAutoSkipLocal, setIsAutoSkipLocal] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -174,6 +190,7 @@ export default function VideoPlayer({
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownIntervalRef = useRef<any>(null);
+  const hasPreloadedRef = useRef(false);
 
   // Skip Intro / Ending Detection States
   const [showSkipIntro, setShowSkipIntro] = useState(false);
@@ -190,6 +207,7 @@ export default function VideoPlayer({
 
   // Phase 3 Premium States
   const [showControls, setShowControls] = useState(true);
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [skipIntervals, setSkipIntervals] = useState<SkipInterval[]>([]);
   const [accentColor, setAccentColor] = useState('hsl(250, 100%, 60%)');
   const [accentH, setAccentH] = useState(250);
@@ -197,6 +215,13 @@ export default function VideoPlayer({
   const [accentL, setAccentL] = useState('60%');
   const [isPiPSupported, setIsPiPSupported] = useState(false);
   const controlsTimeoutRef = useRef<any>(null);
+
+  // Theater mode toggle
+  const toggleTheaterMode = () => {
+    const next = !isTheaterMode;
+    setIsTheaterMode(next);
+    onTheaterModeChange?.(next);
+  };
 
   // Inactivity Controls Fade Helper
   const resetControlsTimeout = () => {
@@ -317,24 +342,60 @@ export default function VideoPlayer({
     extractColor();
   }, [animeImage]);
 
-  // Fetch skip time configurations from AniSkip
+  // Fetch skip time configurations from local overrides or AniSkip
   useEffect(() => {
     const fetchSkipTimes = async () => {
+      // 1. Check local overrides database first
+      const localOverride = LOCAL_SKIP_TIMES[animeId];
+      if (localOverride) {
+        const intervals: SkipInterval[] = [];
+        intervals.push({
+          startTime: localOverride.introStart,
+          endTime: localOverride.introEnd,
+          type: 'op',
+        });
+        if (localOverride.outroStart !== undefined && localOverride.outroEnd !== undefined) {
+          intervals.push({
+            startTime: localOverride.outroStart,
+            endTime: localOverride.outroEnd,
+            type: 'ed',
+          });
+        }
+        setSkipIntervals(intervals);
+        return;
+      }
+
+      // 2. Fall back to AniSkip API only if animeId is a numeric MAL ID
+      const numericId = parseInt(animeId, 10);
+      if (isNaN(numericId)) {
+        setSkipIntervals([]);
+        return;
+      }
+
       try {
-        const res = await fetch(`https://api.aniskip.com/v2/skip-times/${animeId}/${episodeNumber}?types[]=op&types[]=ed`);
+        const res = await fetch(`https://api.aniskip.com/v2/skip-times/${numericId}/${episodeNumber}?types[]=op&types[]=ed`);
         if (!res.ok) return;
         const data = await res.json();
         if (data.found && data.results) {
           const intervals = data.results.map((r: any) => ({
             startTime: r.interval?.startTime || 0,
             endTime: r.interval?.endTime || 0,
-            type: r.skipType,
+            type: r.skipType === 'op' ? 'op' : 'ed',
           }));
           setSkipIntervals(intervals);
+        } else {
+          setSkipIntervals([]);
         }
-      } catch {}
+      } catch {
+        setSkipIntervals([]);
+      }
     };
     fetchSkipTimes();
+  }, [animeId, episodeNumber]);
+
+  // Reset preloaded status on episode or anime change
+  useEffect(() => {
+    hasPreloadedRef.current = false;
   }, [animeId, episodeNumber]);
 
   // Check Picture-in-Picture support
@@ -346,6 +407,54 @@ export default function VideoPlayer({
       );
     }
   }, []);
+
+  // ─── Media Session API ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: `Episode ${episodeNumber}`,
+      artist: animeTitle,
+      album: animeTitle,
+      artwork: animeImage
+        ? [
+            { src: animeImage, sizes: '512x512', type: 'image/jpeg' },
+          ]
+        : [],
+    });
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      videoRef.current?.play().catch(() => {});
+      setIsPlaying(true);
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      videoRef.current?.pause();
+      setIsPlaying(false);
+    });
+    navigator.mediaSession.setActionHandler('seekforward', () => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = Math.min(videoRef.current.currentTime + 10, videoRef.current.duration);
+      }
+    });
+    navigator.mediaSession.setActionHandler('seekbackward', () => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = Math.max(videoRef.current.currentTime - 10, 0);
+      }
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => handleNext());
+    navigator.mediaSession.setActionHandler('previoustrack', () => handlePrev());
+
+    return () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('seekforward', null);
+        navigator.mediaSession.setActionHandler('seekbackward', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+      }
+    };
+  }, [animeTitle, animeImage, episodeNumber]);
 
   const togglePiP = async () => {
     const video = videoRef.current;
@@ -463,27 +572,72 @@ export default function VideoPlayer({
 
   // Load preferences from localStorage on mount
   useEffect(() => {
-    const savedAutoplay = localStorage.getItem('autoplay_next');
+    const savedAutoplay = localStorage.getItem('animeworld:autoplay_next');
     if (savedAutoplay !== null) {
       setIsAutoplayNext(savedAutoplay === 'true');
     }
+
+    const savedVolume = localStorage.getItem('animeworld:preferredVolume');
+    if (savedVolume !== null) {
+      const parsedVol = Number(savedVolume);
+      if (!isNaN(parsedVol)) {
+        setVolume(parsedVol);
+      }
+    }
+
+    const savedAutoSkipGlobal = localStorage.getItem('animeworld:auto_skip_global');
+    if (savedAutoSkipGlobal !== null) {
+      setIsAutoSkipGlobal(savedAutoSkipGlobal === 'true');
+    }
+
+    const savedAutoSkipLocal = localStorage.getItem(`animeworld:auto_skip:${animeId}`);
+    if (savedAutoSkipLocal !== null) {
+      setIsAutoSkipLocal(savedAutoSkipLocal === 'true' ? true : savedAutoSkipLocal === 'false' ? false : null);
+    } else {
+      setIsAutoSkipLocal(null);
+    }
     
-    const savedLang = localStorage.getItem('preferredLanguage') as any;
+    const savedLang = localStorage.getItem('animeworld:preferredLanguage') as any;
     if (savedLang && ['sub', 'dub', 'hindi', 'tamil', 'telugu'].includes(savedLang)) {
       setCurrentLanguage(savedLang);
     }
 
-    const savedSpeed = localStorage.getItem('preferredPlaybackSpeed');
+    const savedSpeed = localStorage.getItem('animeworld:preferredPlaybackSpeed');
     if (savedSpeed !== null) {
       const parsedSpeed = parseFloat(savedSpeed);
       if (!isNaN(parsedSpeed)) setPlaybackSpeed(parsedSpeed);
     }
 
-    const savedQuality = localStorage.getItem('preferredQuality');
+    const savedQuality = localStorage.getItem('animeworld:preferredQuality');
     if (savedQuality !== null) {
       setCurrentQuality(savedQuality);
     }
-  }, []);
+
+    // Restore provider and playback position sequentially
+    const savedProvider = localStorage.getItem('animeworld:provider');
+    if (savedProvider && savedProvider !== currentProviderName && providersList.includes(savedProvider)) {
+      selectProvider(savedProvider);
+    }
+
+    if (initialPosition === 0) {
+      const savedTimeStr = localStorage.getItem(`animeworld:playbackTime:${animeId}:${episodeNumber}`);
+      if (savedTimeStr) {
+        const savedTime = parseFloat(savedTimeStr);
+        if (!isNaN(savedTime)) {
+          setCurrentTime(savedTime);
+          currentTimeRef.current = savedTime;
+        }
+      }
+    }
+  }, [animeId, episodeNumber, initialPosition, providersList]);
+
+  // Sync state volume to the video element and persist in localStorage
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+    }
+    localStorage.setItem('animeworld:preferredVolume', String(volume));
+  }, [volume, videoRef.current]);
 
   // Auto-switch language if the currently selected language is not available on the active provider
   useEffect(() => {
@@ -510,7 +664,7 @@ export default function VideoPlayer({
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const hasUserPref = localStorage.getItem('userSetLanguagePreference') === 'true';
+    const hasUserPref = localStorage.getItem('animeworld:userSetLanguagePreference') === 'true';
     if (hasUserPref) return;
 
     // Default priority order: Hindi -> Japanese (SUB) -> English (DUB) -> Tamil -> Telugu
@@ -596,7 +750,8 @@ export default function VideoPlayer({
       activeSource.url.includes('embed') ||
       activeSource.url.includes('iframe') ||
       activeSource.url.includes('desidubanime.me') ||
-      activeSource.url.includes('piratexplay.cc')
+      activeSource.url.includes('piratexplay.cc') ||
+      activeSource.url.includes('vidnest.fun')
     : false;
 
   // Trigger loading when iframe source changes
@@ -622,6 +777,26 @@ export default function VideoPlayer({
     }
   }, [animeId, episodeNumber, activeSource, isIframeSource, animeTitle, animeImage]);
 
+  // Iframe Timeout Fallback
+  useEffect(() => {
+    if (!isLoading || !isIframeSource) return;
+
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+        setToastMessage(`${getProviderFriendlyName(currentProviderName)} load timeout — try another server`);
+        
+        const buttons = document.querySelectorAll('.server-btn:not(.active)');
+        if (buttons[0]) {
+          buttons[0].classList.add('pulse-suggest');
+          setTimeout(() => buttons[0].classList.remove('pulse-suggest'), 3000);
+        }
+      }
+    }, 10000);
+
+    return () => clearTimeout(timeout);
+  }, [isLoading, isIframeSource, currentProviderName]);
+
   // ─── HLS Load & Failover ───────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
@@ -634,8 +809,18 @@ export default function VideoPlayer({
       setIsLoading(false);
       setDuration(video.duration);
       
-      // Preserve state on switch
-      video.currentTime = currentTimeRef.current;
+      // Seek to playback position sequentially with end buffer threshold check
+      let restoreTime = currentTimeRef.current;
+      if (restoreTime > 0) {
+        if (restoreTime < video.duration - 30) {
+          video.currentTime = restoreTime;
+        } else {
+          video.currentTime = 0;
+          setCurrentTime(0);
+        }
+      } else {
+        video.currentTime = 0;
+      }
       video.playbackRate = playbackSpeedRef.current;
       video.volume = volumeRef.current;
       video.muted = isMutedRef.current;
@@ -715,7 +900,17 @@ export default function VideoPlayer({
             // Sync the active audio track immediately
             syncHlsAudioTrack(currentLanguage, hls);
 
-            video.currentTime = currentTimeRef.current;
+            let restoreTime = currentTimeRef.current;
+            if (restoreTime > 0) {
+              if (restoreTime < video.duration - 30) {
+                video.currentTime = restoreTime;
+              } else {
+                video.currentTime = 0;
+                setCurrentTime(0);
+              }
+            } else {
+              video.currentTime = 0;
+            }
             video.playbackRate = playbackSpeedRef.current;
             video.volume = volumeRef.current;
             video.muted = isMutedRef.current;
@@ -747,6 +942,29 @@ export default function VideoPlayer({
     };
   }, [activeSourceIdx, activeSource?.url, currentLanguage]);
 
+  // ─── Mid-playback buffering / stall detection ──────────────────────────────
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleWaiting = () => setIsLoading(true);
+    const handleStalled = () => setIsLoading(true);
+    const handlePlaying = () => setIsLoading(false);
+    const handleCanPlay = () => setIsLoading(false);
+
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('stalled', handleStalled);
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('canplay', handleCanPlay);
+
+    return () => {
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('stalled', handleStalled);
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('canplay', handleCanPlay);
+    };
+  }, []);
+
   const handleSourceError = () => {
     if (activeSourceIdx + 1 < activeSources.length) {
       setActiveSourceIdx((prev) => prev + 1);
@@ -761,12 +979,17 @@ export default function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
 
-    setCurrentTime(video.currentTime);
-
-    // Skip Intro / Ending Detection using exact intervals or defaults
     const t = video.currentTime;
     const dur = video.duration;
-    
+
+    setCurrentTime(t);
+
+    // Save playback position to namespaced localStorage periodically
+    if (t > 0) {
+      localStorage.setItem(`animeworld:playbackTime:${animeId}:${episodeNumber}`, String(t));
+    }
+
+    // Skip Intro / Ending Detection using exact intervals or defaults
     const opInterval = skipIntervals.find(i => i.type === 'op');
     const edInterval = skipIntervals.find(i => i.type === 'ed');
 
@@ -782,36 +1005,69 @@ export default function VideoPlayer({
       setShowSkipEnding(dur > 200 && t >= dur - 90 && t < dur - 10);
     }
 
-    progressService.updateProgress({
-      animeId,
-      animeTitle,
-      animeImage,
-      episode: episodeNumber,
-      position: video.currentTime,
-      duration: video.duration,
-      totalEpisodes,
-    });
-  };
+    // Support Global + Per-Anime Auto Skip Preferences
+    const shouldAutoSkip = () => {
+      const globalPref = localStorage.getItem('animeworld:auto_skip_global') === 'true';
+      const localPref = localStorage.getItem(`animeworld:auto_skip:${animeId}`);
+      if (localPref === 'true') return true;
+      if (localPref === 'false') return false;
+      return globalPref;
+    };
 
-  // Preloading N+1 Episode data
-  useEffect(() => {
-    if (!isPlaying) return;
+    if (shouldAutoSkip()) {
+      if (opInterval && t >= opInterval.startTime && t < opInterval.endTime - 0.5) {
+        video.currentTime = opInterval.endTime;
+        setToastMessage('Auto-skipped opening theme');
+      }
+      if (edInterval && t >= edInterval.startTime && t < edInterval.endTime - 0.5) {
+        video.currentTime = edInterval.endTime;
+        setToastMessage('Auto-skipped ending theme');
+      }
+    }
 
+    // Preload next episode when progress > 80% and remaining time < 5 min (300 seconds)
     const nextEp = episodeNumber + 1;
-    if (totalEpisodes && nextEp <= totalEpisodes) {
-      const preloadTimer = setTimeout(() => {
+    if (totalEpisodes && nextEp <= totalEpisodes && dur > 0) {
+      const progressRatio = t / dur;
+      const remainingTime = dur - t;
+      if (progressRatio > 0.80 && remainingTime < 300 && !hasPreloadedRef.current) {
         console.info(`[PRELOAD] Pre-fetching Episode ${nextEp} stream details...`);
+        hasPreloadedRef.current = true;
         fetch(`/api/stream/source?animeId=${animeId}&episode=${nextEp}&title=${encodeURIComponent(animeTitle)}`)
           .then((res) => res.json())
           .then((data) => {
             console.info(`[PRELOAD] Cache primed for Episode ${nextEp}`);
           })
-          .catch((err) => console.warn(`[PRELOAD] Pre-fetch failed for Episode ${nextEp}:`, err));
-      }, 10000); // Trigger pre-load after 10s of stable playback
-
-      return () => clearTimeout(preloadTimer);
+          .catch((err) => {
+            console.warn(`[PRELOAD] Pre-fetch failed for Episode ${nextEp}:`, err);
+            hasPreloadedRef.current = false;
+          });
+      }
     }
-  }, [animeId, episodeNumber, totalEpisodes, isPlaying]);
+
+    progressService.updateProgress({
+      animeId,
+      animeTitle,
+      animeImage,
+      episode: episodeNumber,
+      position: t,
+      duration: dur,
+      totalEpisodes,
+    });
+
+    // Sync Media Session playback position
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator && dur > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: dur,
+          playbackRate: videoRef.current?.playbackRate || 1,
+          position: t,
+        });
+      } catch {}
+    }
+  };
+
+
 
   // Autoplay Countdown handling
   const handleVideoEnded = () => {
@@ -934,12 +1190,12 @@ export default function VideoPlayer({
     if (!video) return;
     video.playbackRate = speed;
     setPlaybackSpeed(speed);
-    localStorage.setItem('preferredPlaybackSpeed', String(speed));
+    localStorage.setItem('animeworld:preferredPlaybackSpeed', String(speed));
   };
 
   const selectQuality = (level: string) => {
     setCurrentQuality(level);
-    localStorage.setItem('preferredQuality', level);
+    localStorage.setItem('animeworld:preferredQuality', level);
 
     if (hlsRef.current) {
       if (level === 'Auto') {
@@ -957,10 +1213,28 @@ export default function VideoPlayer({
     }
   };
 
-  const selectLanguage = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu') => {
+  const selectLanguage = async (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu') => {
     setCurrentLanguage(lang);
-    localStorage.setItem('preferredLanguage', lang);
-    localStorage.setItem('userSetLanguagePreference', 'true');
+    localStorage.setItem('animeworld:preferredLanguage', lang);
+    localStorage.setItem('animeworld:language', lang);
+    localStorage.setItem('animeworld:userSetLanguagePreference', 'true');
+
+    if (lang === 'hindi') {
+      if (providersList.includes('desidubanime') && currentProviderName !== 'desidubanime') {
+        selectProvider('desidubanime');
+        setToastMessage('Switched to Hindi Dub server');
+        return;
+      }
+    }
+
+    if (lang === 'dub') {
+      const dubServers = ['tryembed', 'animeplay', 'toonplay', 'toonworld'];
+      const available = dubServers.find(s => providersList.includes(s));
+      if (available && available !== currentProviderName) {
+        selectProvider(available);
+        return;
+      }
+    }
     
     const targetSources = lang === 'hindi' 
       ? hindiSourcesList 
@@ -976,8 +1250,87 @@ export default function VideoPlayer({
       console.info(`[Audio Swap] Switching stream sources for language: ${lang}`);
       setActiveSourceIdx(0);
     } else {
-      console.info(`[Audio Swap] Toggling in-place HLS audio tracks for language: ${lang}`);
-      syncHlsAudioTrack(lang);
+      // Current provider doesn't have the selected language audio.
+      // Probing all other providers in parallel to resolve capability.
+      console.info(`[Audio Swap] Current provider doesn't support ${lang}. Probing alternative providers in parallel...`);
+      setIsLoading(true);
+
+      const fetchPromises = providersList
+        .filter(prov => prov !== currentProviderName)
+        .map(async (prov) => {
+          try {
+            const res = await fetch(`/api/stream/source?animeId=${animeId}&episode=${episodeNumber}&provider=${prov}&title=${encodeURIComponent(animeTitle)}&lang=${lang}`);
+            if (res.ok) {
+              const data = await res.json();
+              const alternateSources = lang === 'hindi'
+                ? data.hindi
+                : lang === 'tamil'
+                  ? data.tamil
+                  : lang === 'telugu'
+                    ? data.telugu
+                    : lang === 'dub'
+                      ? data.dub
+                      : data.sub || data.sources;
+              if (alternateSources && alternateSources.length > 0) {
+                return { provider: prov, data };
+              }
+            }
+          } catch (err) {
+            console.warn(`[Audio Swap] Parallel check failed for "${prov}":`, err);
+          }
+          return null;
+        });
+
+      try {
+        const results = await Promise.all(fetchPromises);
+        
+        // Deterministic Priority Selection
+        const priorityOrder = ['toonplay', 'toonworld', 'vidnest', 'desidubanime', 'piratexplay'];
+        let matchedResult = null;
+
+        for (const prov of priorityOrder) {
+          const found = results.find(r => r && r.provider === prov);
+          if (found) {
+            matchedResult = found;
+            break;
+          }
+        }
+
+        if (!matchedResult) {
+          matchedResult = results.find(r => r !== null) || null;
+        }
+
+        if (matchedResult) {
+          const { provider, data } = matchedResult;
+          console.info(`[Audio Swap] Found alternative provider "${provider}" supporting language: ${lang}`);
+          
+          setCurrentProviderName(data.currentProvider || provider);
+          localStorage.setItem('animeworld:provider', data.currentProvider || provider);
+          
+          setSubSourcesList(data.sub || []);
+          setDubSourcesList(data.dub || []);
+          setHindiSourcesList(data.hindi || []);
+          setTamilSourcesList(data.tamil || []);
+          setTeluguSourcesList(data.telugu || []);
+          setSubtitleTracks(data.subtitles || []);
+          setIsFallbackActive(data.isFallback || false);
+          setFallbackReasonText(data.fallbackReason);
+          setMatchedTitle(data.matchedTitle);
+          setMatchedSlug(data.matchedSlug);
+          setSearchCount(data.searchCount);
+          setEpisodeCountFound(data.episodeCountFound);
+          setProviderSlug(data.providerSlug);
+          setActiveSourceIdx(0);
+        } else {
+          console.info(`[Audio Swap] No alternative provider found. Toggling in-place HLS audio tracks for language: ${lang}`);
+          syncHlsAudioTrack(lang);
+        }
+      } catch (err) {
+        console.error(`[Audio Swap] Parallel capability check failed:`, err);
+        syncHlsAudioTrack(lang);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -1006,6 +1359,8 @@ export default function VideoPlayer({
       }
 
       setCurrentProviderName(data.currentProvider || provider);
+      localStorage.setItem('animeworld:provider', data.currentProvider || provider);
+      
       setSubSourcesList(data.sub || []);
       setDubSourcesList(data.dub || []);
       setHindiSourcesList(data.hindi || []);
@@ -1044,12 +1399,19 @@ export default function VideoPlayer({
 
       if (newLang !== currentLanguage) {
         setCurrentLanguage(newLang);
-        localStorage.setItem('preferredLanguage', newLang);
+        localStorage.setItem('animeworld:preferredLanguage', newLang);
+        localStorage.setItem('animeworld:language', newLang);
       }
     } catch (err) {
       console.warn(`Failed to swap provider in place to ${provider}:`, err);
       setToastMessage(`${getProviderFriendlyName(provider)} unavailable — try another server`);
       setIsLoading(false);
+
+      const buttons = document.querySelectorAll('.server-btn:not(.active)');
+      if (buttons[0]) {
+        buttons[0].classList.add('pulse-suggest');
+        setTimeout(() => buttons[0].classList.remove('pulse-suggest'), 3000);
+      }
     }
   };
 
@@ -1065,13 +1427,18 @@ export default function VideoPlayer({
   };
 
   const skipEnding = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const edInterval = skipIntervals.find(i => i.type === 'ed');
-    const targetTime = edInterval ? edInterval.endTime : Math.max(0, video.duration - 5);
-    video.currentTime = targetTime;
-    setCurrentTime(targetTime);
     setShowSkipEnding(false);
+    const hasNext = totalEpisodes && episodeNumber < totalEpisodes;
+    if (hasNext) {
+      handleNext();
+    } else {
+      const video = videoRef.current;
+      if (!video) return;
+      const edInterval = skipIntervals.find(i => i.type === 'ed');
+      const targetTime = edInterval ? edInterval.endTime : Math.max(0, video.duration - 1);
+      video.currentTime = targetTime;
+      setCurrentTime(targetTime);
+    }
   };
 
   // ─── Touch Gesture Handlers ────────────────────────────────────────────────
@@ -1208,6 +1575,10 @@ export default function VideoPlayer({
         case 'f':
           e.preventDefault();
           toggleFullscreen();
+          break;
+        case 't':
+          e.preventDefault();
+          toggleTheaterMode();
           break;
         case 'm':
           e.preventDefault();
@@ -1562,7 +1933,7 @@ export default function VideoPlayer({
                       onToggleAutoplay={() => {
                         const next = !isAutoplayNext;
                         setIsAutoplayNext(next);
-                        localStorage.setItem('autoplay_next', String(next));
+                        localStorage.setItem('animeworld:autoplay_next', String(next));
                       }}
                       providers={providersList}
                       currentProvider={currentProviderName}
@@ -1610,6 +1981,16 @@ export default function VideoPlayer({
                     <Tv size={17} />
                   </button>
                 )}
+
+                {/* Theater Mode Button */}
+                <button
+                  onClick={toggleTheaterMode}
+                  className="text-text-secondary hover:text-white transition-colors"
+                  title={isTheaterMode ? 'Exit Theater Mode' : 'Theater Mode'}
+                  aria-label={isTheaterMode ? 'Exit Theater Mode' : 'Theater Mode'}
+                >
+                  {isTheaterMode ? <Shrink size={17} /> : <Expand size={17} />}
+                </button>
 
                 {/* Fullscreen Button */}
                 <button
@@ -1664,8 +2045,16 @@ export default function VideoPlayer({
         )}
 
         {toastMessage && (
-          <div className="absolute top-4 right-4 z-50 bg-[#0D0D14]/90 border border-red-500/30 text-white font-medium text-xs px-4 py-2.5 rounded-xl shadow-2xl animate-fade-in flex items-center gap-2 select-none backdrop-blur-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+          <div className={`absolute top-4 right-4 z-50 backdrop-blur-md border text-white font-medium text-xs px-4 py-2.5 rounded-xl shadow-2xl animate-fade-in flex items-center gap-2 select-none ${
+            toastMessage.toLowerCase().includes('switched') || toastMessage.toLowerCase().includes('server')
+              ? 'bg-teal-900/90 border-teal-500/40'
+              : 'bg-[#0D0D14]/90 border-red-500/30'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              toastMessage.toLowerCase().includes('switched') || toastMessage.toLowerCase().includes('server')
+                ? 'bg-teal-400'
+                : 'bg-red-500 animate-ping'
+            }`} />
             <span>{toastMessage}</span>
           </div>
         )}
@@ -1680,13 +2069,13 @@ export default function VideoPlayer({
               <Globe className="w-4 h-4 text-accent-violet" style={{ color: 'var(--player-accent)' }} />
               <span>Languages</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="lang-toggle">
               {[
-                { key: 'hindi', label: 'Hindi', available: hindiSourcesList.length > 0 || hasNativeHindi },
-                { key: 'sub', label: 'Japanese (SUB)', available: subSourcesList.length > 0 },
-                { key: 'dub', label: 'English (DUB)', available: dubSourcesList.length > 0 },
-                { key: 'tamil', label: 'Tamil', available: tamilSourcesList.length > 0 },
-                { key: 'telugu', label: 'Telugu', available: teluguSourcesList.length > 0 },
+                { key: 'hindi', label: 'HINDI', available: hindiSourcesList.length > 0 || hasNativeHindi },
+                { key: 'sub', label: 'SUB', available: subSourcesList.length > 0 },
+                { key: 'dub', label: 'DUB', available: dubSourcesList.length > 0 },
+                { key: 'tamil', label: 'TAMIL', available: tamilSourcesList.length > 0 },
+                { key: 'telugu', label: 'TELUGU', available: teluguSourcesList.length > 0 },
               ].map((lang) => {
                 const isActive = currentLanguage === lang.key;
                 return (
@@ -1694,17 +2083,10 @@ export default function VideoPlayer({
                     key={lang.key}
                     disabled={!lang.available}
                     onClick={() => selectLanguage(lang.key as any)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
-                      isActive
-                        ? 'bg-accent-violet text-white shadow-lg shadow-accent-violet/20 border border-transparent'
-                        : lang.available
-                          ? 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5'
-                          : 'bg-white/[0.02] text-white/30 border border-white/[0.02] cursor-not-allowed'
-                    }`}
+                    className={`lang-toggle-btn ${isActive ? 'active' : ''} ${!lang.available ? 'opacity-40 cursor-not-allowed' : ''}`}
                     style={isActive ? { backgroundColor: 'var(--player-accent)' } : undefined}
                   >
                     <span>{lang.label}</span>
-                    {!lang.available && <span className="text-[9px] font-medium opacity-65">(N/A)</span>}
                   </button>
                 );
               })}
@@ -1720,7 +2102,7 @@ export default function VideoPlayer({
               <Server className="w-4 h-4 text-accent-violet" style={{ color: 'var(--player-accent)' }} />
               <span>Servers</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="server-row flex-grow">
               {providersList.map((prov) => {
                 const isActive = currentProviderName === prov;
                 const friendlyName = getProviderFriendlyName(prov);
@@ -1728,15 +2110,20 @@ export default function VideoPlayer({
                   <button
                     key={prov}
                     onClick={() => selectProvider(prov)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
-                      isActive
-                        ? 'bg-accent-violet text-white shadow-lg shadow-accent-violet/20 border border-transparent'
-                        : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/5'
-                    }`}
-                    style={isActive ? { backgroundColor: 'var(--player-accent)' } : undefined}
+                    className={`server-btn ${isActive ? 'active' : ''}`}
+                    style={isActive ? { backgroundColor: 'var(--player-accent)', borderColor: 'var(--player-accent)' } : undefined}
                   >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: isActive ? '#fff' : 'var(--player-accent)' }} />
+                    <span className="server-dot" />
                     <span>{friendlyName}</span>
+                    {prov === 'toonworld' && (
+                      <>
+                        <span className="server-lang-badge multi">MULTI</span>
+                        <span className="server-lang-badge hindi">HINDI</span>
+                      </>
+                    )}
+                    {prov === 'piratexplay' && (
+                      <span className="server-lang-badge hindi">HINDI</span>
+                    )}
                   </button>
                 );
               })}

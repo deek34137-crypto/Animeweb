@@ -29,6 +29,35 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ data: json.data || [] });
     }
 
+    if (type === 'studio') {
+      const res = await fetch(
+        `https://api.jikan.moe/v4/producers?q=${encodeURIComponent(q)}&limit=${limit}`,
+        { next: { revalidate: 300 } }
+      );
+      if (!res.ok) return NextResponse.json({ data: [] });
+      const json = await res.json();
+      return NextResponse.json({ data: json.data || [] });
+    }
+
+    if (type === 'people') {
+      const res = await fetch(
+        `https://api.jikan.moe/v4/people?q=${encodeURIComponent(q)}&limit=${limit}`,
+        { next: { revalidate: 300 } }
+      );
+      if (!res.ok) return NextResponse.json({ data: [] });
+      const json = await res.json();
+      return NextResponse.json({ data: json.data || [] });
+    }
+
+    if (type === 'genre') {
+      const res = await JikanAPI.getGenres();
+      const allGenres = res.data || [];
+      const filtered = allGenres.filter((g) =>
+        g.name.toLowerCase().includes(q.toLowerCase())
+      );
+      return NextResponse.json({ data: filtered });
+    }
+
     return NextResponse.json({ data: [] });
   } catch {
     return NextResponse.json({ data: [] }, { status: 500 });

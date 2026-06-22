@@ -7,6 +7,7 @@ import {
   User, Link2, Unlink, Loader2, Save, CheckCircle, ShieldAlert,
   Settings, Check, AlertTriangle
 } from 'lucide-react';
+import AccountLink from '@/components/settings/AccountLink';
 
 interface UserSettings {
   id: string;
@@ -489,142 +490,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
         </div>
 
         {/* 2. Connected Trackers Sync Section */}
-        <div className="glass-panel border border-border-default rounded-3xl p-6 sm:p-8 space-y-6">
-          <div className="flex items-center space-x-2 text-text-primary border-b border-border-subtle pb-4">
-            <Link2 size={20} className="text-accent-violet" />
-            <h2 className="text-lg font-black tracking-tight font-display">Watchlist Tracker Integration</h2>
-          </div>
-
-          <div className="space-y-6">
-            {/* MyAnimeList Sync Card */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border border-border-subtle bg-surface-1/40 rounded-2xl p-5 gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#2e51a2]" />
-                  <span className="text-sm font-bold text-white">MyAnimeList</span>
-                  {malConnected && (
-                    <span className="text-[9px] font-bold bg-[#2e51a2]/10 border border-[#2e51a2]/20 text-[#2e51a2] px-2 py-0.5 rounded-full uppercase">
-                      Linked
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  {malConnected
-                    ? `Connected as ${malUser}. Auto-sync updates watch progress to your MAL profile.`
-                    : 'Track progress and sync your anime scores instantly to your MyAnimeList profile.'}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap sm:flex-col items-center sm:items-end gap-3 flex-shrink-0 self-end sm:self-auto">
-                {malConnected ? (
-                  <>
-                    <button
-                      onClick={() => handleDisconnect('mal')}
-                      disabled={actionLoading === 'mal'}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-500/20 hover:border-red-500 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold rounded-xl transition disabled:opacity-50"
-                    >
-                      {actionLoading === 'mal' ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : (
-                        <Unlink size={12} />
-                      )}
-                      <span>Disconnect</span>
-                    </button>
-                    {/* Auto Sync Toggle switch */}
-                    <div className="flex items-center gap-2 cursor-pointer mt-1">
-                      <span className="text-[10px] text-text-muted font-bold uppercase">Auto-Sync</span>
-                      <button
-                        onClick={() => handleToggleSync('mal', syncToMal)}
-                        className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${
-                          syncToMal ? 'bg-accent-violet' : 'bg-surface-3 border border-border-subtle'
-                        }`}
-                      >
-                        <div
-                          className={`w-3.5 h-3.5 bg-white rounded-full transition-transform duration-200 transform ${
-                            syncToMal ? 'translate-x-4' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => handleConnect('mal')}
-                    disabled={actionLoading === 'mal'}
-                    className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-accent-violet hover:bg-[#6b4ae6] text-white text-xs font-bold rounded-xl transition shadow-[0_0_12px_rgba(124,91,255,0.15)] disabled:opacity-50"
-                  >
-                    {actionLoading === 'mal' && <Loader2 size={12} className="animate-spin" />}
-                    <span>Connect MyAnimeList</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* AniList Sync Card */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border border-border-subtle bg-surface-1/40 rounded-2xl p-5 gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#3db4f2]" />
-                  <span className="text-sm font-bold text-white">AniList</span>
-                  {anilistConnected && (
-                    <span className="text-[9px] font-bold bg-[#3db4f2]/10 border border-[#3db4f2]/20 text-[#3db4f2] px-2 py-0.5 rounded-full uppercase">
-                      Linked
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  {anilistConnected
-                    ? `Connected as ${anilistUser}. Updates watch progress to your AniList profile.`
-                    : 'Track progress and sync your anime scores instantly to your AniList profile.'}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap sm:flex-col items-center sm:items-end gap-3 flex-shrink-0 self-end sm:self-auto">
-                {anilistConnected ? (
-                  <>
-                    <button
-                      onClick={() => handleDisconnect('anilist')}
-                      disabled={actionLoading === 'anilist'}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-500/20 hover:border-red-500 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold rounded-xl transition disabled:opacity-50"
-                    >
-                      {actionLoading === 'anilist' ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : (
-                        <Unlink size={12} />
-                      )}
-                      <span>Disconnect</span>
-                    </button>
-                    {/* Auto Sync Toggle switch */}
-                    <div className="flex items-center gap-2 cursor-pointer mt-1">
-                      <span className="text-[10px] text-text-muted font-bold uppercase">Auto-Sync</span>
-                      <button
-                        onClick={() => handleToggleSync('anilist', syncToAnilist)}
-                        className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${
-                          syncToAnilist ? 'bg-accent-violet' : 'bg-surface-3 border border-border-subtle'
-                        }`}
-                      >
-                        <div
-                          className={`w-3.5 h-3.5 bg-white rounded-full transition-transform duration-200 transform ${
-                            syncToAnilist ? 'translate-x-4' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => handleConnect('anilist')}
-                    disabled={actionLoading === 'anilist'}
-                    className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-accent-violet hover:bg-[#6b4ae6] text-white text-xs font-bold rounded-xl transition shadow-[0_0_12px_rgba(124,91,255,0.15)] disabled:opacity-50"
-                  >
-                    {actionLoading === 'anilist' && <Loader2 size={12} className="animate-spin" />}
-                    <span>Connect AniList</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <AccountLink user={user} setNotification={setNotification} />
       </div>
     </div>
   );

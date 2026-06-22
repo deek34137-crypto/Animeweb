@@ -19,8 +19,8 @@ function SkeletonBlock({ className = '' }: { className?: string }) {
 
 export function AnimeCardSkeleton() {
   return (
-    <div className="rounded-xl overflow-hidden bg-surface-2 border border-border-subtle">
-      <div className="aspect-[3/4] shimmer-loader" />
+    <div className="rounded-xl overflow-hidden bg-surface-2 border border-border-subtle h-full flex flex-col">
+      <div className="aspect-[2/3] shimmer-loader" />
       <div className="p-3 space-y-2">
         <SkeletonBlock className="h-4 w-4/5" />
         <div className="flex justify-between">
@@ -63,7 +63,7 @@ export function SectionSkeleton({ count = 6 }: { count?: number }) {
         <SkeletonBlock className="h-7 w-48" />
         <SkeletonBlock className="h-5 w-16" />
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {Array.from({ length: count }).map((_, i) => (
           <AnimeCardSkeleton key={i} />
         ))}

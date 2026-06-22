@@ -166,6 +166,18 @@ export interface AnimeData {
   studios: StudioTag[];
   genres: GenreTag[];
   relations?: RelationItem[];
+  theme?: {
+    openings: string[];
+    endings: string[];
+  };
+  external?: {
+    name: string;
+    url: string;
+  }[];
+  streaming?: {
+    name: string;
+    url: string;
+  }[];
 }
 
 export interface EpisodeData {
@@ -211,6 +223,54 @@ export interface RecommendationItem {
   votes: number;
 }
 
+export interface StaffMember {
+  person: {
+    mal_id: number;
+    url: string;
+    images: {
+      jpg: {
+        image_url: string;
+      };
+    };
+    name: string;
+  };
+  positions: string[];
+}
+
+export interface UserReview {
+  mal_id: number;
+  url: string;
+  type: string;
+  reactions: {
+    overall: number;
+    nice: number;
+    love_it: number;
+    funny: number;
+    confusing: number;
+    informative: number;
+    well_written: number;
+  };
+  date: string;
+  review: string;
+  score: number;
+  is_spoiler: boolean;
+  is_preliminary: boolean;
+  episodes_watched: number | null;
+  tags: string[];
+  user: {
+    username: string;
+    url: string;
+    images?: {
+      jpg?: {
+        image_url: string;
+      };
+      webp?: {
+        image_url: string;
+      };
+    };
+  };
+}
+
 const BASE_URL = 'https://api.jikan.moe/v4';
 
 export const JikanAPI = {
@@ -247,8 +307,53 @@ export const JikanAPI = {
     return cachedFetch<{ data: RecommendationItem[] }>(`${BASE_URL}/anime/${id}/recommendations`);
   },
 
+  getAnimeStaff: async (id: number): Promise<{ data: StaffMember[] }> => {
+    try {
+      return await cachedFetch<{ data: StaffMember[] }>(`${BASE_URL}/anime/${id}/staff`);
+    } catch {
+      return { data: [] };
+    }
+  },
+
+  getAnimeReviews: async (id: number): Promise<{ data: UserReview[] }> => {
+    try {
+      return await cachedFetch<{ data: UserReview[] }>(`${BASE_URL}/anime/${id}/reviews`);
+    } catch {
+      return { data: [] };
+    }
+  },
+
   getGenres: async (): Promise<{ data: GenreTag[] }> => {
     return cachedFetch<{ data: GenreTag[] }>(`${BASE_URL}/genres/anime`);
+  },
+
+  getTopAiringAnime: async (page = 1): Promise<{ data: AnimeData[] }> => {
+    return cachedFetch<{ data: AnimeData[] }>(`${BASE_URL}/top/anime?filter=airing&page=${page}&limit=12`);
+  },
+
+  getAiringSchedule: async (page = 1): Promise<{ data: AnimeData[] }> => {
+    return cachedFetch<{ data: AnimeData[] }>(`${BASE_URL}/schedules?page=${page}&limit=12`);
+  },
+
+  getRecentAnimeRecommendations: async (page = 1): Promise<{ data: AnimeData[] }> => {
+    try {
+      const res = await cachedFetch<{ data: any[] }>(`${BASE_URL}/recommendations/anime?page=${page}`);
+      const animeList: AnimeData[] = [];
+      const seenIds = new Set<number>();
+      
+      (res.data || []).forEach((item) => {
+        (item.entry || []).forEach((entry: any) => {
+          if (!seenIds.has(entry.mal_id)) {
+            seenIds.add(entry.mal_id);
+            animeList.push(entry);
+          }
+        });
+      });
+      
+      return { data: animeList.slice(0, 12) };
+    } catch {
+      return { data: [] };
+    }
   },
 
   searchAnime: async (

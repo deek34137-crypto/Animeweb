@@ -12,6 +12,7 @@ import Progress from '@/components/ui/Progress';
 import { SectionSkeleton } from '@/components/ui/Skeleton';
 import AnimeDetailTabs from '@/components/AnimeDetailTabs';
 import { db } from '@/lib/db';
+import { getEpisodeDisplay } from '@/lib/episode';
 import WatchActions from '@/components/video/WatchActions';
 import AddToListButton from '@/components/AddToListButton';
 import type { AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
@@ -33,11 +34,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 // ─── Server Data Loader ───────────────────────────────────────────────────────
 async function loadDetailData(animeId: number, userId?: string) {
-  const [animeDetail, characters, recommendations, episodes] = await Promise.allSettled([
+  const [animeDetail, characters, recommendations, episodes, staff, reviews] = await Promise.allSettled([
     AnimeApi.getAnimeDetail(animeId, userId),
     AnimeApi.getAnimeCharacters(animeId),
     AnimeApi.getAnimeRecommendations(animeId),
     AnimeApi.getAnimeEpisodes(animeId),
+    AnimeApi.getAnimeStaff(animeId),
+    AnimeApi.getAnimeReviews(animeId),
   ]);
 
   return {
@@ -45,6 +48,8 @@ async function loadDetailData(animeId: number, userId?: string) {
     characters: characters.status === 'fulfilled' ? characters.value : [],
     recommendations: recommendations.status === 'fulfilled' ? recommendations.value : [],
     episodes: episodes.status === 'fulfilled' ? episodes.value : [],
+    staff: staff.status === 'fulfilled' ? staff.value : [],
+    reviews: reviews.status === 'fulfilled' ? reviews.value : [],
   };
 }
 
@@ -54,16 +59,14 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
   const userId = session?.user?.id;
 
   let latestProgress = null;
+  let progressList: any[] = [];
   let watchedEpisodes: number[] = [];
   if (userId) {
-    const [progress, history] = await Promise.all([
-      db.watchProgress.findFirst({
+    const [progresses, history] = await Promise.all([
+      db.watchProgress.findMany({
         where: {
           userId,
           animeId: String(id),
-        },
-        orderBy: {
-          lastWatchedAt: 'desc',
         },
       }),
       db.watchHistory.findMany({
@@ -76,8 +79,13 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
         },
       }),
     ]);
-    latestProgress = progress;
+    progressList = progresses;
     watchedEpisodes = history.map((h) => h.episode);
+    if (progresses.length > 0) {
+      latestProgress = progresses.reduce((latest, current) => {
+        return new Date(current.lastWatchedAt) > new Date(latest.lastWatchedAt) ? current : latest;
+      }, progresses[0]);
+    }
   }
 
   const isMalId = !id.startsWith('series-') && !id.startsWith('movies-');
@@ -86,6 +94,8 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
   let characters: CharacterRoster[] = [];
   let recommendations: RecommendationItem[] = [];
   let episodes: EpisodeData[] = [];
+  let staff: any[] = [];
+  let reviews: any[] = [];
 
   if (!isMalId) {
     try {
@@ -212,6 +222,8 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
     characters = data.characters;
     recommendations = data.recommendations;
     episodes = data.episodes;
+    staff = data.staff;
+    reviews = data.reviews;
   }
 
   if (!anime) {
@@ -303,7 +315,7 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
               )}
               {anime.episodes && (
                 <span className="flex items-center gap-1 text-text-secondary text-xs">
-                  <Tv size={12} /> {anime.episodes} Episodes
+                  <Tv size={12} /> {getEpisodeDisplay({ title: mainTitle, episodes: anime.episodes, malId: id })}
                 </span>
               )}
               {anime.duration && (
@@ -373,163 +385,21 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
 
       {/* ─── Main Content ───────────────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
-
-          {/* Left column: Tabbed content */}
-          <div>
-            <Suspense fallback={<div className="h-10 shimmer-loader rounded-xl" />}>
-              <AnimeDetailTabs
-                anime={anime}
-                characters={characters}
-                episodes={episodes}
-                recommendations={recommendations}
-                tracking={tracking ?? null}
-                userId={userId}
-                watchedEpisodes={watchedEpisodes}
-              />
-            </Suspense>
-          </div>
-
-          {/* Right sidebar */}
-          <aside className="space-y-5">
-
-            {/* Score Card */}
-            {score && (
-              <div className="glass-panel border border-border-default rounded-2xl p-5 text-center space-y-2">
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">MAL Score</p>
-                <div className="flex items-center justify-center gap-2">
-                  <Star size={28} fill="currentColor" className="text-accent-gold" />
-                  <span className="text-5xl font-black text-text-primary">{score.toFixed(1)}</span>
-                  <span className="text-lg text-text-muted">/10</span>
-                </div>
-                {votes && (
-                  <p className="text-[10px] text-text-muted">
-                    {votes.toLocaleString()} votes
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Info table */}
-            <div className="glass-panel border border-border-default rounded-2xl p-5 space-y-4">
-              <h3 className="text-xs font-black text-text-primary uppercase tracking-widest">Details</h3>
-              <dl className="space-y-2.5 text-xs">
-                {[
-                  { label: 'Type', value: anime.type },
-                  { label: 'Episodes', value: anime.episodes },
-                  { label: 'Status', value: anime.status },
-                  { label: 'Aired', value: anime.aired?.string },
-                  { label: 'Season', value: anime.season && anime.year ? `${anime.season} ${anime.year}` : null },
-                  { label: 'Duration', value: anime.duration },
-                  { label: 'Source', value: anime.source },
-                  { label: 'Rating', value: anime.rating },
-                  { label: 'Rank', value: anime.rank ? `#${anime.rank}` : null },
-                  { label: 'Popularity', value: anime.popularity ? `#${anime.popularity}` : null },
-                ].filter((r) => r.value).map(({ label, value }) => (
-                  <div key={label} className="flex justify-between items-start gap-2">
-                    <dt className="text-text-muted flex-shrink-0">{label}</dt>
-                    <dd className="font-medium text-text-secondary text-right capitalize">{String(value)}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              {/* Studios */}
-              {studios.length > 0 && (
-                <div className="pt-2 border-t border-border-subtle">
-                  <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1.5">Studios</p>
-                  <div className="flex flex-wrap gap-1">
-                    {studios.map((s) => (
-                      <Link
-                        key={s.mal_id}
-                        href={`/search?q=${encodeURIComponent(s.name)}` as '/'}
-                        className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-surface-3 border border-border-subtle text-text-secondary hover:text-accent-violet hover:border-accent-violet/40 transition-colors"
-                      >
-                        {s.name}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Producers */}
-              {producers.length > 0 && (
-                <div className="pt-2 border-t border-border-subtle">
-                  <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1.5">Producers</p>
-                  <div className="flex flex-wrap gap-1">
-                    {producers.slice(0, 4).map((p) => (
-                      <span
-                        key={p.mal_id}
-                        className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-surface-3 border border-border-subtle text-text-muted"
-                      >
-                        {p.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Related (from relations) */}
-            {anime.relations && anime.relations.length > 0 && (
-              <div className="glass-panel border border-border-default rounded-2xl p-5 space-y-3">
-                <h3 className="text-xs font-black text-text-primary uppercase tracking-widest">Related</h3>
-                <div className="space-y-2">
-                  {anime.relations.slice(0, 4).map((r, i) => {
-                    const entry = r.entry[0];
-                    if (!entry) return null;
-                    return (
-                      <Link
-                        key={i}
-                        href={`/anime/${entry.mal_id}` as '/'}
-                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-surface-2 transition-colors group"
-                      >
-                        <div className="w-8 h-10 bg-surface-3 rounded-lg flex-shrink-0 flex items-center justify-center text-[8px] font-black text-accent-violet border border-border-subtle">
-                          ANI
-                        </div>
-                        <div className="min-w-0 flex-grow">
-                          <p className="text-xs font-semibold text-text-primary truncate group-hover:text-accent-violet transition-colors">{entry.name}</p>
-                          <p className="text-[10px] text-text-muted capitalize">{r.relation}</p>
-                        </div>
-                        <ChevronRight size={12} className="text-text-disabled flex-shrink-0" />
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Share */}
-            <div className="glass-panel border border-border-default rounded-2xl p-5 space-y-3">
-              <h3 className="text-xs font-black text-text-primary uppercase tracking-widest flex items-center gap-1.5">
-                <Share2 size={12} /> Share
-              </h3>
-              <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
-                {[
-                  { label: 'Twitter', color: 'hover:bg-sky-500/20 hover:border-sky-500/40 hover:text-sky-400', href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${mainTitle} on AnimeWorld!`)}&url=${encodeURIComponent(`https://animeworldrj.vercel.app/anime/${id}`)}` },
-                  { label: 'Reddit', color: 'hover:bg-orange-500/20 hover:border-orange-500/40 hover:text-orange-400', href: `https://reddit.com/submit?url=${encodeURIComponent(`https://animeworldrj.vercel.app/anime/${id}`)}&title=${encodeURIComponent(mainTitle)}` },
-                ].map(({ label, color, href }) => (
-                  <a
-                    key={label}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center justify-center py-2 rounded-xl bg-surface-2 border border-border-subtle text-text-muted transition-all ${color}`}
-                  >
-                    {label}
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            {/* Community link */}
-            <Link
-              href="/community"
-              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-accent-violet/10 border border-accent-violet/20 text-accent-violet font-semibold text-sm hover:bg-accent-violet/20 transition-all"
-            >
-              <MessageSquare size={16} /> Discuss in Community
-            </Link>
-          </aside>
-        </div>
+        <Suspense fallback={<div className="h-10 shimmer-loader rounded-xl" />}>
+          <AnimeDetailTabs
+            anime={anime}
+            characters={characters}
+            staff={staff}
+            episodes={episodes}
+            recommendations={recommendations}
+            reviews={reviews}
+            tracking={tracking ?? null}
+            userId={userId}
+            watchedEpisodes={watchedEpisodes}
+            latestProgress={latestProgress}
+            progressList={progressList}
+          />
+        </Suspense>
       </div>
     </div>
   );

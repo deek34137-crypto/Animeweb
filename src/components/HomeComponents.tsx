@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Play, Plus, Info, ChevronLeft, ChevronRight, Flame, Star, Sparkles, Clock } from 'lucide-react';
+import { Play, Plus, Info, ChevronLeft, ChevronRight, Flame, Star, Sparkles, Clock, X } from 'lucide-react';
 import { Link } from '@/navigation';
 import { AnimeData } from '@/services/jikan';
 import Badge from '@/components/ui/Badge';
@@ -211,18 +211,18 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ title, icon, viewAllHref }: SectionHeaderProps) {
   return (
-    <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
-      <h2 className="flex items-center gap-2.5 text-xl md:text-2xl font-black text-text-primary font-display tracking-tight">
-        <span className="text-accent-violet">{icon}</span>
-        {title}
-      </h2>
+    <div className="section-header">
+      <div className="section-title-group">
+        <div className="accent-bar"></div>
+        {icon && <span className="text-[var(--accent-primary)] flex items-center">{icon}</span>}
+        <h2>{title}</h2>
+      </div>
       {viewAllHref && (
         <Link
           href={viewAllHref as '/'}
-          className="text-xs font-semibold text-text-muted hover:text-accent-violet transition-colors duration-200 flex items-center gap-1"
+          className="text-sm font-semibold text-[var(--accent-primary)] hover:underline flex items-center gap-1"
         >
-          View all
-          <ChevronRight size={12} />
+          View All →
         </Link>
       )}
     </div>
@@ -248,7 +248,34 @@ interface ContinueWatchingRailProps {
 }
 
 export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
-  if (!entries.length) return null;
+  const [localEntries, setLocalEntries] = useState(entries);
+
+  useEffect(() => {
+    setLocalEntries(entries);
+  }, [entries]);
+
+  const handleDismiss = async (e: React.MouseEvent, animeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Optimistically update list
+    setLocalEntries((prev) => prev.filter((entry) => entry.animeId !== animeId));
+
+    try {
+      await fetch('/api/list/entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          animeId,
+          status: 'paused', // Sets to paused to hide from Continue Watching
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to dismiss anime from continue watching:', err);
+    }
+  };
+
+  if (!localEntries.length) return null;
 
   return (
     <section className="space-y-3">
@@ -258,7 +285,7 @@ export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
         viewAllHref="/profile"
       />
       <div className="flex gap-3 overflow-x-auto rail-scroll pb-2">
-        {entries.map((entry) => {
+        {localEntries.map((entry) => {
           const pct = entry.percentageComplete !== undefined ? entry.percentageComplete : null;
 
           return (
@@ -266,6 +293,10 @@ export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
               key={entry.animeId}
               href={`/watch/${entry.animeId}/${entry.episodesWatched}` as '/'}
               className="flex-shrink-0 w-36 group"
+              onMouseEnter={() => {
+                // Background stream pre-resolving
+                fetch(`/api/stream/source?animeId=${entry.animeId}&episode=${entry.episodesWatched}&title=${encodeURIComponent(entry.animeTitle)}`).catch(() => {});
+              }}
             >
               <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-colors duration-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -277,6 +308,16 @@ export function ContinueWatchingRail({ entries }: ContinueWatchingRailProps) {
                   referrerPolicy="no-referrer"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-transparent to-transparent" />
+
+                {/* Dismiss/Remove button */}
+                <button
+                  type="button"
+                  onClick={(e) => handleDismiss(e, entry.animeId)}
+                  className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-black/60 hover:bg-black/95 text-white/70 hover:text-white border border-white/10 opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-sm"
+                  title="Remove from Continue Watching"
+                >
+                  <X size={10} strokeWidth={3} />
+                </button>
 
                 {/* Episode progress pill */}
                 <div className="absolute bottom-2 left-2 right-2">

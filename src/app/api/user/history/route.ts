@@ -213,3 +213,58 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
+
+/**
+ * DELETE /api/user/history
+ * Body: { animeId: string }
+ * Removes ALL watch history entries and watch progress for one anime.
+ */
+export async function DELETE(req: Request) {
+  try {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { animeId } = body;
+
+    if (!animeId) {
+      return NextResponse.json({ error: 'Missing animeId.' }, { status: 400 });
+    }
+
+    const aid = String(animeId);
+
+    // Delete all history rows for this anime
+    await db.watchHistory.deleteMany({
+      where: { userId, animeId: aid },
+    });
+
+    // Delete all progress rows for this anime
+    await db.watchProgress.deleteMany({
+      where: { userId, animeId: aid },
+    });
+
+    // Reset the ListEntry episodes count and revert to planning (so it no longer shows in Continue Watching)
+    const listEntry = await db.listEntry.findUnique({
+      where: { userId_animeId: { userId, animeId: aid } },
+    });
+
+    if (listEntry && listEntry.status !== 'completed') {
+      await db.listEntry.update({
+        where: { id: listEntry.id },
+        data: {
+          episodesWatched: 0,
+          status: 'planning',
+          completedAt: null,
+        },
+      });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[History Delete API] Error:', error);
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+  }
+}

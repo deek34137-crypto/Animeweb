@@ -14,6 +14,7 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
     { key: '↓', action: 'Decrease Volume 10%' },
     { key: 'M', action: 'Toggle Mute' },
     { key: 'F', action: 'Toggle Fullscreen' },
+    { key: 'T', action: 'Theater Mode' },
     { key: 'N', action: 'Next Episode' },
     { key: 'P', action: 'Previous Episode' },
     { key: '?', action: 'Toggle this Shortcuts Overlay' },

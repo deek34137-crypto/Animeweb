@@ -25,7 +25,7 @@ class ProgressService {
     
     if (totalDuration <= 0) return;
 
-    const isCompletedThreshold = currentPos >= totalDuration * 0.95;
+    const isCompletedThreshold = currentPos >= totalDuration * 0.90;
 
     // Check throttle constraints: 30 seconds cooldown, completed threshold reached, or forced save
     if (data.force || isCompletedThreshold || now - lastSave >= 30000) {

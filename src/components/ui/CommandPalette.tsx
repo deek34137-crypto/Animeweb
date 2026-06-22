@@ -1,18 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, Loader2, TrendingUp, User } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Search, X, Loader2, Home, Play, Heart, Clock, Flame, Calendar, Star, Settings, Laptop, Moon, Sun, Tv } from 'lucide-react';
+import { useRouter } from '@/navigation';
 import { useLocale } from 'next-intl';
 import { AnimeData } from '@/services/jikan';
+import { useTheme } from '@/providers/ThemeProvider';
+import { useWatchlistStore } from '@/store/useWatchlistStore';
 
 interface SearchResult {
-  type: 'anime' | 'character';
-  id: number;
+  type: 'anime' | 'character' | 'action';
+  id: string;
   title: string;
   subtitle?: string;
   imageUrl?: string;
   score?: number;
+  action?: () => void;
+  icon?: React.ReactNode;
 }
 
 let debounceTimer: ReturnType<typeof setTimeout>;
@@ -23,9 +27,29 @@ export default function CommandPalette() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [recentCommands, setRecentCommands] = useState<string[]>([]);
+  
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const locale = useLocale();
+  const { setTheme } = useTheme();
+  const { entries } = useWatchlistStore();
+
+  // Load recent commands from local storage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('recent_commands');
+    if (saved) {
+      try {
+        setRecentCommands(JSON.parse(saved));
+      } catch {}
+    }
+  }, []);
+
+  const saveRecentCommand = (commandName: string) => {
+    const updated = [commandName, ...recentCommands.filter(c => c !== commandName)].slice(0, 5);
+    setRecentCommands(updated);
+    localStorage.setItem('recent_commands', JSON.stringify(updated));
+  };
 
   const open = useCallback(() => {
     setIsOpen(true);
@@ -47,7 +71,7 @@ export default function CommandPalette() {
         e.preventDefault();
         isOpen ? close() : open();
       }
-      if (e.key === '/' && !isOpen && document.activeElement?.tagName !== 'INPUT') {
+      if (e.key === '/' && !isOpen && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
         e.preventDefault();
         open();
       }
@@ -66,14 +90,103 @@ export default function CommandPalette() {
     }
   }, [isOpen]);
 
+  // Resume last watched helper
+  const handleResumeWatch = () => {
+    const watchingList = Object.values(entries).filter(e => e.status === 'watching');
+    const latestWatch = watchingList.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    )[0];
+    
+    if (latestWatch) {
+      router.push(`/watch/${latestWatch.animeId}/${latestWatch.episodesWatched}` as '/');
+    } else {
+      router.push('/profile?tab=watching');
+    }
+  };
+
+  // Define static quick actions list
+  const getQuickActions = useCallback((): SearchResult[] => {
+    return [
+      {
+        type: 'action',
+        id: 'go-home',
+        title: 'Go to Dashboard',
+        subtitle: 'Navigate back to homepage',
+        icon: <Home size={14} className="text-accent-violet" />,
+        action: () => { router.push('/'); saveRecentCommand('Go to Dashboard'); }
+      },
+      {
+        type: 'action',
+        id: 'go-my-anime',
+        title: 'Go to My Anime',
+        subtitle: 'View your library progress',
+        icon: <Heart size={14} className="text-accent-pink" />,
+        action: () => { router.push('/profile'); saveRecentCommand('Go to My Anime'); }
+      },
+      {
+        type: 'action',
+        id: 'go-history',
+        title: 'Go to Watch History',
+        subtitle: 'Check recently watched episodes',
+        icon: <Clock size={14} className="text-accent-cyan" />,
+        action: () => { router.push('/history'); saveRecentCommand('Go to Watch History'); }
+      },
+      {
+        type: 'action',
+        id: 'resume-watch',
+        title: 'Resume Last Watch',
+        subtitle: 'Play the latest active show in progress',
+        icon: <Play size={14} className="text-emerald-500" />,
+        action: () => { handleResumeWatch(); saveRecentCommand('Resume Last Watch'); }
+      },
+      {
+        type: 'action',
+        id: 'theme-light',
+        title: 'Switch to Light Theme',
+        subtitle: 'Change app theme to Light',
+        icon: <Sun size={14} className="text-amber-500" />,
+        action: () => { setTheme('light'); saveRecentCommand('Switch to Light Theme'); }
+      },
+      {
+        type: 'action',
+        id: 'theme-dark',
+        title: 'Switch to Dark Theme',
+        subtitle: 'Change app theme to Dark',
+        icon: <Moon size={14} className="text-violet-400" />,
+        action: () => { setTheme('dark'); saveRecentCommand('Switch to Dark Theme'); }
+      },
+      {
+        type: 'action',
+        id: 'theme-system',
+        title: 'Switch to System Theme',
+        subtitle: 'Sync app theme with OS',
+        icon: <Laptop size={14} className="text-text-muted" />,
+        action: () => { setTheme('system'); saveRecentCommand('Switch to System Theme'); }
+      },
+      {
+        type: 'action',
+        id: 'go-settings',
+        title: 'Open Settings',
+        subtitle: 'Configure your sync & details',
+        icon: <Settings size={14} className="text-text-secondary" />,
+        action: () => { router.push('/settings'); saveRecentCommand('Open Settings'); }
+      }
+    ];
+  }, [entries, router, recentCommands]);
+
   // Search with debounce
   useEffect(() => {
     clearTimeout(debounceTimer);
+    
     if (!query.trim() || query.length < 2) {
-      setResults([]);
+      // If empty, show quick actions (sorted with recents at top if matching)
+      const actions = getQuickActions();
+      setResults(actions);
+      setSelectedIndex(0);
       setIsLoading(false);
       return;
     }
+    
     setIsLoading(true);
     debounceTimer = setTimeout(async () => {
       try {
@@ -87,18 +200,18 @@ export default function CommandPalette() {
 
         const animeResults: SearchResult[] = (animeData.data || []).map((a: AnimeData) => ({
           type: 'anime' as const,
-          id: a.mal_id,
+          id: String(a.mal_id),
           title: a.title_english || a.title,
           subtitle: `${a.type || 'TV'} · ${a.episodes ? `${a.episodes} eps` : 'Ongoing'} · ★${a.score?.toFixed(1) || 'N/A'}`,
           imageUrl: a.images?.webp?.image_url || a.images?.jpg?.image_url,
-          score: a.score,
+          score: a.score || 0,
         }));
 
-        const charResults: SearchResult[] = (charData.data || []).map((c: { character: { mal_id: number; name: string; images?: { webp?: { image_url?: string } } } }) => ({
+        const charResults: SearchResult[] = (charData.data || []).map((c: any) => ({
           type: 'character' as const,
-          id: c.character?.mal_id,
+          id: String(c.character?.mal_id),
           title: c.character?.name,
-          imageUrl: c.character?.images?.webp?.image_url,
+          imageUrl: c.character?.images?.webp?.image_url || c.character?.images?.jpg?.image_url,
         }));
 
         setResults([...animeResults, ...charResults]);
@@ -109,7 +222,7 @@ export default function CommandPalette() {
         setIsLoading(false);
       }
     }, 280);
-  }, [query]);
+  }, [query, getQuickActions]);
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -122,19 +235,21 @@ export default function CommandPalette() {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (results[selectedIndex]) {
-        navigate(results[selectedIndex]);
+        executeSelection(results[selectedIndex]);
       } else if (query.trim()) {
-        router.push(`/${locale}/search?q=${encodeURIComponent(query.trim())}`);
+        router.push(`/search?q=${encodeURIComponent(query.trim())}`);
         close();
       }
     }
   };
 
-  const navigate = (result: SearchResult) => {
-    if (result.type === 'anime') {
-      router.push(`/${locale}/anime/${result.id}`);
-    } else {
-      router.push(`/${locale}/search?q=${encodeURIComponent(result.title)}&type=characters`);
+  const executeSelection = (result: SearchResult) => {
+    if (result.type === 'action' && result.action) {
+      result.action();
+    } else if (result.type === 'anime') {
+      router.push(`/anime/${result.id}` as '/');
+    } else if (result.type === 'character') {
+      router.push(`/search?q=${encodeURIComponent(result.title)}&type=characters`);
     }
     close();
   };
@@ -142,23 +257,26 @@ export default function CommandPalette() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh] px-4">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[12vh] px-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 dark:bg-black/75 backdrop-blur-md transition-opacity duration-300"
         onClick={close}
         aria-hidden="true"
       />
 
       {/* Palette Panel */}
       <div
-        className="relative w-full max-w-xl glass-panel border border-border-default rounded-2xl shadow-2xl overflow-hidden"
-        style={{ animation: 'cmdPaletteIn 0.18s ease-out both' }}
+        className="relative w-full max-w-xl glass-panel border border-border-subtle bg-bg-secondary/95 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{
+          animation: 'fadeIn 0.15s ease-out both',
+          maxHeight: '480px',
+        }}
         role="dialog"
         aria-modal="true"
-        aria-label="Search"
+        aria-label="Command Palette"
       >
-        {/* Search Input */}
+        {/* Input Bar */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border-subtle">
           {isLoading ? (
             <Loader2 size={18} className="text-text-muted animate-spin flex-shrink-0" />
@@ -170,8 +288,8 @@ export default function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search anime, characters…"
-            className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted text-sm outline-none"
+            placeholder="Search commands, anime, pages..."
+            className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted text-sm outline-none font-medium"
             autoComplete="off"
             spellCheck={false}
           />
@@ -185,119 +303,75 @@ export default function CommandPalette() {
           </kbd>
         </div>
 
-        {/* Results */}
-        <div className="max-h-[360px] overflow-y-auto no-scrollbar py-2">
-          {!query && (
-            <div className="px-4 py-8 text-center">
-              <Search size={32} className="text-text-disabled mx-auto mb-3" />
-              <p className="text-sm text-text-muted">Search for anime or characters</p>
-              <p className="text-xs text-text-disabled mt-1">Press Enter to see full results</p>
-            </div>
-          )}
-
-          {query.length >= 2 && !isLoading && results.length === 0 && (
-            <div className="px-4 py-8 text-center">
-              <p className="text-sm text-text-muted">No results for &ldquo;{query}&rdquo;</p>
+        {/* Dynamic List */}
+        <div className="flex-1 overflow-y-auto no-scrollbar py-2">
+          {results.length === 0 && query.length >= 2 && !isLoading && (
+            <div className="px-4 py-8 text-center text-text-muted text-xs">
+              No matching results found.
             </div>
           )}
 
           {results.length > 0 && (
             <ul role="listbox">
-              {/* Anime section */}
-              {results.filter(r => r.type === 'anime').length > 0 && (
-                <>
-                  <li className="px-4 py-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-disabled">
-                    <TrendingUp size={10} />
-                    Anime
-                  </li>
-                  {results.filter(r => r.type === 'anime').map((result, idx) => {
-                    const globalIdx = idx;
-                    return (
-                      <li key={`anime-${result.id}`} role="option" aria-selected={globalIdx === selectedIndex}>
-                        <button
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                            globalIdx === selectedIndex
-                              ? 'bg-accent-violet/10 text-text-primary'
-                              : 'hover:bg-surface-2 text-text-secondary'
-                          }`}
-                          onClick={() => navigate(result)}
-                          onMouseEnter={() => setSelectedIndex(globalIdx)}
-                        >
-                          {result.imageUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={result.imageUrl}
-                              alt={result.title}
-                              className="w-9 h-12 object-cover rounded-md flex-shrink-0 bg-surface-3"
-                              referrerPolicy="no-referrer"
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold truncate text-text-primary">{result.title}</p>
-                            {result.subtitle && (
-                              <p className="text-[11px] text-text-muted mt-0.5 truncate">{result.subtitle}</p>
-                            )}
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </>
+              {/* Actions Section Header */}
+              {results.some(r => r.type === 'action') && (
+                <li className="px-4 py-1.5 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-text-muted">
+                  System Controls & Navigation
+                </li>
               )}
 
-              {/* Character section */}
-              {results.filter(r => r.type === 'character').length > 0 && (
-                <>
-                  <li className="px-4 py-1.5 mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-disabled border-t border-border-subtle">
-                    <User size={10} />
-                    Characters
-                  </li>
-                  {results.filter(r => r.type === 'character').map((result, idx) => {
-                    const globalIdx = results.filter(r => r.type === 'anime').length + idx;
-                    return (
-                      <li key={`char-${result.id}`} role="option" aria-selected={globalIdx === selectedIndex}>
-                        <button
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                            globalIdx === selectedIndex
-                              ? 'bg-accent-violet/10 text-text-primary'
-                              : 'hover:bg-surface-2 text-text-secondary'
-                          }`}
-                          onClick={() => navigate(result)}
-                          onMouseEnter={() => setSelectedIndex(globalIdx)}
-                        >
-                          {result.imageUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={result.imageUrl}
-                              alt={result.title}
-                              className="w-9 h-9 object-cover rounded-full flex-shrink-0 bg-surface-3"
-                              referrerPolicy="no-referrer"
-                            />
-                          )}
-                          <p className="text-sm font-semibold text-text-primary truncate">{result.title}</p>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </>
+              {/* Anime Section Header */}
+              {query.length >= 2 && results.some(r => r.type === 'anime') && (
+                <li className="px-4 py-1.5 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-text-muted">
+                  <Tv size={10} /> Anime Shows
+                </li>
               )}
+
+              {results.map((result, idx) => {
+                const isSelected = idx === selectedIndex;
+                return (
+                  <li key={result.id} role="option" aria-selected={isSelected}>
+                    <button
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-100 ${
+                        isSelected
+                          ? 'bg-accent-violet/10 text-accent-primary border-l-2 border-accent-violet pl-3.5'
+                          : 'hover:bg-bg-elevated/40 text-text-secondary pl-4'
+                      }`}
+                      onClick={() => executeSelection(result)}
+                      onMouseEnter={() => setSelectedIndex(idx)}
+                    >
+                      {/* Icon or Thumbnail */}
+                      {result.type === 'action' && result.icon && (
+                        <div className="w-6 h-6 rounded-lg bg-bg-elevated flex items-center justify-center flex-shrink-0">
+                          {result.icon}
+                        </div>
+                      )}
+                      
+                      {result.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={result.imageUrl}
+                          alt={result.title}
+                          className={`object-cover bg-surface-3 flex-shrink-0 ${
+                            result.type === 'character' ? 'w-6 h-6 rounded-full' : 'w-7 h-9 rounded-md'
+                          }`}
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-bold truncate ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
+                          {result.title}
+                        </p>
+                        {result.subtitle && (
+                          <p className="text-[10px] text-text-muted mt-0.5 truncate">{result.subtitle}</p>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
-          )}
-
-          {/* Full search link */}
-          {query.trim().length >= 2 && (
-            <div className="border-t border-border-subtle px-4 py-2.5 mt-1">
-              <button
-                className="w-full flex items-center gap-2 text-sm text-accent-violet hover:text-text-primary transition-colors"
-                onClick={() => {
-                  router.push(`/${locale}/search?q=${encodeURIComponent(query.trim())}`);
-                  close();
-                }}
-              >
-                <Search size={14} />
-                Search all results for &ldquo;{query}&rdquo;
-              </button>
-            </div>
           )}
         </div>
       </div>

@@ -8,6 +8,7 @@ export async function POST(req: Request) {
     const session = await auth();
     const userId = session?.user?.id;
     if (!userId) {
+      console.warn('[Progress API] Sync rejected: Session has no valid user ID.');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await req.json();
@@ -66,9 +67,9 @@ export async function POST(req: Request) {
     });
     const historyCreated = true;
 
-    // 3. Check Auto-Completion (Watch Progress >= 95% or ended) for list/tracker synchronization
+    // 3. Check Auto-Completion (Watch Progress >= 90% or ended) for list/tracker synchronization
     const completionRatio = posSec / durSec;
-    const isCompleted = completionRatio >= 0.95;
+    const isCompleted = completionRatio >= 0.90;
 
     let listEntryUpdated = false;
 

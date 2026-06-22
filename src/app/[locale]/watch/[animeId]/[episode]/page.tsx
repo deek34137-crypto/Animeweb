@@ -5,8 +5,8 @@ import { db } from '@/lib/db';
 import { StreamingManager } from '@/lib/streaming';
 import { ArrowLeft, Play, Calendar, Film, Bookmark } from 'lucide-react';
 import { Link } from '@/navigation';
-import VideoPlayer from '@/components/video/VideoPlayer';
 import EpisodeSidebar from './EpisodeSidebar';
+import WatchPageClient from './WatchPageClient';
 
 interface WatchPageProps {
   params: Promise<{ animeId: string; episode: string; locale: string }>;
@@ -158,87 +158,30 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
       </div>
 
       {/* Main Grid Layout: Player and Episodes Browser */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
-        {/* Left Area: Video Player & Details */}
-        <div className="space-y-6 min-w-0">
-          <Suspense fallback={<div className="aspect-video w-full rounded-2xl shimmer-loader" />}>
-            <VideoPlayer
-              animeId={animeId}
-              animeImage={anime.images.webp.large_image_url || ''}
-              sources={streamInfo.sources}
-              subSources={streamInfo.sub}
-              dubSources={streamInfo.dub}
-              hindiSources={streamInfo.hindi}
-              tamilSources={streamInfo.tamil}
-              teluguSources={streamInfo.telugu}
-              subtitles={streamInfo.subtitles}
-              animeTitle={mainTitle}
-              episodeNumber={epNum}
-              totalEpisodes={episodes.length}
-              initialPosition={initialPosition}
-              providers={streamInfo.providers}
-              currentProvider={streamInfo.currentProvider}
-              isFallback={streamInfo.isFallback}
-              fallbackReason={streamInfo.fallbackReason}
-              matchedTitle={streamInfo.matchedTitle}
-              matchedSlug={streamInfo.matchedSlug}
-              searchCount={streamInfo.searchCount}
-              episodeCountFound={streamInfo.episodeCountFound}
-              providerSlug={streamInfo.providerSlug}
-            />
-          </Suspense>
-
-          {/* Episode Info & Meta */}
-          <div className="glass-panel border border-border-default rounded-2xl p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-subtle">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black text-text-primary font-display leading-tight">
-                  Episode {epNum} {currentEp?.title ? `: ${currentEp.title}` : ''}
-                </h1>
-                <p className="text-xs text-accent-violet font-semibold mt-1">
-                  {mainTitle}
-                </p>
-              </div>
-              {currentEp?.aired && (
-                <div className="flex items-center gap-1.5 text-xs text-text-muted flex-shrink-0">
-                  <Calendar size={13} />
-                  <span>Aired: {new Date(currentEp.aired).toLocaleDateString()}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Synopsis / Summary */}
-            <div className="space-y-2 text-sm text-text-secondary leading-relaxed">
-              {anime.synopsis && (
-                <p className="line-clamp-3 md:line-clamp-none">
-                  {anime.synopsis}
-                </p>
-              )}
-            </div>
-
-            {/* Genres / Stats quick view */}
-            <div className="flex flex-wrap gap-2 pt-2">
-              {anime.type && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-surface-3 border border-border-subtle text-text-secondary rounded-lg">
-                  {anime.type}
-                </span>
-              )}
-              {anime.rating && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-surface-3 border border-border-subtle text-text-secondary rounded-lg">
-                  {anime.rating}
-                </span>
-              )}
-              {currentEp?.filler && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-lg">
-                  Filler
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Area: Episode Selector Sidebar */}
-        <aside className="w-full lg:sticky lg:top-[88px] z-20">
+      <WatchPageClient
+        animeId={animeId}
+        animeImage={anime.images.webp.large_image_url || ''}
+        sources={streamInfo.sources}
+        subSources={streamInfo.sub}
+        dubSources={streamInfo.dub}
+        hindiSources={streamInfo.hindi}
+        tamilSources={streamInfo.tamil}
+        teluguSources={streamInfo.telugu}
+        subtitles={streamInfo.subtitles}
+        animeTitle={mainTitle}
+        episodeNumber={epNum}
+        totalEpisodes={episodes.length}
+        initialPosition={initialPosition}
+        providers={streamInfo.providers}
+        currentProvider={streamInfo.currentProvider}
+        isFallback={streamInfo.isFallback}
+        fallbackReason={streamInfo.fallbackReason}
+        matchedTitle={streamInfo.matchedTitle}
+        matchedSlug={streamInfo.matchedSlug}
+        searchCount={streamInfo.searchCount}
+        episodeCountFound={streamInfo.episodeCountFound}
+        providerSlug={streamInfo.providerSlug}
+        sidebar={
           <Suspense fallback={<div className="h-[520px] w-full rounded-2xl shimmer-loader" />}>
             {(() => {
               const seasonsList = [
@@ -283,10 +226,11 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
               );
             })()}
           </Suspense>
-        </aside>
-      </div>
+        }
+      />
 
       {/* Below Player: Rich Content */}
+
       <div className="space-y-8 mt-2">
 
         {/* Synopsis */}

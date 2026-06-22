@@ -136,6 +136,8 @@ model WatchHistory {
   animeTitle  String
   animeImage  String
   episode     Int
+  position    Int      @default(0) // playback position in seconds when last seen
+  duration    Int      @default(0) // total duration in seconds
   completedAt DateTime @default(now()) @updatedAt
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

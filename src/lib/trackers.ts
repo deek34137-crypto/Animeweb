@@ -161,7 +161,7 @@ export async function syncToMyAnimeList(
 /**
  * Queries AniList for their internal Media ID using the MAL ID.
  */
-async function fetchAnilistMediaId(animeIdMal: string): Promise<number | null> {
+export async function fetchAnilistMediaId(animeIdMal: string): Promise<number | null> {
   const query = `
     query ($idMal: Int) {
       Media (idMal: $idMal, type: ANIME) {

@@ -1,5 +1,6 @@
 import { StreamingProviderInterface, EpisodeItem, EpisodeStreamInfo, EpisodeSource, SubtitleTrack } from '../types';
 import { AnimeApi } from '@/lib/api';
+import { parseTitle, getMatchScore } from './utils';
 
 const TOONPLAY_HEADERS = {
   'Origin': 'https://toonplay.in',
@@ -48,7 +49,7 @@ export const toonplayProvider: StreamingProviderInterface = {
     }
 
     if (isMalId && animeTitle) {
-      const detectedSeason = detectSeasonFromTitle(animeTitle);
+      const detectedSeason = parseTitle(animeTitle).season;
       const matchedSeason = seasons.find((s: any) => parseInt(s.season, 10) === detectedSeason) || seasons[0];
       return (matchedSeason.episodes || []).map((ep: any) => ({
         number: ep.number,
@@ -112,7 +113,7 @@ export const toonplayProvider: StreamingProviderInterface = {
       let matchedEpisode: any = null;
 
       if (isMalId && animeTitle) {
-        const detectedSeason = detectSeasonFromTitle(animeTitle);
+        const detectedSeason = parseTitle(animeTitle).season;
         const matchedSeason = seasons.find((s: any) => parseInt(s.season, 10) === detectedSeason) || seasons[0];
         matchedEpisode = (matchedSeason.episodes || []).find((e: any) => e.number === episode);
       } else {
@@ -236,20 +237,7 @@ export const toonplayProvider: StreamingProviderInterface = {
   },
 };
 
-// Helper to detect season number from the MAL anime title
-function detectSeasonFromTitle(title: string): number {
-  const t = title.toLowerCase();
-  if (t.includes('season 1') || t.includes('1st season')) return 1;
-  if (t.includes('season 2') || t.includes('2nd season') || t.includes('mugen train') || t.includes('entertainment district')) return 2;
-  if (t.includes('season 3') || t.includes('3rd season') || t.includes('swordsmith village')) return 3;
-  if (t.includes('season 4') || t.includes('4th season') || t.includes('hashira training')) return 4;
-  if (t.includes('season 5') || t.includes('5th season')) return 5;
 
-  const match = t.match(/season\s*(\d+)/);
-  if (match) return parseInt(match[1], 10);
-
-  return 1;
-}
 
 // Find best matched anime from search results
 interface ToonPlaySearchResult {
@@ -258,61 +246,11 @@ interface ToonPlaySearchResult {
   type: string;
 }
 
-const GENERIC_WORDS = new Set([
-  'the', 'series', 'season', 'beginning', 'first', 'classic', 'indigo', 'league', 'tv', 'show',
-  'dub', 'sub', 'hindi', 'english', 'uncut', 'part', 'vol', 'volume', 'edition', 'version',
-  'of', 'and', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'a', 'an', 'arc'
-]);
 
-function getMatchScore(itemTitle: string, itemType: string, targetTitle: string, isMovieTarget: boolean): number {
-  const normItem = itemTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-  const normTarget = targetTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-
-  const itemIsMovie = itemType.toLowerCase() === 'movie';
-  const typeMatch = itemIsMovie === isMovieTarget;
-
-  if (normItem === normTarget) {
-    return 1000 + (typeMatch ? 200 : 0);
-  }
-
-  const itemWords = normItem.split(/\s+/).filter(Boolean);
-  const targetWords = normTarget.split(/\s+/).filter(Boolean);
-
-  const isSubstring = normItem.includes(normTarget) || normTarget.includes(normItem);
-  if (!isSubstring) {
-    return 0; // Not a match
-  }
-
-  let score = 100;
-  if (typeMatch) {
-    score += 200;
-  } else {
-    score -= 200;
-  }
-
-  // Penalize extra words in itemTitle that are not in targetTitle
-  const targetWordSet = new Set(targetWords);
-  for (const word of itemWords) {
-    if (!targetWordSet.has(word)) {
-      if (GENERIC_WORDS.has(word) || /^\d+$/.test(word)) {
-        score -= 1; // minor penalty
-      } else {
-        score -= 50; // high penalty
-      }
-    }
-  }
-
-  return score;
-}
 
 async function findBestAnimeMatch(title: string, isMovie: boolean = false): Promise<ToonPlaySearchResult | null> {
-  const cleanTitle = title
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-
-  const baseTitle = cleanTitle.split(':')[0].trim();
-
-  const query = baseTitle
+  const parsed = parseTitle(title);
+  const query = parsed.base
     .replace(/\s*\(.*?\)\s*/g, ' ')
     .replace(/[^\w\s]/g, '')
     .trim();
@@ -356,7 +294,7 @@ async function findBestAnimeMatch(title: string, isMovie: boolean = false): Prom
 
     // Evaluate all candidates using getMatchScore
     const scoredCandidates = results.map(item => {
-      const score = getMatchScore(item.title, item.type, cleanTitle, isMovie);
+      const score = getMatchScore(item.title, item.type, title, isMovie);
       return { item, score };
     });
 

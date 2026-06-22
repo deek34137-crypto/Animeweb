@@ -3,11 +3,16 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import QueryProvider from '@/providers/QueryProvider';
 import { SessionProvider } from 'next-auth/react';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { ThemeProvider } from '@/providers/ThemeProvider';
+import AppShell from '@/components/AppShell';
 import CommandPalette from '@/components/ui/CommandPalette';
+import NavigationLoader from '@/components/ui/NavigationLoader';
+import QuickMenu from '@/components/dashboard/QuickMenu';
+import ShortcutHelper from '@/components/ui/ShortcutHelper';
 import { Analytics } from '@vercel/analytics/next';
-import { Outfit, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
+import { Outfit, Inter, JetBrains_Mono } from 'next/font/google';
+import { auth } from '@/auth';
+import { db } from '@/lib/db';
 import '../globals.css';
 
 const outfit = Outfit({
@@ -17,9 +22,9 @@ const outfit = Outfit({
   display: 'swap',
 });
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['400', '500', '600'],
   variable: '--font-body',
   display: 'swap',
 });
@@ -34,7 +39,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata = {
   title: 'AnimeWorld RJ - Premium Anime Streaming & Discovery Platform',
   description: 'High-performance, premium anime discovery website showing trending, top-rated, and seasonal shows, search filters, and real-time streaming availability with subtitles and dubs.',
-  keywords: 'anime, discovery, streaming, crunchyroll, netflix, dub, sub, jikan, mal, myanimelist, seasons, reviews',
+  keywords: 'anime, discovery, streaming, crunchyroll, netflix, dub, sub, jikan, mal, MyAnimeList, seasons, reviews',
 };
 
 export default async function LocaleLayout({
@@ -46,22 +51,68 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   const messages = await getMessages();
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  let myAnimeCount = 0;
+  let continueWatchingCount = 0;
+
+  if (userId) {
+    try {
+      myAnimeCount = await db.listEntry.count({
+        where: { userId },
+      });
+      continueWatchingCount = await db.listEntry.count({
+        where: { userId, status: 'watching' },
+      });
+    } catch (error) {
+      console.error('Failed to load sidebar badges from database:', error);
+    }
+  }
 
   return (
-    <html lang={locale} className={`${plusJakartaSans.variable} ${outfit.variable} ${jetbrainsMono.variable} h-full scroll-smooth`}>
+    <html lang={locale} suppressHydrationWarning className={`${inter.variable} ${outfit.variable} ${jetbrainsMono.variable} h-full scroll-smooth`}>
       <head>
-        {/* Font loading is handled via next/font */}
+        {/* Inline Theme Detection Script to prevent flash of theme on load */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var theme = localStorage.getItem('theme') || 'system';
+                var isLight = false;
+                if (theme === 'system') {
+                  isLight = !window.matchMedia('(prefers-color-scheme: dark)').matches;
+                } else {
+                  isLight = theme === 'light';
+                }
+                if (isLight) {
+                  document.documentElement.classList.add('light');
+                  document.documentElement.setAttribute('data-theme', 'light');
+                } else {
+                  document.documentElement.classList.remove('light');
+                  document.documentElement.removeAttribute('data-theme');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
+      <body className="min-h-full flex flex-col bg-bg-primary text-text-primary font-sans transition-colors duration-200">
         <NextIntlClientProvider messages={messages}>
           <SessionProvider>
             <QueryProvider>
-              <Navbar />
-              <CommandPalette />
-              <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {children}
-              </main>
-              <Footer />
+              <ThemeProvider>
+                <NavigationLoader />
+                <AppShell
+                  myAnimeCount={myAnimeCount}
+                  continueWatchingCount={continueWatchingCount}
+                >
+                  {children}
+                </AppShell>
+                <CommandPalette />
+                <QuickMenu />
+                <ShortcutHelper />
+              </ThemeProvider>
             </QueryProvider>
           </SessionProvider>
         </NextIntlClientProvider>

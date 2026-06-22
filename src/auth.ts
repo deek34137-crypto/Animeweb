@@ -64,29 +64,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
       }
       
+      if (!token.id) {
+        return null;
+      }
+
+      // Fetch the user from database to ensure they still exist and sync properties
+      const dbUser = await db.user.findUnique({
+        where: { id: token.id as string },
+        select: { id: true, username: true, avatar: true, displayName: true },
+      });
+
+      if (!dbUser) {
+        console.warn(`[NextAuth] JWT token contains non-existent user ID: ${token.id}. Invalidating session.`);
+        return null;
+      }
+
       if (trigger === 'update' && session) {
         if (session.name) token.name = session.name;
         if (session.image) token.picture = session.image;
         if (session.username) token.username = session.username;
       } else {
-        const dbUser = await db.user.findUnique({
-          where: { id: token.id },
-          select: { username: true, avatar: true, displayName: true },
-        });
-        if (dbUser) {
-          token.username = dbUser.username;
-          token.picture = dbUser.avatar;
-          token.name = dbUser.displayName || dbUser.username;
-        }
+        token.username = dbUser.username;
+        token.picture = dbUser.avatar;
+        token.name = dbUser.displayName || dbUser.username;
       }
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.username = token.username;
+      if (token && token.id) {
+        session.user.id = token.id as string;
+        session.user.username = token.username as string;
         session.user.image = token.picture;
         session.user.name = token.name;
+      } else {
+        return null as any;
       }
       return session;
     },

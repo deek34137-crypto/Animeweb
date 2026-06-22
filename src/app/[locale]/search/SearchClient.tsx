@@ -245,7 +245,7 @@ export default function SearchClient({ initialQuery, initialLang = '' }: SearchC
 
         {/* Loading skeletons */}
         {isLoading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {Array.from({ length: 12 }).map((_, idx) => (
               <AnimeCardSkeleton key={idx} />
             ))}
@@ -269,7 +269,7 @@ export default function SearchClient({ initialQuery, initialLang = '' }: SearchC
 
         {/* Dynamic Cards Grid */}
         {!isLoading && !isError && animeList.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {animeList.map((anime: any) => (
               <AnimeCard key={anime.mal_id} anime={anime} />
             ))}

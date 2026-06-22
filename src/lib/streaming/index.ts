@@ -62,7 +62,7 @@ export const StreamingManager = {
     // If Hindi is preferred, elevate Hindi providers to the absolute front of the failover chain
     let finalChain = [...sortedProviderNames];
     if (preferredLanguage?.toLowerCase() === 'hindi') {
-      const hindiProviders = ['toonplay', 'toonworld', 'desidubanime', 'piratexplay'];
+      const hindiProviders = ['toonplay', 'toonworld', 'vidnest', 'desidubanime', 'piratexplay'];
       finalChain = finalChain.filter(p => !hindiProviders.includes(p));
       finalChain.unshift(...hindiProviders);
     }
@@ -88,7 +88,9 @@ export const StreamingManager = {
       console.info(`episode=${episode}`);
 
       try {
+        const attemptStart = Date.now();
         const streamInfo = await provider.getStreamInfo(animeId, episode, animeTitle);
+        const responseTimeMs = Date.now() - attemptStart;
 
         // Validate that provider returned sources
         const activeSources = streamInfo.hindi && streamInfo.hindi.length > 0 
@@ -113,7 +115,7 @@ export const StreamingManager = {
         console.info(`url=resolved`);
 
         // Mark success
-        StreamingHealth.recordSuccess(provider.name);
+        StreamingHealth.recordSuccess(provider.name, responseTimeMs);
         fallbackChain.push({ provider: provider.name, status: 'success' });
 
         // Normalize the payload

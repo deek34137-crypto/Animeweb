@@ -4,28 +4,34 @@ interface ProviderStats {
   successes: number;
   failures: number;
   lastSuccess?: Date;
+  totalResponseTimeMs: number; // cumulative response time for successful fetches
 }
 
 // Default starting values — equal baselines since all providers are now real
 const providerStats: Record<string, ProviderStats> = {
-  toonworld: { successes: 50, failures: 2 },
-  consumet: { successes: 50, failures: 5 },
-  animepahe: { successes: 45, failures: 10 },
-  anicli: { successes: 0, failures: 50 }, // Not implemented — will always fail
-  mock: { successes: 100, failures: 0 },  // Always succeeds (test streams)
+  toonworld: { successes: 50, failures: 2, totalResponseTimeMs: 75000 },
+  consumet: { successes: 50, failures: 5, totalResponseTimeMs: 100000 },
+  animepahe: { successes: 45, failures: 10, totalResponseTimeMs: 112500 },
+  anicli: { successes: 0, failures: 50, totalResponseTimeMs: 0 }, // Not implemented — will always fail
+  mock: { successes: 100, failures: 0, totalResponseTimeMs: 1000 }, // Always succeeds (test streams)
 };
 
 export const StreamingHealth = {
   /**
    * Records a successful fetch/stream load for a provider.
+   * @param provider Provider name
+   * @param responseTimeMs Optional response time in milliseconds for this fetch
    */
-  recordSuccess: (provider: string) => {
+  recordSuccess: (provider: string, responseTimeMs?: number) => {
     const key = provider.toLowerCase();
     if (!providerStats[key]) {
-      providerStats[key] = { successes: 0, failures: 0 };
+      providerStats[key] = { successes: 0, failures: 0, totalResponseTimeMs: 0 };
     }
     providerStats[key].successes += 1;
     providerStats[key].lastSuccess = new Date();
+    if (responseTimeMs !== undefined && responseTimeMs > 0) {
+      providerStats[key].totalResponseTimeMs += responseTimeMs;
+    }
   },
 
   /**
@@ -34,7 +40,7 @@ export const StreamingHealth = {
   recordFailure: (provider: string) => {
     const key = provider.toLowerCase();
     if (!providerStats[key]) {
-      providerStats[key] = { successes: 0, failures: 0 };
+      providerStats[key] = { successes: 0, failures: 0, totalResponseTimeMs: 0 };
     }
     providerStats[key].failures += 1;
   },
@@ -52,15 +58,27 @@ export const StreamingHealth = {
   },
 
   /**
+   * Returns average response time in milliseconds for a provider.
+   * Lower is better. Returns Infinity if no successful data yet.
+   */
+  getAverageResponseTime: (provider: string): number => {
+    const key = provider.toLowerCase();
+    const stats = providerStats[key];
+    if (!stats || stats.successes === 0) return Infinity;
+    return stats.totalResponseTimeMs / stats.successes;
+  },
+
+  /**
    * Returns current stats for all providers (for debug panel).
    */
-  getAllStats: (): Record<string, { successRate: number; total: number }> => {
-    const result: Record<string, { successRate: number; total: number }> = {};
+  getAllStats: (): Record<string, { successRate: number; total: number; avgResponseMs: number }> => {
+    const result: Record<string, { successRate: number; total: number; avgResponseMs: number }> = {};
     for (const [key, stats] of Object.entries(providerStats)) {
       const total = stats.successes + stats.failures;
       result[key] = {
         successRate: total > 0 ? Math.round((stats.successes / total) * 100) : 0,
         total,
+        avgResponseMs: stats.successes > 0 ? Math.round(stats.totalResponseTimeMs / stats.successes) : 0,
       };
     }
     return result;
@@ -68,6 +86,7 @@ export const StreamingHealth = {
 
   /**
    * Reorders a list of providers by their success percentage (descending).
+   * For ties, faster average response time breaks the tie.
    * Mock provider is always placed last — it should only be used as final fallback.
    */
   getReorderedProviders: (providers: string[]): string[] => {
@@ -77,7 +96,12 @@ export const StreamingHealth = {
       if (b === 'mock') return -1;
       const rateA = StreamingHealth.getSuccessPercentage(a);
       const rateB = StreamingHealth.getSuccessPercentage(b);
-      return rateB - rateA;
+      if (Math.abs(rateA - rateB) > 5) {
+        // Significant success rate difference — use success rate
+        return rateB - rateA;
+      }
+      // Tie-break by average response time (lower is better)
+      return StreamingHealth.getAverageResponseTime(a) - StreamingHealth.getAverageResponseTime(b);
     });
   },
 

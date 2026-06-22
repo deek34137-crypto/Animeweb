@@ -1,4 +1,4 @@
-import { JikanAPI, AnimeData, EpisodeData, CharacterRoster, RecommendationItem } from '@/services/jikan';
+import { JikanAPI, AnimeData, EpisodeData, CharacterRoster, RecommendationItem, StaffMember, UserReview } from '@/services/jikan';
 import { db } from '../db';
 
 // Unified types returned by the API layer
@@ -27,6 +27,18 @@ export const AnimeApi = {
 
   getSeasonalAnime: async (page = 1) => {
     return JikanAPI.getSeasonalAnime(page);
+  },
+
+  getTopAiringAnime: async (page = 1) => {
+    return JikanAPI.getTopAiringAnime(page);
+  },
+
+  getAiringSchedule: async (page = 1) => {
+    return JikanAPI.getAiringSchedule(page);
+  },
+
+  getRecentAnimeRecommendations: async (page = 1) => {
+    return JikanAPI.getRecentAnimeRecommendations(page);
   },
 
   getAnimeDetail: async (id: number, userId?: string): Promise<UnifiedAnimeDetail> => {
@@ -75,6 +87,16 @@ export const AnimeApi = {
 
   getAnimeRecommendations: async (id: number): Promise<RecommendationItem[]> => {
     const res = await JikanAPI.getAnimeRecommendations(id);
+    return res.data || [];
+  },
+
+  getAnimeStaff: async (id: number): Promise<StaffMember[]> => {
+    const res = await JikanAPI.getAnimeStaff(id);
+    return res.data || [];
+  },
+
+  getAnimeReviews: async (id: number): Promise<UserReview[]> => {
+    const res = await JikanAPI.getAnimeReviews(id);
     return res.data || [];
   },
 
@@ -212,7 +234,7 @@ export const AnimeApi = {
         let remainingMinutes = 0;
 
         if (latestProgress) {
-          const isCompleted = latestProgress.position / latestProgress.duration >= 0.95;
+          const isCompleted = latestProgress.position / latestProgress.duration >= 0.90;
           if (!isCompleted) {
             resumeEpisode = latestProgress.episode;
             percentageComplete = Math.round((latestProgress.position / latestProgress.duration) * 100);

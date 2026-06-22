@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, ArrowUpDown, Check, Play, ChevronDown, Loader2 } from 'lucide-react';
 import { Link, useRouter } from '@/navigation';
 
@@ -45,6 +45,21 @@ export default function EpisodeSidebar({
   const [sortAsc, setSortAsc] = useState(true);
   const [localWatched, setLocalWatched] = useState<number[]>(watchedEpisodes);
   const [isToggling, setIsToggling] = useState<number | null>(null);
+
+  // Ref for the scrollable list container and the active episode row
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const activeEpRef = useRef<HTMLAnchorElement>(null);
+
+  // Auto-scroll to current episode when sidebar mounts
+  useEffect(() => {
+    if (activeEpRef.current && listContainerRef.current) {
+      // Small delay so layout is stable before scrolling
+      const timer = setTimeout(() => {
+        activeEpRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [currentEpisode]);
 
   useEffect(() => {
     setLocalWatched(watchedEpisodes);
@@ -92,18 +107,24 @@ export default function EpisodeSidebar({
   };
 
   // Fallback: if no episodes from provider, generate stubs from totalEpisodes
+  // Fallback & Padding: ensure we show up to totalEpisodes if provider returned fewer episodes
   const resolvedEpisodes = useMemo(() => {
-    if (episodes.length > 0) return episodes;
-    if (totalEpisodes && totalEpisodes > 0) {
-      return Array.from({ length: totalEpisodes }, (_, i) => ({
-        number: i + 1,
-        title: undefined,
-        aired: undefined,
-        filler: false,
-        recap: false,
-      }));
+    const list = [...episodes];
+    const maxEp = Math.max(totalEpisodes || 0, list.length);
+
+    for (let i = 1; i <= maxEp; i++) {
+      if (!list.some((e) => e.number === i)) {
+        list.push({
+          number: i,
+          title: undefined,
+          aired: undefined,
+          filler: false,
+          recap: false,
+        });
+      }
     }
-    return [];
+
+    return list.sort((a, b) => a.number - b.number);
   }, [episodes, totalEpisodes]);
 
   // Search & Filter
@@ -185,7 +206,7 @@ export default function EpisodeSidebar({
       </div>
 
       {/* Episode Rows List */}
-      <div className="flex-grow overflow-y-auto no-scrollbar p-2 space-y-1">
+      <div ref={listContainerRef} className="flex-grow overflow-y-auto no-scrollbar p-2 space-y-1">
         {filteredEpisodes.length === 0 ? (
           <div className="py-12 text-center text-xs text-text-muted">
             No episodes match your search.
@@ -198,7 +219,12 @@ export default function EpisodeSidebar({
             return (
               <Link
                 key={ep.number}
+                ref={isActive ? activeEpRef : undefined}
                 href={`/watch/${animeId}/${ep.number}` as '/'}
+                onMouseEnter={() => {
+                  // Pre-resolve stream in background on hover
+                  fetch(`/api/stream/source?animeId=${animeId}&episode=${ep.number}&title=${encodeURIComponent(animeTitle)}`).catch(() => {});
+                }}
                 className={`block rounded-xl border overflow-hidden transition-all duration-200 group relative ${
                   isActive
                     ? 'border-l-2 border-accent-violet bg-accent-violet/10 shadow-[0_0_16px_rgba(124,91,255,0.15)]'
