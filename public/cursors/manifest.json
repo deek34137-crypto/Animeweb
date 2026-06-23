@@ -244,7 +244,7 @@
   {
     "id": "chibi-chainsaw-man-power-blood-scythe",
     "cursor": "/cursors/chibi-chainsaw-man-power-blood-scythe-cursor.png",
-    "pointer": "/cursors/chibi-chainsaw-man-power-blood-scythe-pointer.png",
+    "pointer": "/cursors/chibi-chainsaw-man-power-blood-scythe-cursor.png",
     "name": "Chibi Chainsaw Man Power Blood Scythe",
     "category": "Anime / Manga",
     "hotspotX": 0,
@@ -508,7 +508,7 @@
   {
     "id": "chibi-jujutsu-kaisen-panda",
     "cursor": "/cursors/chibi-jujutsu-kaisen-panda-cursor.png",
-    "pointer": "/cursors/chibi-jujutsu-kaisen-panda-pointer.png",
+    "pointer": "/cursors/chibi-jujutsu-kaisen-panda-cursor.png",
     "name": "Chibi Jujutsu Kaisen Panda",
     "category": "Anime / Manga",
     "hotspotX": 0,
@@ -728,7 +728,7 @@
   {
     "id": "courage-cowardly-dog-muriel-rolling-pin",
     "cursor": "/cursors/courage-cowardly-dog-muriel-rolling-pin-cursor.png",
-    "pointer": "/cursors/courage-cowardly-dog-muriel-rolling-pin-pointer.png",
+    "pointer": "/cursors/courage-cowardly-dog-muriel-rolling-pin-cursor.png",
     "name": "Courage The Cowardly Dog Muriel Rolling Pin",
     "category": "Cartoon & Movies",
     "hotspotX": 0,
@@ -1069,7 +1069,7 @@
   {
     "id": "cute-christmas-capybara",
     "cursor": "/cursors/cute-christmas-capybara-cursor.png",
-    "pointer": "/cursors/cute-christmas-capybara-pointer.png",
+    "pointer": "/cursors/cute-christmas-capybara-cursor.png",
     "name": "Cute Christmas Capybara",
     "category": "Viral Memes",
     "hotspotX": 0,
@@ -1696,7 +1696,7 @@
   {
     "id": "cute-standing-beige-llama",
     "cursor": "/cursors/cute-standing-beige-llama-cursor.png",
-    "pointer": "/cursors/cute-standing-beige-llama-pointer.png",
+    "pointer": "/cursors/cute-standing-beige-llama-cursor.png",
     "name": "Cute Standing Beige Llama",
     "category": "Viral Memes",
     "hotspotX": 0,
@@ -1729,7 +1729,7 @@
   {
     "id": "cute-strawberry-kitty",
     "cursor": "/cursors/cute-strawberry-kitty-cursor.png",
-    "pointer": "/cursors/cute-strawberry-kitty-pointer.png",
+    "pointer": "/cursors/cute-strawberry-kitty-cursor.png",
     "name": "Cute Strawberry Kitty",
     "category": "Viral Memes",
     "hotspotX": 0,
@@ -2047,8 +2047,8 @@
   },
   {
     "id": "grounded-max-mint-mace",
-    "cursor": "/cursors/grounded-max-mint-mace-cursor.png",
     "pointer": "/cursors/grounded-max-mint-mace-pointer.png",
+    "cursor": "/cursors/grounded-max-mint-mace-pointer.png",
     "name": "Grounded Max Mint Mace",
     "category": "Games",
     "hotspotX": 0,
@@ -2136,7 +2136,7 @@
   {
     "id": "lackadaisy-dorian-zibowski-tail",
     "cursor": "/cursors/lackadaisy-dorian-zibowski-tail-cursor.png",
-    "pointer": "/cursors/lackadaisy-dorian-zibowski-tail-pointer.png",
+    "pointer": "/cursors/lackadaisy-dorian-zibowski-tail-cursor.png",
     "name": "Lackadaisy Dorian Zibowski Tail",
     "category": "Anime / Manga",
     "hotspotX": 0,
@@ -2157,8 +2157,8 @@
   },
   {
     "id": "legends-idleon-mutated-mush-trolls-key",
-    "cursor": "/cursors/legends-idleon-mutated-mush-trolls-key-cursor.png",
     "pointer": "/cursors/legends-idleon-mutated-mush-trolls-key-pointer.png",
+    "cursor": "/cursors/legends-idleon-mutated-mush-trolls-key-pointer.png",
     "name": "Legends Idleon Mutated Mush Trolls Key",
     "category": "Games",
     "hotspotX": 0,
@@ -2201,8 +2201,8 @@
   },
   {
     "id": "mashle-mash-burnedead-cream-puff",
-    "cursor": "/cursors/mashle-mash-burnedead-cream-puff-cursor.png",
     "pointer": "/cursors/mashle-mash-burnedead-cream-puff-pointer.png",
+    "cursor": "/cursors/mashle-mash-burnedead-cream-puff-pointer.png",
     "name": "Mashle Mash Burnedead Cream Puff",
     "category": "Anime / Manga",
     "hotspotX": 0,
