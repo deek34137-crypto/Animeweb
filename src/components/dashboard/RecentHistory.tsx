@@ -37,7 +37,9 @@ export default function RecentHistory() {
     if (pathname === '/' || pathname === '/dashboard') {
       title = 'Dashboard';
     } else if (pathname === '/settings') {
-      title = 'Settings';
+      title = 'Account Settings';
+    } else if (pathname === '/profile/settings') {
+      title = 'Player Settings';
     } else if (pathname === '/profile') {
       title = 'My Anime';
     } else if (pathname === '/history') {

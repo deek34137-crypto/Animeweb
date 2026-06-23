@@ -285,18 +285,22 @@ export default function EpisodeSidebar({
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className="text-[10px] text-text-disabled">23m</span>
-                      {ep.aired && (
-                        <>
-                          <span className="text-[10px] text-text-disabled">·</span>
-                          <span className="text-[10px] text-text-disabled">
-                            {new Date(ep.aired).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </span>
-                        </>
-                      )}
+                      {ep.aired && (() => {
+                        const date = new Date(ep.aired);
+                        const isValid = !isNaN(date.getTime());
+                        return (
+                          <>
+                            <span className="text-[10px] text-text-disabled">·</span>
+                            <span className="text-[10px] text-text-disabled">
+                              {isValid ? date.toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              }) : ep.aired}
+                            </span>
+                          </>
+                        );
+                      })()}
                       {ep.filler && (
                         <span className="text-[8px] font-black uppercase tracking-wider px-1 py-px bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-full leading-tight">
                           Filler

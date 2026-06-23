@@ -157,6 +157,9 @@ export interface AnimeData {
   scored_by: number | null;
   rank: number;
   popularity: number;
+  favorites: number | null;
+  members: number | null;
+  approved?: boolean;
   synopsis: string | null;
   background: string | null;
   season: string | null;
@@ -165,6 +168,9 @@ export interface AnimeData {
   licensors: ProducerTag[];
   studios: StudioTag[];
   genres: GenreTag[];
+  demographics?: GenreTag[];
+  explicit_genres?: GenreTag[];
+  themes?: GenreTag[];
   relations?: RelationItem[];
   theme?: {
     openings: string[];
@@ -182,6 +188,7 @@ export interface AnimeData {
 
 export interface EpisodeData {
   mal_id: number;
+  number?: number;
   url: string;
   title: string;
   title_japanese: string | null;
@@ -290,10 +297,37 @@ export const JikanAPI = {
     return cachedFetch<{ data: AnimeData }>(`${BASE_URL}/anime/${id}/full`);
   },
 
-  getAnimeEpisodes: async (id: number): Promise<{ data: EpisodeData[] }> => {
+  getAnimeEpisodes: async (id: number, maxPages = 15): Promise<{ data: EpisodeData[] }> => {
     // If anime is a movie, it won't have episodes lists
     try {
-      return await cachedFetch<{ data: EpisodeData[] }>(`${BASE_URL}/anime/${id}/episodes`);
+      let page = 1;
+      let hasNextPage = true;
+      const allEpisodes: EpisodeData[] = [];
+
+      while (hasNextPage && page <= maxPages) {
+        const url = `${BASE_URL}/anime/${id}/episodes?page=${page}`;
+        const res = await cachedFetch<{
+          data: EpisodeData[];
+          pagination?: {
+            has_next_page: boolean;
+            last_visible_page: number;
+          };
+        }>(url);
+
+        if (res && res.data && res.data.length > 0) {
+          const mapped = res.data.map(ep => ({
+            ...ep,
+            number: ep.number || ep.mal_id
+          }));
+          allEpisodes.push(...mapped);
+          hasNextPage = res.pagination?.has_next_page || false;
+          page++;
+        } else {
+          hasNextPage = false;
+        }
+      }
+
+      return { data: allEpisodes };
     } catch {
       return { data: [] };
     }

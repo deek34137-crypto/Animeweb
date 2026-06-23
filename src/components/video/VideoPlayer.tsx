@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw,
   SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle, Tv, Globe, Server,
-  Expand, Shrink
+  Expand, Shrink, Bookmark
 } from 'lucide-react';
 import { progressService } from '@/lib/streaming/progress';
 import { LOCAL_SKIP_TIMES } from '@/lib/streaming/skiptimes';
@@ -12,12 +12,14 @@ import PlayerError from './PlayerError';
 import PlayerSettings from './PlayerSettings';
 import ShortcutsOverlay from './ShortcutsOverlay';
 import StreamDebugPanel from './StreamDebugPanel';
+import BookmarksPanel from './BookmarksPanel';
 import { useRouter } from '@/navigation';
 
 interface EpisodeSource {
   url: string;
   quality: '1080p' | '720p' | '480p' | '360p' | 'auto' | 'default';
   isM3U8: boolean;
+  lang?: string;
 }
 
 interface SubtitleTrack {
@@ -29,7 +31,7 @@ interface SubtitleTrack {
 interface SkipInterval {
   startTime: number;
   endTime: number;
-  type: 'op' | 'ed';
+  type: 'op' | 'ed' | 'recap';
 }
 
 interface VideoPlayerProps {
@@ -59,6 +61,14 @@ interface VideoPlayerProps {
   searchCount?: number;
   episodeCountFound?: number;
   providerSlug?: string;
+  // Bookmark props
+  bookmarks?: { id: string; timestamp: number; note?: string | null; label?: string | null }[];
+  onAddBookmark?: (timestamp: number, note: string) => Promise<void>;
+  onDeleteBookmark?: (id: string) => Promise<void>;
+  onUpdateBookmarkNote?: (id: string, note: string) => Promise<void>;
+  // Next episode details
+  nextEpisodeTitle?: string;
+  nextEpisodeThumbnail?: string;
 }
 
 const getProviderFriendlyName = (name: string): string => {
@@ -102,6 +112,13 @@ export default function VideoPlayer({
   episodeCountFound: initialEpisodeCountFound,
   providerSlug: initialProviderSlug,
   onTheaterModeChange,
+  // Bookmark props default values
+  bookmarks = [],
+  onAddBookmark,
+  onDeleteBookmark,
+  onUpdateBookmarkNote,
+  nextEpisodeTitle,
+  nextEpisodeThumbnail,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -195,6 +212,21 @@ export default function VideoPlayer({
   // Skip Intro / Ending Detection States
   const [showSkipIntro, setShowSkipIntro] = useState(false);
   const [showSkipEnding, setShowSkipEnding] = useState(false);
+  const [showSkipRecap, setShowSkipRecap] = useState(false);
+  const [autoSkipIntro, setAutoSkipIntro] = useState(false);
+  const [autoSkipOutro, setAutoSkipOutro] = useState(false);
+
+  // Autoplay countdown configuration state
+  const [autoplayCountdown, setAutoplayCountdown] = useState(5);
+  const [showCaughtUp, setShowCaughtUp] = useState(false);
+
+  // In-player resume states
+  const [showResumePromptState, setShowResumePromptState] = useState(false);
+  const [resumeTime, setResumeTime] = useState<number>(0);
+
+  // Bookmarks side panel state
+  const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   // Mobile Swipe / Gesture States
   const [touchFeedback, setTouchFeedback] = useState<'back' | 'forward' | null>(null);
@@ -361,6 +393,13 @@ export default function VideoPlayer({
             type: 'ed',
           });
         }
+        if (localOverride.recapStart !== undefined && localOverride.recapEnd !== undefined) {
+          intervals.push({
+            startTime: localOverride.recapStart,
+            endTime: localOverride.recapEnd,
+            type: 'recap',
+          });
+        }
         setSkipIntervals(intervals);
         return;
       }
@@ -373,14 +412,14 @@ export default function VideoPlayer({
       }
 
       try {
-        const res = await fetch(`https://api.aniskip.com/v2/skip-times/${numericId}/${episodeNumber}?types[]=op&types[]=ed`);
+        const res = await fetch(`https://api.aniskip.com/v2/skip-times/${numericId}/${episodeNumber}?types[]=op&types[]=ed&types[]=recap`);
         if (!res.ok) return;
         const data = await res.json();
         if (data.found && data.results) {
           const intervals = data.results.map((r: any) => ({
             startTime: r.interval?.startTime || 0,
             endTime: r.interval?.endTime || 0,
-            type: r.skipType === 'op' ? 'op' : 'ed',
+            type: r.skipType === 'recap' ? 'recap' : (r.skipType === 'op' ? 'op' : 'ed'),
           }));
           setSkipIntervals(intervals);
         } else {
@@ -570,8 +609,9 @@ export default function VideoPlayer({
     };
   }, [activeSubtitleIdx, subtitleTracks]);
 
-  // Load preferences from localStorage on mount
+  // Load preferences from localStorage + DB on mount
   useEffect(() => {
+    // 1. First, load from localStorage as immediate synchronous fallback
     const savedAutoplay = localStorage.getItem('animeworld:autoplay_next');
     if (savedAutoplay !== null) {
       setIsAutoplayNext(savedAutoplay === 'true');
@@ -585,9 +625,30 @@ export default function VideoPlayer({
       }
     }
 
-    const savedAutoSkipGlobal = localStorage.getItem('animeworld:auto_skip_global');
-    if (savedAutoSkipGlobal !== null) {
-      setIsAutoSkipGlobal(savedAutoSkipGlobal === 'true');
+    const savedAutoSkipIntro = localStorage.getItem('animeworld:auto_skip_intro');
+    if (savedAutoSkipIntro !== null) {
+      setAutoSkipIntro(savedAutoSkipIntro === 'true');
+    } else {
+      const savedAutoSkipGlobal = localStorage.getItem('animeworld:auto_skip_global');
+      if (savedAutoSkipGlobal !== null) {
+        setAutoSkipIntro(savedAutoSkipGlobal === 'true');
+      }
+    }
+
+    const savedAutoSkipOutro = localStorage.getItem('animeworld:auto_skip_outro');
+    if (savedAutoSkipOutro !== null) {
+      setAutoSkipOutro(savedAutoSkipOutro === 'true');
+    }
+
+    const savedCountdown = localStorage.getItem('animeworld:autoplay_countdown');
+    if (savedCountdown !== null) {
+      const parsedCountdown = parseInt(savedCountdown, 10);
+      if (!isNaN(parsedCountdown)) setAutoplayCountdown(parsedCountdown);
+    }
+
+    const savedReduced = localStorage.getItem('animeworld:reduced_motion');
+    if (savedReduced !== null) {
+      setReducedMotion(savedReduced === 'true');
     }
 
     const savedAutoSkipLocal = localStorage.getItem(`animeworld:auto_skip:${animeId}`);
@@ -619,24 +680,120 @@ export default function VideoPlayer({
       selectProvider(savedProvider);
     }
 
-    if (initialPosition === 0) {
-      const savedTimeStr = localStorage.getItem(`animeworld:playbackTime:${animeId}:${episodeNumber}`);
-      if (savedTimeStr) {
-        const savedTime = parseFloat(savedTimeStr);
-        if (!isNaN(savedTime)) {
-          setCurrentTime(savedTime);
-          currentTimeRef.current = savedTime;
+    // 2. Fetch and overlay preferences from DB
+    const loadDbPreferences = async () => {
+      try {
+        const res = await fetch('/api/user/preferences');
+        if (res.ok) {
+          const prefs = await res.json();
+          if (prefs) {
+            setIsAutoplayNext(prefs.autoplayNext);
+            setAutoSkipIntro(prefs.autoSkipIntro);
+            setAutoSkipOutro(prefs.autoSkipOutro);
+            setAutoplayCountdown(prefs.autoplayCountdown);
+            if (prefs.preferredLanguage) setCurrentLanguage(prefs.preferredLanguage);
+            if (prefs.preferredQuality) setCurrentQuality(prefs.preferredQuality);
+            if (prefs.preferredSpeed) setPlaybackSpeed(prefs.preferredSpeed);
+            if (prefs.defaultVolume !== undefined) setVolume(prefs.defaultVolume);
+            if (prefs.reducedMotion !== undefined) setReducedMotion(prefs.reducedMotion);
+            
+            // Sync to local storage
+            localStorage.setItem('animeworld:autoplay_next', String(prefs.autoplayNext));
+            localStorage.setItem('animeworld:auto_skip_intro', String(prefs.autoSkipIntro));
+            localStorage.setItem('animeworld:auto_skip_outro', String(prefs.autoSkipOutro));
+            localStorage.setItem('animeworld:autoplay_countdown', String(prefs.autoplayCountdown));
+            localStorage.setItem('animeworld:preferredLanguage', prefs.preferredLanguage);
+            localStorage.setItem('animeworld:preferredQuality', prefs.preferredQuality);
+            localStorage.setItem('animeworld:preferredPlaybackSpeed', String(prefs.preferredSpeed));
+            localStorage.setItem('animeworld:preferredVolume', String(prefs.defaultVolume));
+            localStorage.setItem('animeworld:reduced_motion', String(prefs.reducedMotion));
+          }
         }
+      } catch (err) {
+        console.error('Failed to load DB preferences:', err);
+      }
+    };
+    loadDbPreferences();
+
+    // 3. Playback position handling with Resume Prompt
+    const savedTimeStr = localStorage.getItem(`animeworld:playbackTime:${animeId}:${episodeNumber}`);
+    let savedTime = 0;
+    
+    if (initialPosition > 90) {
+      savedTime = initialPosition;
+    } else if (savedTimeStr) {
+      const parsedTime = parseFloat(savedTimeStr);
+      if (!isNaN(parsedTime)) {
+        savedTime = parsedTime;
+      }
+    }
+
+    if (savedTime > 90) {
+      // Check if we should prompt
+      const savedShowPrompt = localStorage.getItem('animeworld:show_resume_prompt') !== 'false';
+      if (savedShowPrompt) {
+        setResumeTime(savedTime);
+        setShowResumePromptState(true);
+      } else {
+        // Resume silently
+        if (videoRef.current) {
+          videoRef.current.currentTime = savedTime;
+        }
+        setCurrentTime(savedTime);
+        currentTimeRef.current = savedTime;
       }
     }
   }, [animeId, episodeNumber, initialPosition, providersList]);
 
-  // Sync state volume to the video element and persist in localStorage
+  const handleResumeConfirm = () => {
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = resumeTime;
+      video.play().catch(() => {});
+      setIsPlaying(true);
+    }
+    setCurrentTime(resumeTime);
+    currentTimeRef.current = resumeTime;
+    setShowResumePromptState(false);
+  };
+
+  const handleResumeRestart = () => {
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = 0;
+      video.play().catch(() => {});
+      setIsPlaying(true);
+    }
+    setCurrentTime(0);
+    currentTimeRef.current = 0;
+    setShowResumePromptState(false);
+  };
+
+  // Auto-dismiss resume prompt
+  useEffect(() => {
+    if (!showResumePromptState) return;
+    const timer = setTimeout(() => {
+      handleResumeConfirm();
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [showResumePromptState, resumeTime]);
+
+  // Sync state volume to the video element and persist in localStorage + DB
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.volume = volume;
     }
     localStorage.setItem('animeworld:preferredVolume', String(volume));
+    
+    const timer = setTimeout(() => {
+      fetch('/api/user/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultVolume: volume }),
+      }).catch((err) => console.error(err));
+    }, 2000);
+    
+    return () => clearTimeout(timer);
   }, [volume, videoRef.current]);
 
   // Auto-switch language if the currently selected language is not available on the active provider
@@ -989,9 +1146,10 @@ export default function VideoPlayer({
       localStorage.setItem(`animeworld:playbackTime:${animeId}:${episodeNumber}`, String(t));
     }
 
-    // Skip Intro / Ending Detection using exact intervals or defaults
+    // Skip Intro / Ending / Recap Detection using exact intervals or defaults
     const opInterval = skipIntervals.find(i => i.type === 'op');
     const edInterval = skipIntervals.find(i => i.type === 'ed');
+    const recapInterval = skipIntervals.find(i => i.type === 'recap');
 
     if (opInterval) {
       setShowSkipIntro(t >= opInterval.startTime && t <= opInterval.endTime);
@@ -1005,23 +1163,44 @@ export default function VideoPlayer({
       setShowSkipEnding(dur > 200 && t >= dur - 90 && t < dur - 10);
     }
 
+    if (recapInterval) {
+      setShowSkipRecap(t >= recapInterval.startTime && t <= recapInterval.endTime);
+    } else {
+      setShowSkipRecap(false);
+    }
+
     // Support Global + Per-Anime Auto Skip Preferences
-    const shouldAutoSkip = () => {
-      const globalPref = localStorage.getItem('animeworld:auto_skip_global') === 'true';
+    const shouldAutoSkipIntro = () => {
       const localPref = localStorage.getItem(`animeworld:auto_skip:${animeId}`);
       if (localPref === 'true') return true;
       if (localPref === 'false') return false;
-      return globalPref;
+      return autoSkipIntro;
     };
 
-    if (shouldAutoSkip()) {
-      if (opInterval && t >= opInterval.startTime && t < opInterval.endTime - 0.5) {
+    const shouldAutoSkipOutro = () => {
+      return autoSkipOutro;
+    };
+
+    const shouldAutoSkipRecap = () => {
+      return autoSkipIntro;
+    };
+
+    if (opInterval && t >= opInterval.startTime && t < opInterval.endTime - 0.5) {
+      if (shouldAutoSkipIntro()) {
         video.currentTime = opInterval.endTime;
         setToastMessage('Auto-skipped opening theme');
       }
-      if (edInterval && t >= edInterval.startTime && t < edInterval.endTime - 0.5) {
+    }
+    if (edInterval && t >= edInterval.startTime && t < edInterval.endTime - 0.5) {
+      if (shouldAutoSkipOutro()) {
         video.currentTime = edInterval.endTime;
         setToastMessage('Auto-skipped ending theme');
+      }
+    }
+    if (recapInterval && t >= recapInterval.startTime && t < recapInterval.endTime - 0.5) {
+      if (shouldAutoSkipRecap()) {
+        video.currentTime = recapInterval.endTime;
+        setToastMessage('Auto-skipped recap');
       }
     }
 
@@ -1086,8 +1265,11 @@ export default function VideoPlayer({
       });
     }
 
-    if (isAutoplayNext && totalEpisodes && episodeNumber < totalEpisodes) {
-      setCountdown(5);
+    const isLastEpisode = totalEpisodes && episodeNumber === totalEpisodes;
+    if (isLastEpisode) {
+      setShowCaughtUp(true);
+    } else if (isAutoplayNext && totalEpisodes && episodeNumber < totalEpisodes) {
+      setCountdown(autoplayCountdown);
     }
   };
 
@@ -1191,11 +1373,21 @@ export default function VideoPlayer({
     video.playbackRate = speed;
     setPlaybackSpeed(speed);
     localStorage.setItem('animeworld:preferredPlaybackSpeed', String(speed));
+    fetch('/api/user/preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferredSpeed: speed }),
+    }).catch((err) => console.error(err));
   };
 
   const selectQuality = (level: string) => {
     setCurrentQuality(level);
     localStorage.setItem('animeworld:preferredQuality', level);
+    fetch('/api/user/preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferredQuality: level }),
+    }).catch((err) => console.error(err));
 
     if (hlsRef.current) {
       if (level === 'Auto') {
@@ -1218,6 +1410,11 @@ export default function VideoPlayer({
     localStorage.setItem('animeworld:preferredLanguage', lang);
     localStorage.setItem('animeworld:language', lang);
     localStorage.setItem('animeworld:userSetLanguagePreference', 'true');
+    fetch('/api/user/preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferredLanguage: lang }),
+    }).catch((err) => console.error(err));
 
     if (lang === 'hindi') {
       if (providersList.includes('desidubanime') && currentProviderName !== 'desidubanime') {
@@ -1441,6 +1638,16 @@ export default function VideoPlayer({
     }
   };
 
+  const skipRecap = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const recapInterval = skipIntervals.find(i => i.type === 'recap');
+    const targetTime = recapInterval ? recapInterval.endTime : video.currentTime;
+    video.currentTime = targetTime;
+    setCurrentTime(targetTime);
+    setShowSkipRecap(false);
+  };
+
   // ─── Touch Gesture Handlers ────────────────────────────────────────────────
   const showTouchFeedback = (dir: 'back' | 'forward') => {
     setTouchFeedback(dir);
@@ -1592,6 +1799,29 @@ export default function VideoPlayer({
           e.preventDefault();
           handlePrev();
           break;
+        case 'i':
+          e.preventDefault();
+          if (showSkipIntro) {
+            skipIntro();
+            setToastMessage('Skipped Intro');
+          }
+          break;
+        case 'o':
+          e.preventDefault();
+          if (showSkipEnding) {
+            skipEnding();
+            setToastMessage('Skipped Ending');
+          }
+          break;
+        case 'b':
+          e.preventDefault();
+          const current = Math.floor(video.currentTime);
+          if (onAddBookmark) {
+            onAddBookmark(current, '').then(() => {
+              setToastMessage(`Bookmark added at ${formatTime(current)}`);
+            }).catch((err) => console.error(err));
+          }
+          break;
         case '?':
           e.preventDefault();
           setShowShortcutsHelp((prev) => !prev);
@@ -1603,7 +1833,7 @@ export default function VideoPlayer({
 
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [isPlaying, isLoading, episodeNumber, totalEpisodes]);
+  }, [isPlaying, isLoading, episodeNumber, totalEpisodes, showSkipIntro, showSkipEnding, onAddBookmark]);
 
   const formatTime = (secs: number) => {
     if (isNaN(secs)) return '00:00';
@@ -1618,7 +1848,19 @@ export default function VideoPlayer({
   };
 
   return (
-    <div className="flex flex-col gap-4 w-full">
+    <div className={`flex flex-col gap-4 w-full ${reducedMotion ? 'reduced-motion-active' : ''}`}>
+      {reducedMotion && (
+        <style dangerouslySetInnerHTML={{ __html: `
+          .reduced-motion-active *,
+          .reduced-motion-active *::before,
+          .reduced-motion-active *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+          }
+        `}} />
+      )}
       <div
         ref={playerRef}
         onTouchStart={handleTouchStart}
@@ -1670,13 +1912,14 @@ export default function VideoPlayer({
           </video>
         )}
 
-        {/* Manual Skip Intro / Ending Overlays */}
+        {/* Manual Skip Intro / Ending / Recap Overlays */}
         {showSkipIntro && (
           <button
             onClick={skipIntro}
             className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
               showControls ? 'bottom-32' : 'bottom-8'
             }`}
+            aria-label="Skip Intro"
           >
             ⏩ Skip Intro
           </button>
@@ -1687,28 +1930,86 @@ export default function VideoPlayer({
             className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
               showControls ? 'bottom-32' : 'bottom-8'
             }`}
+            aria-label="Skip Ending"
           >
             ⏩ Skip Ending
           </button>
         )}
+        {showSkipRecap && (
+          <button
+            onClick={skipRecap}
+            className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
+              showControls ? 'bottom-32' : 'bottom-8'
+            }`}
+            aria-label="Skip Recap"
+          >
+            ⏩ Skip Recap
+          </button>
+        )}
+
+        {/* In-Player Resume Prompt Overlay */}
+        {showResumePromptState && (
+          <div
+            className={`absolute left-6 z-40 bg-[#0D0D14]/95 border border-accent-violet/30 p-4 rounded-xl shadow-2xl backdrop-blur-md flex flex-col gap-2 max-w-xs transition-all duration-300 ${
+              showControls ? 'bottom-32' : 'bottom-8'
+            }`}
+          >
+            <p className="text-xs font-bold text-white">
+              Continue watching from {formatTime(resumeTime)}?
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleResumeConfirm}
+                className="px-3 py-1.5 bg-accent-violet hover:bg-accent-violet/85 text-white font-bold text-[10px] rounded-lg transition-colors"
+              >
+                ▶ Resume
+              </button>
+              <button
+                onClick={handleResumeRestart}
+                className="px-3 py-1.5 border border-white/10 hover:bg-white/10 text-white font-bold text-[10px] rounded-lg transition-colors"
+              >
+                ↩ Start from 0:00
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Auto Next Countdown Overlay */}
         {countdown !== null && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs text-center">
-            <div className="space-y-4 max-w-xs animate-fade-up">
-              <p className="text-[10px] font-black uppercase tracking-wider text-accent-violet select-none">
-                Up Next
-              </p>
-              <h3 className="text-base font-bold text-white leading-tight font-display select-none">
-                Episode {episodeNumber + 1} Starts In
-              </h3>
-              <div className="w-16 h-16 rounded-full bg-accent-violet/10 border border-accent-violet/30 flex items-center justify-center mx-auto text-white font-black text-2xl select-none">
-                {countdown}
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md text-center p-6">
+            <div className="space-y-6 max-w-md w-full bg-[#0D0D14]/90 border border-white/10 rounded-2xl p-6 shadow-2xl animate-fade-up">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-accent-violet select-none mb-1">
+                  Up Next
+                </p>
+                <h3 className="text-base font-bold text-white leading-tight font-display select-none">
+                  Episode {episodeNumber + 1} {nextEpisodeTitle ? `– ${nextEpisodeTitle}` : ''}
+                </h3>
               </div>
+
+              {nextEpisodeThumbnail ? (
+                <div className="relative aspect-video w-full max-w-xs mx-auto rounded-xl overflow-hidden border border-white/10 shadow-lg select-none">
+                  <img
+                    src={nextEpisodeThumbnail}
+                    alt={`Episode ${episodeNumber + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="text-white font-black text-3xl drop-shadow-md">
+                      {countdown}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-accent-violet/10 border border-accent-violet/30 flex items-center justify-center mx-auto text-white font-black text-2xl select-none">
+                  {countdown}
+                </div>
+              )}
+
               <div className="flex items-center justify-center gap-3">
                 <button
                   onClick={() => setCountdown(null)}
-                  className="px-4 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-colors"
+                  className="px-5 py-2 rounded-xl border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-colors"
                 >
                   Cancel
                 </button>
@@ -1717,9 +2018,52 @@ export default function VideoPlayer({
                     setCountdown(null);
                     handleNext();
                   }}
-                  className="px-4 py-1.5 rounded-lg bg-accent-violet hover:bg-accent-violet-hover text-white font-bold text-xs transition-colors"
+                  className="px-5 py-2 rounded-xl bg-accent-violet hover:bg-accent-violet/85 text-white font-bold text-xs transition-colors"
                 >
                   Play Now
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* You're All Caught Up Overlay */}
+        {showCaughtUp && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md text-center p-6 animate-fade-in">
+            <div className="space-y-6 max-w-md w-full bg-[#0D0D14]/95 border border-white/10 rounded-2xl p-6 shadow-2xl animate-fade-up">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white leading-tight font-display mb-1 select-none">
+                  You're all caught up!
+                </h3>
+                <p className="text-xs text-text-secondary select-none">
+                  You've watched the final episode of {animeTitle}.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setShowCaughtUp(false)}
+                  className="px-5 py-2 rounded-xl border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCaughtUp(false);
+                    const video = videoRef.current;
+                    if (video) {
+                      video.currentTime = 0;
+                      video.play().catch(() => {});
+                      setIsPlaying(true);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl bg-accent-violet hover:bg-accent-violet/85 text-white font-bold text-xs transition-colors"
+                >
+                  Replay Episode
                 </button>
               </div>
             </div>
@@ -1804,22 +2148,68 @@ export default function VideoPlayer({
               <span className="text-xs font-mono text-text-secondary select-none">
                 {formatTime(currentTime)}
               </span>
-              <input
-                type="range"
-                min={0}
-                max={duration || 0}
-                value={currentTime}
-                onChange={handleSeek}
-                className="flex-grow h-1.5 rounded-lg appearance-none cursor-pointer bg-white/20 focus:outline-none"
-                style={{
-                  accentColor: 'var(--player-accent)',
-                  background: `linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) ${
-                    duration ? (currentTime / duration) * 100 : 0
-                  }%, rgba(255, 255, 255, 0.2) ${
-                    duration ? (currentTime / duration) * 100 : 0
-                  }%, rgba(255, 255, 255, 0.2) 100%)`,
-                }}
-              />
+              <div className="flex-grow relative h-6 flex items-center group rounded-lg focus-within:ring-2 focus-within:ring-white/50">
+                {/* Base background bar */}
+                <div className="absolute left-0 right-0 h-1.5 rounded-lg bg-white/20 pointer-events-none" />
+
+                {/* Active played progress bar */}
+                <div 
+                  className="absolute left-0 h-1.5 rounded-lg pointer-events-none" 
+                  style={{
+                    backgroundColor: 'var(--player-accent)',
+                    width: `${duration ? (currentTime / duration) * 100 : 0}%`
+                  }}
+                />
+
+                {/* Chapter markers (op, ed, recap) */}
+                {duration > 0 && skipIntervals.map((interval, idx) => {
+                  const left = (interval.startTime / duration) * 100;
+                  const width = ((interval.endTime - interval.startTime) / duration) * 100;
+                  let bgColor = 'rgba(168, 85, 247, 0.4)'; // op color: light violet
+                  if (interval.type === 'ed') bgColor = 'rgba(236, 72, 153, 0.4)'; // ed color: pink
+                  if (interval.type === 'recap') bgColor = 'rgba(234, 179, 8, 0.4)'; // recap color: yellow
+                  return (
+                    <div
+                      key={`chapter-${idx}`}
+                      className="absolute h-1.5 pointer-events-none"
+                      style={{
+                        left: `${left}%`,
+                        width: `${width}%`,
+                        backgroundColor: bgColor,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Bookmark ticks */}
+                {duration > 0 && bookmarks.map((b) => {
+                  const left = (b.timestamp / duration) * 100;
+                  return (
+                    <div
+                      key={`bookmark-tick-${b.id || b.timestamp}`}
+                      className="absolute w-1 h-3 bg-emerald-400 z-10 pointer-events-none transform -translate-x-1/2"
+                      style={{ left: `${left}%` }}
+                    />
+                  );
+                })}
+
+                {/* The actual range input transparent or styled appropriately overlaying on top */}
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  value={currentTime}
+                  onChange={handleSeek}
+                  className="absolute w-full h-full opacity-0 cursor-pointer z-20"
+                  aria-label={`Seek bar. Current time: ${formatTime(currentTime)} of ${formatTime(duration)}`}
+                />
+                
+                {/* Visual thumb helper visible on hover */}
+                <div 
+                  className="absolute w-3.5 h-3.5 rounded-full bg-white shadow-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10 transform -translate-x-1/2"
+                  style={{ left: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                />
+              </div>
               <span className="text-xs font-mono text-text-secondary select-none">
                 {formatTime(duration)}
               </span>
@@ -1901,6 +2291,16 @@ export default function VideoPlayer({
                   <HelpCircle size={17} />
                 </button>
 
+                {/* Bookmarks Toggle Button */}
+                <button
+                  onClick={() => setShowBookmarksPanel(!showBookmarksPanel)}
+                  className={`text-text-secondary hover:text-white transition-colors ${showBookmarksPanel ? 'text-accent-violet' : ''}`}
+                  title="Bookmarks"
+                  aria-label="Bookmarks"
+                >
+                  <Bookmark size={18} fill={showBookmarksPanel ? 'currentColor' : 'none'} />
+                </button>
+
                 {/* Settings Dropdown Button */}
                 <div className="relative">
                   <button
@@ -1934,6 +2334,43 @@ export default function VideoPlayer({
                         const next = !isAutoplayNext;
                         setIsAutoplayNext(next);
                         localStorage.setItem('animeworld:autoplay_next', String(next));
+                        fetch('/api/user/preferences', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ autoplayNext: next }),
+                        }).catch(err => console.error(err));
+                      }}
+                      autoSkipIntro={autoSkipIntro}
+                      onToggleAutoSkipIntro={() => {
+                        const next = !autoSkipIntro;
+                        setAutoSkipIntro(next);
+                        localStorage.setItem('animeworld:auto_skip_intro', String(next));
+                        fetch('/api/user/preferences', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ autoSkipIntro: next }),
+                        }).catch(err => console.error(err));
+                      }}
+                      autoSkipOutro={autoSkipOutro}
+                      onToggleAutoSkipOutro={() => {
+                        const next = !autoSkipOutro;
+                        setAutoSkipOutro(next);
+                        localStorage.setItem('animeworld:auto_skip_outro', String(next));
+                        fetch('/api/user/preferences', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ autoSkipOutro: next }),
+                        }).catch(err => console.error(err));
+                      }}
+                      autoplayCountdown={autoplayCountdown}
+                      onSelectCountdown={(seconds) => {
+                        setAutoplayCountdown(seconds);
+                        localStorage.setItem('animeworld:autoplay_countdown', String(seconds));
+                        fetch('/api/user/preferences', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ autoplayCountdown: seconds }),
+                        }).catch(err => console.error(err));
                       }}
                       providers={providersList}
                       currentProvider={currentProviderName}
@@ -2057,6 +2494,25 @@ export default function VideoPlayer({
             }`} />
             <span>{toastMessage}</span>
           </div>
+        )}
+
+        {/* Bookmarks Side Panel */}
+        {showBookmarksPanel && (
+          <BookmarksPanel
+            bookmarks={bookmarks}
+            currentTime={currentTime}
+            onSeek={(t) => {
+              const video = videoRef.current;
+              if (video) {
+                video.currentTime = t;
+                setCurrentTime(t);
+              }
+            }}
+            onAddBookmark={onAddBookmark || (async () => {})}
+            onDeleteBookmark={onDeleteBookmark || (async () => {})}
+            onUpdateNote={onUpdateBookmarkNote || (async () => {})}
+            onClose={() => setShowBookmarksPanel(false)}
+          />
         )}
       </div>
 

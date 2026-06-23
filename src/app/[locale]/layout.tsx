@@ -4,6 +4,7 @@ import { getMessages } from 'next-intl/server';
 import QueryProvider from '@/providers/QueryProvider';
 import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from '@/providers/ThemeProvider';
+import { CursorProvider } from '@/providers/CursorProvider';
 import AppShell from '@/components/AppShell';
 import CommandPalette from '@/components/ui/CommandPalette';
 import NavigationLoader from '@/components/ui/NavigationLoader';
@@ -102,16 +103,18 @@ export default async function LocaleLayout({
           <SessionProvider>
             <QueryProvider>
               <ThemeProvider>
-                <NavigationLoader />
-                <AppShell
-                  myAnimeCount={myAnimeCount}
-                  continueWatchingCount={continueWatchingCount}
-                >
-                  {children}
-                </AppShell>
-                <CommandPalette />
-                <QuickMenu />
-                <ShortcutHelper />
+                <CursorProvider>
+                  <NavigationLoader />
+                  <AppShell
+                    myAnimeCount={myAnimeCount}
+                    continueWatchingCount={continueWatchingCount}
+                  >
+                    {children}
+                  </AppShell>
+                  <CommandPalette />
+                  <QuickMenu />
+                  <ShortcutHelper />
+                </CursorProvider>
               </ThemeProvider>
             </QueryProvider>
           </SessionProvider>

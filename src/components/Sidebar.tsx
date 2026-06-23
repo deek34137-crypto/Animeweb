@@ -42,7 +42,7 @@ export default function Sidebar({
     { href: '/search?sort=trending', label: 'Trending', icon: Flame },
     { href: '/search?season=current', label: 'Calendar', icon: Calendar },
     { href: '/search?sort=score', label: 'Top Rated', icon: Star },
-    { href: '/settings', label: 'Settings', icon: Settings },
+    { href: '/profile/settings', label: 'Settings', icon: Settings },
   ];
 
   const isActive = (href: string) => {

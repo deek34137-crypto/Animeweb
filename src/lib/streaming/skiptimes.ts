@@ -3,6 +3,8 @@ export interface LocalSkipTime {
   introEnd: number;
   outroStart?: number;
   outroEnd?: number;
+  recapStart?: number;
+  recapEnd?: number;
 }
 
 export const LOCAL_SKIP_TIMES: Record<string, LocalSkipTime> = {

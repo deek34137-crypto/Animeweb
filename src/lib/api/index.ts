@@ -1,6 +1,8 @@
 import { JikanAPI, AnimeData, EpisodeData, CharacterRoster, RecommendationItem, StaffMember, UserReview } from '@/services/jikan';
 import { db } from '../db';
 
+import { EpisodeCache } from '../anime/episodeCache';
+
 // Unified types returned by the API layer
 export interface UnifiedAnimeDetail extends AnimeData {
   userTracking?: {
@@ -76,8 +78,25 @@ export const AnimeApi = {
   },
 
   getAnimeEpisodes: async (id: number): Promise<EpisodeData[]> => {
+    const animeIdStr = String(id);
+    const cached = await EpisodeCache.get(animeIdStr);
+    if (cached) {
+      return cached;
+    }
+
     const res = await JikanAPI.getAnimeEpisodes(id);
-    return res.data || [];
+    const episodes = res.data || [];
+
+    let isAiring = false;
+    try {
+      const detailRes = await JikanAPI.getAnimeDetail(id);
+      isAiring = detailRes?.data?.airing || detailRes?.data?.status === 'Currently Airing';
+    } catch (e) {
+      console.error(`Failed to fetch anime detail for airing status of ${id}:`, e);
+    }
+
+    await EpisodeCache.set(animeIdStr, episodes, isAiring);
+    return episodes;
   },
 
   getAnimeCharacters: async (id: number): Promise<CharacterRoster[]> => {

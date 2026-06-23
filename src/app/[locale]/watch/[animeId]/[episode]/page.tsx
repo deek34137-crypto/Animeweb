@@ -103,9 +103,20 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
   const mainTitle = anime.title_english || anime.title;
 
   // Now fetch stream info and episodes with the resolved title
-  const [streamInfo, episodes, characters, recommendations] = await Promise.all([
+  let episodes: any[] = [];
+  if (isMalId) {
+    try {
+      episodes = await AnimeApi.getAnimeEpisodes(parseInt(animeId, 10));
+    } catch (e) {
+      console.error('Failed to fetch Jikan episodes on watch page, falling back to provider:', e);
+      episodes = await StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []);
+    }
+  } else {
+    episodes = await StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []);
+  }
+
+  const [streamInfo, characters, recommendations] = await Promise.all([
     StreamingManager.getStreamInfo(animeId, epNum, mainTitle).catch(() => ({ sources: [], sub: [], dub: [], subtitles: [], providers: [], currentProvider: 'mock', isFallback: true, fallbackReason: 'Stream resolution threw an unhandled error.' } as any)),
-    StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []),
     isMalId ? AnimeApi.getAnimeCharacters(parseInt(animeId, 10)).catch(() => []) : Promise.resolve([]),
     isMalId ? AnimeApi.getAnimeRecommendations(parseInt(animeId, 10)).catch(() => []) : Promise.resolve([]),
   ]);
@@ -181,6 +192,8 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
         searchCount={streamInfo.searchCount}
         episodeCountFound={streamInfo.episodeCountFound}
         providerSlug={streamInfo.providerSlug}
+        nextEpisodeTitle={episodes[epNum]?.title || undefined}
+        nextEpisodeThumbnail={anime.images.webp.large_image_url || ''}
         sidebar={
           <Suspense fallback={<div className="h-[520px] w-full rounded-2xl shimmer-loader" />}>
             {(() => {

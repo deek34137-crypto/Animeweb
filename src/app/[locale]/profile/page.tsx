@@ -1,8 +1,9 @@
 import React from 'react';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
-import { redirect } from '@/navigation';
+import { Link, redirect } from '@/navigation';
 import ProfileClient from './ProfileClient';
+import { Sliders, Settings } from 'lucide-react';
 
 export const revalidate = 0; // Dynamic route
 
@@ -112,6 +113,23 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             <p className="text-[10px] text-accent-violet font-bold uppercase tracking-widest pt-1">
               Joined {new Date(user?.createdAt || '').toLocaleDateString(undefined, { year: 'numeric', month: 'long' })}
             </p>
+            
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-2">
+              <Link
+                href="/profile/settings"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-text-secondary hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Sliders size={13} className="text-accent-violet" />
+                Player Settings
+              </Link>
+              <Link
+                href="/settings"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-text-secondary hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Settings size={13} className="text-text-muted" />
+                Account Settings
+              </Link>
+            </div>
           </div>
 
           {/* Quick Stats Grid */}

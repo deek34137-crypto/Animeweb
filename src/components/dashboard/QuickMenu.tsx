@@ -113,7 +113,7 @@ export default function QuickMenu() {
           <button
             onClick={() => {
               setOpen(false);
-              router.push('/settings');
+              router.push('/profile/settings');
             }}
             className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-xl transition-all"
           >

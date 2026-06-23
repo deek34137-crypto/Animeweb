@@ -20,7 +20,8 @@ const SHORTCUTS_DATA: ShortcutGroup[] = [
       { keys: ['g', 'h'], description: 'Go to Dashboard' },
       { keys: ['g', 'l'], description: 'Go to My Anime Library' },
       { keys: ['g', 't'], description: 'Go to Trending Search' },
-      { keys: ['g', 's'], description: 'Go to Account Settings' },
+      { keys: ['g', 's'], description: 'Go to Player Settings' },
+      { keys: ['g', 'a'], description: 'Go to Account Settings' },
     ]
   },
   {
@@ -83,6 +84,9 @@ export default function ShortcutHelper() {
         router.push('/search?sort=trending');
         navigated = true;
       } else if (key === 's') {
+        router.push('/profile/settings');
+        navigated = true;
+      } else if (key === 'a') {
         router.push('/settings');
         navigated = true;
       }

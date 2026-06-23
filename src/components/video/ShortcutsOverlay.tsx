@@ -17,6 +17,9 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
     { key: 'T', action: 'Theater Mode' },
     { key: 'N', action: 'Next Episode' },
     { key: 'P', action: 'Previous Episode' },
+    { key: 'I', action: 'Skip Intro' },
+    { key: 'O', action: 'Skip Ending / Outro' },
+    { key: 'B', action: 'Quick Bookmark Time' },
     { key: '?', action: 'Toggle this Shortcuts Overlay' },
   ];
 

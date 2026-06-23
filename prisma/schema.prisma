@@ -43,6 +43,8 @@ model User {
   listEntries   ListEntry[]
   watchProgress WatchProgress[]
   watchHistory  WatchHistory[]
+  bookmarks     EpisodeBookmark[]
+  preferences   UserPreferences?
 }
 
 model Account {
@@ -153,5 +155,47 @@ model StreamingProvider {
   updatedAt   DateTime @updatedAt
 
   @@index([animeId])
+}
+
+model AnimeEpisodeCache {
+  id         String   @id @default(cuid())
+  animeId    String   @unique
+  episodes   Json     // EpisodeData[] serialized
+  totalCount Int
+  cachedAt   DateTime @default(now())
+  expiresAt  DateTime
+}
+
+model EpisodeBookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  animeId   String
+  episode   Int
+  timestamp Int
+  note      String?  // rich text / markdown
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, animeId])
+  @@index([userId, animeId, episode])
+}
+
+model UserPreferences {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  autoplayNext      Boolean  @default(true)
+  autoSkipIntro     Boolean  @default(false)
+  autoSkipOutro     Boolean  @default(false)
+  autoplayCountdown Int      @default(5)
+  preferredLanguage String   @default("sub")
+  preferredQuality  String   @default("Auto")
+  preferredSpeed    Float    @default(1.0)
+  defaultVolume     Float    @default(1.0)
+  showResumePrompt  Boolean  @default(true)
+  reducedMotion     Boolean  @default(false)
+  activeCursor      String?
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { Link, useRouter, usePathname } from '@/navigation';
 import {
-  Search, Menu, Globe, User, LogOut, Settings, Clock, Command, Tv
+  Search, Menu, Globe, User, LogOut, Settings, Clock, Command, Tv, Sliders, MousePointer
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
@@ -163,11 +163,25 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
                   <Clock size={13} className="text-text-muted" /> Watch History
                 </Link>
                 <Link
+                  href="/profile/settings"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-xl transition-all"
+                >
+                  <Settings size={13} className="text-text-muted" /> Player Settings
+                </Link>
+                <Link
                   href="/settings"
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-xl transition-all"
                 >
-                  <Settings size={13} className="text-text-muted" /> Settings
+                  <Sliders size={13} className="text-text-muted" /> Account Settings
+                </Link>
+                <Link
+                  href="/cursors"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-[#9f5eff] hover:bg-bg-elevated rounded-xl transition-all"
+                >
+                  <MousePointer size={13} className="text-[#9f5eff]" /> Custom Cursor ⭐
                 </Link>
               </nav>
               <div className="border-t border-border-subtle mt-1.5 pt-1">

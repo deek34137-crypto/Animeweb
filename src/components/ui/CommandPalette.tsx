@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, Loader2, Home, Play, Heart, Clock, Flame, Calendar, Star, Settings, Laptop, Moon, Sun, Tv } from 'lucide-react';
+import { Search, X, Loader2, Home, Play, Heart, Clock, Flame, Calendar, Star, Settings, Laptop, Moon, Sun, Tv, Sliders } from 'lucide-react';
 import { useRouter } from '@/navigation';
 import { useLocale } from 'next-intl';
 import { AnimeData } from '@/services/jikan';
@@ -165,11 +165,19 @@ export default function CommandPalette() {
       },
       {
         type: 'action',
-        id: 'go-settings',
-        title: 'Open Settings',
-        subtitle: 'Configure your sync & details',
+        id: 'go-player-settings',
+        title: 'Open Player Settings',
+        subtitle: 'Configure auto-skip, audio language, quality, and countdowns',
         icon: <Settings size={14} className="text-text-secondary" />,
-        action: () => { router.push('/settings'); saveRecentCommand('Open Settings'); }
+        action: () => { router.push('/profile/settings'); saveRecentCommand('Open Player Settings'); }
+      },
+      {
+        type: 'action',
+        id: 'go-account-settings',
+        title: 'Open Account Settings',
+        subtitle: 'Configure your profile bio, sync, and tracking integrations',
+        icon: <Sliders size={14} className="text-text-secondary" />,
+        action: () => { router.push('/settings'); saveRecentCommand('Open Account Settings'); }
       }
     ];
   }, [entries, router, recentCommands]);

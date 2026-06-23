@@ -8,6 +8,9 @@ export interface GetEpisodeDisplayParams {
   seasonNumber?: number | null;
   isSeason?: boolean | null;
   malId?: number | string | null;
+  isAiring?: boolean;
+  status?: string;
+  type?: string;
 }
 
 export const getEpisodeDisplay = ({
@@ -16,28 +19,32 @@ export const getEpisodeDisplay = ({
   seasonNumber,
   isSeason,
   malId,
+  isAiring,
+  status,
+  type,
 }: GetEpisodeDisplayParams) => {
+  const cleanTitle = title.toLowerCase();
+  
+  // 1. Check if it's a Movie or Film
+  const lowerType = type?.toLowerCase();
+  if (lowerType === 'movie' || cleanTitle.includes('movie') || cleanTitle.includes('film')) {
+    return 'Film';
+  }
+
   if (episodes === null || episodes === undefined) {
     return 'Ongoing';
   }
 
-  const cleanTitle = title.toLowerCase();
-  const numericId = malId ? (typeof malId === 'string' ? parseInt(malId, 10) : malId) : null;
+  // 2. Airing series status
+  const airingStatus = isAiring || status?.toLowerCase() === 'currently airing' || status?.toLowerCase() === 'airing';
+  if (airingStatus) {
+    return `Ep 1–${episodes}+ (Airing)`;
+  }
 
-  // Identify typical long-running continuous series
-  const isLongSeries = episodes > 99 ||
-                       (numericId !== null && [21, 20, 1735, 235, 1604, 220, 172, 9969, 17074].includes(numericId)) ||
-                       cleanTitle.includes('one piece') ||
-                       cleanTitle.includes('naruto') ||
-                       cleanTitle.includes('detective conan') ||
-                       cleanTitle.includes('dragon ball') ||
-                       cleanTitle.includes('bleach') ||
-                       cleanTitle.includes('doraemon') ||
-                       cleanTitle.includes('shin-chan') ||
-                       cleanTitle.includes('gintama');
-
+  // 3. Identify typical long-running continuous series
+  const isLongSeries = episodes > 100;
   if (isLongSeries) {
-    return `${episodes} EP`;
+    return `${episodes} Episodes`;
   }
 
   // If isSeason is explicitly false, do not show season prefix

@@ -11,6 +11,7 @@ import Badge from '@/components/ui/Badge';
 import Progress from '@/components/ui/Progress';
 import { SectionSkeleton } from '@/components/ui/Skeleton';
 import AnimeDetailTabs from '@/components/AnimeDetailTabs';
+import { FranchiseEngine } from '@/lib/franchise';
 import { db } from '@/lib/db';
 import { getEpisodeDisplay } from '@/lib/episode';
 import WatchActions from '@/components/video/WatchActions';
@@ -286,11 +287,17 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
 
           {/* Info Column */}
           <div className="flex-grow pb-8 text-center md:text-left space-y-4 animate-fade-up">
-            {/* Genres */}
-            <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
+            {/* Genres & Demographic & Source */}
+            <div className="flex flex-wrap gap-1.5 justify-center md:justify-start items-center">
               {genres.slice(0, 4).map((g) => (
                 <Badge key={g.mal_id} variant="ghost" size="xs">{g.name}</Badge>
               ))}
+              {anime.demographics && anime.demographics.map((d) => (
+                <Badge key={d.mal_id} variant="cyan" size="xs">{d.name}</Badge>
+              ))}
+              {anime.source && (
+                <Badge variant="gold" size="xs">{anime.source}</Badge>
+              )}
             </div>
 
             {/* Title */}
@@ -308,6 +315,12 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
                   <Star size={14} fill="currentColor" className="text-accent-gold" />
                   <span className="font-black text-accent-gold">{score.toFixed(1)}</span>
                   {votes && <span className="text-text-muted text-xs">({(votes / 1000).toFixed(0)}K)</span>}
+                </div>
+              )}
+              {anime.favorites && (
+                <div className="flex items-center gap-1 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-1.5 text-rose-400">
+                  <Heart size={14} fill="currentColor" className="text-rose-500 animate-pulse" />
+                  <span className="font-black text-xs">{(anime.favorites / 1000).toFixed(0)}K</span>
                 </div>
               )}
               {anime.type && (
@@ -386,19 +399,27 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
       {/* ─── Main Content ───────────────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         <Suspense fallback={<div className="h-10 shimmer-loader rounded-xl" />}>
-          <AnimeDetailTabs
-            anime={anime}
-            characters={characters}
-            staff={staff}
-            episodes={episodes}
-            recommendations={recommendations}
-            reviews={reviews}
-            tracking={tracking ?? null}
-            userId={userId}
-            watchedEpisodes={watchedEpisodes}
-            latestProgress={latestProgress}
-            progressList={progressList}
-          />
+          {(() => {
+            const franchise = anime 
+              ? FranchiseEngine.build(anime.mal_id, anime.title_english || anime.title, anime.relations || []) 
+              : null;
+            return (
+              <AnimeDetailTabs
+                anime={anime}
+                characters={characters}
+                staff={staff}
+                episodes={episodes}
+                recommendations={recommendations}
+                reviews={reviews}
+                tracking={tracking ?? null}
+                userId={userId}
+                watchedEpisodes={watchedEpisodes}
+                latestProgress={latestProgress}
+                progressList={progressList}
+                franchise={franchise}
+              />
+            );
+          })()}
         </Suspense>
       </div>
     </div>

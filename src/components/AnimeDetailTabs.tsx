@@ -13,6 +13,8 @@ import Progress from '@/components/ui/Progress';
 import AddToListButton from '@/components/AddToListButton';
 import WatchActions from '@/components/video/WatchActions';
 import type { AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
+import FranchiseTimeline from '@/components/FranchiseTimeline';
+import type { FranchiseGraph } from '@/lib/franchise';
 
 interface TrackingData {
   status: string;
@@ -43,6 +45,7 @@ interface AnimeDetailTabsProps {
   watchedEpisodes?: number[];
   latestProgress?: WatchProgress | null;
   progressList?: WatchProgress[];
+  franchise: FranchiseGraph | null;
 }
 
 type Tab = 'overview' | 'episodes' | 'reviews' | 'cast_staff' | 'related';
@@ -68,6 +71,7 @@ export default function AnimeDetailTabs({
   watchedEpisodes = [],
   latestProgress,
   progressList = [],
+  franchise,
 }: AnimeDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const tabBarRef = useRef<HTMLDivElement>(null);
@@ -173,6 +177,8 @@ export default function AnimeDetailTabs({
             toggleFavorite={toggleFavorite}
             copied={copied}
             handleCopyLink={handleCopyLink}
+            staff={staff}
+            franchise={franchise}
           />
         )}
         {activeTab === 'episodes' && (
@@ -192,7 +198,7 @@ export default function AnimeDetailTabs({
           <CastStaffTab characters={characters} staff={staff} anime={anime} />
         )}
         {activeTab === 'related' && (
-          <RelatedTab anime={anime} recommendations={recommendations} />
+          <RelatedTab anime={anime} recommendations={recommendations} franchise={franchise} />
         )}
       </div>
     </div>
@@ -211,6 +217,8 @@ function OverviewTab({
   toggleFavorite,
   copied,
   handleCopyLink,
+  staff,
+  franchise,
 }: {
   anime: AnimeData;
   characters: CharacterRoster[];
@@ -222,6 +230,8 @@ function OverviewTab({
   toggleFavorite: () => void;
   copied: boolean;
   handleCopyLink: () => void;
+  staff: any[];
+  franchise: FranchiseGraph | null;
 }) {
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
   const synopsis = anime.synopsis || 'No description available.';
@@ -356,6 +366,127 @@ function OverviewTab({
           )}
         </section>
 
+        {/* Rich Metadata Info Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+          {/* Production & Classification */}
+          <div className="glass-panel border border-border-default/50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xs font-black text-text-primary uppercase tracking-widest flex items-center gap-1.5 border-b border-border-subtle/50 pb-2">
+              <Tv size={12} className="text-accent-violet" /> Production & Classification
+            </h3>
+            <dl className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <dt className="text-text-muted font-bold">Studio</dt>
+                <dd className="font-semibold text-text-secondary mt-0.5">
+                  {anime.studios && anime.studios.length > 0 
+                    ? anime.studios.map((s) => s.name).join(', ') 
+                    : 'N/A'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-text-muted font-bold">Source</dt>
+                <dd className="font-semibold text-text-secondary mt-0.5">{anime.source || 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-text-muted font-bold">Original Creator</dt>
+                <dd className="font-semibold text-text-secondary mt-0.5">
+                  {(() => {
+                    const creator = staff?.find((s) => 
+                      s.positions?.some((pos: string) => 
+                        pos.toLowerCase().includes('creator') || pos.toLowerCase().includes('story')
+                      )
+                    );
+                    return creator ? creator.person.name : 'N/A';
+                  })()}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-text-muted font-bold">Director</dt>
+                <dd className="font-semibold text-text-secondary mt-0.5">
+                  {(() => {
+                    const director = staff?.find((s) => 
+                      s.positions?.some((pos: string) => 
+                        pos.toLowerCase() === 'director' || pos.toLowerCase() === 'series director'
+                      )
+                    );
+                    return director ? director.person.name : 'N/A';
+                  })()}
+                </dd>
+              </div>
+              <div className="col-span-2 border-t border-border-subtle/20 pt-3">
+                <dt className="text-text-muted font-bold">Genres & Themes</dt>
+                <dd className="flex flex-wrap gap-1.5 mt-1.5">
+                  {anime.genres?.map((g) => (
+                    <span key={g.mal_id} className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-accent-violet/10 text-accent-violet rounded-md">
+                      {g.name}
+                    </span>
+                  ))}
+                  {anime.themes?.map((t) => (
+                    <span key={t.mal_id} className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-accent-sakura/10 text-accent-sakura rounded-md">
+                      {t.name}
+                    </span>
+                  ))}
+                  {anime.demographics?.map((d) => (
+                    <span key={d.mal_id} className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-accent-gold/10 text-accent-gold rounded-md">
+                      {d.name}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          {/* Statistics & Themes Songs */}
+          <div className="glass-panel border border-border-default/50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xs font-black text-text-primary uppercase tracking-widest flex items-center gap-1.5 border-b border-border-subtle/50 pb-2">
+              <Award size={12} className="text-accent-gold" /> Statistics & Themes
+            </h3>
+            <dl className="grid grid-cols-2 gap-4 text-xs mb-3">
+              <div>
+                <dt className="text-text-muted font-bold">Rank</dt>
+                <dd className="font-semibold text-text-secondary mt-0.5">{anime.rank ? `#${anime.rank}` : 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-text-muted font-bold">Popularity</dt>
+                <dd className="font-semibold text-text-secondary mt-0.5">{anime.popularity ? `#${anime.popularity}` : 'N/A'}</dd>
+              </div>
+              <div>
+                <dt className="text-text-muted font-bold">Members</dt>
+                <dd className="font-semibold text-text-secondary mt-0.5">
+                  {anime.members ? anime.members.toLocaleString() : 'N/A'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-text-muted font-bold">Favorites</dt>
+                <dd className="font-semibold text-text-secondary mt-0.5">
+                  {anime.favorites ? anime.favorites.toLocaleString() : 'N/A'}
+                </dd>
+              </div>
+            </dl>
+            
+            {/* Theme Songs */}
+            {anime.theme && (anime.theme.openings?.length > 0 || anime.theme.endings?.length > 0) && (
+              <div className="border-t border-border-subtle/20 pt-3 space-y-3">
+                {anime.theme.openings && anime.theme.openings.length > 0 && (
+                  <div>
+                    <dt className="text-[10px] text-text-muted uppercase tracking-wider mb-1 font-bold">Openings</dt>
+                    <dd className="text-xs text-text-secondary line-clamp-2 italic">
+                      {anime.theme.openings[0]}
+                    </dd>
+                  </div>
+                )}
+                {anime.theme.endings && anime.theme.endings.length > 0 && (
+                  <div>
+                    <dt className="text-[10px] text-text-muted uppercase tracking-wider mb-1 font-bold">Endings</dt>
+                    <dd className="text-xs text-text-secondary line-clamp-2 italic">
+                      {anime.theme.endings[0]}
+                    </dd>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Streaming Servers Module */}
         <section className="glass-panel border border-border-default/50 rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-border-subtle/50 pb-3">
@@ -399,45 +530,10 @@ function OverviewTab({
           </div>
         </section>
 
-        {/* Watch Order Preview / Franchise Timeline */}
-        {anime.relations && anime.relations.length > 0 && (
-          <section className="glass-panel border border-border-default/50 rounded-2xl p-6 space-y-4">
-            <h2 className="flex items-center gap-2 text-xs font-black text-text-primary uppercase tracking-widest border-b border-border-subtle/50 pb-3">
-              <TrendingUp size={14} className="text-accent-sakura" /> Franchise Timeline Order
-            </h2>
-            <div className="space-y-3 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-border-subtle">
-              {anime.relations.slice(0, 4).map((r, i) => {
-                const entry = r.entry[0];
-                if (!entry) return null;
-                const isCurrent = entry.name.toLowerCase() === (anime.title_english || anime.title).toLowerCase();
-                return (
-                  <div key={i} className="flex items-start gap-4 relative">
-                    <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center text-[10px] font-black border z-10 ${
-                      isCurrent
-                        ? 'bg-accent-violet border-accent-violet text-white shadow-lg shadow-accent-violet/30'
-                        : 'bg-surface-3 border-border-subtle text-text-secondary'
-                    }`}>
-                      {i + 1}
-                    </div>
-                    <div className="flex-grow pt-0.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <Link
-                          href={`/anime/${entry.mal_id}` as '/'}
-                          className={`text-xs font-bold hover:text-accent-violet transition-colors line-clamp-1 ${
-                            isCurrent ? 'text-accent-violet font-black' : 'text-text-primary'
-                          }`}
-                        >
-                          {entry.name}
-                        </Link>
-                        <span className="text-[9px] uppercase font-extrabold tracking-wider bg-surface-2 border border-border-subtle text-text-muted px-1.5 py-0.5 rounded shrink-0">
-                          {r.relation}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        {/* Watch Order / Franchise Timeline */}
+        {franchise && franchise.entries.length > 0 && (
+          <section className="glass-panel border border-border-default/50 rounded-2xl p-6">
+            <FranchiseTimeline franchise={franchise} />
           </section>
         )}
 
@@ -1446,51 +1542,114 @@ function CastStaffTab({
 function RelatedTab({
   anime,
   recommendations,
+  franchise,
 }: {
   anime: AnimeData;
   recommendations: RecommendationItem[];
+  franchise: FranchiseGraph | null;
 }) {
   return (
     <div className="space-y-8">
-      {/* Franchise Watch Order Flowchart */}
-      {anime.relations && anime.relations.length > 0 && (
-        <section className="glass-panel border border-border-default/50 rounded-2xl p-6 space-y-6">
-          <h3 className="text-xs font-black text-text-primary uppercase tracking-widest flex items-center gap-1.5 border-b border-border-subtle/50 pb-2">
-            <TrendingUp size={12} className="text-accent-violet" /> Franchise Watch Order Roadmap
-          </h3>
+      {/* Franchise Watch Order Timeline */}
+      {franchise && franchise.entries.length > 0 && (
+        <section className="glass-panel border border-border-default/50 rounded-2xl p-6">
+          <FranchiseTimeline franchise={franchise} />
+        </section>
+      )}
 
-          <div className="flex flex-col gap-4">
-            {anime.relations.map((relation, idx) => (
-              <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-4 bg-surface-2/40 border border-border-subtle/50 rounded-2xl p-4 transition-all hover:bg-surface-3/20">
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="w-9 h-9 rounded-xl bg-accent-violet/10 border border-accent-violet/25 flex items-center justify-center text-xs font-black text-accent-violet">
-                    {idx + 1}
-                  </div>
-                  <div>
-                    <span className="text-[9px] uppercase font-extrabold tracking-wider bg-surface-3 border border-border-subtle text-text-muted px-2 py-0.5 rounded">
-                      {relation.relation}
-                    </span>
-                  </div>
+      {/* Rich Metadata Info Panels */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Alternative Titles & External Links */}
+        <div className="space-y-6">
+          {/* Alternative Titles */}
+          <div className="glass-panel border border-border-default/50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xs font-black text-text-primary uppercase tracking-widest flex items-center gap-1.5 border-b border-border-subtle/50 pb-2">
+              <Info size={12} className="text-accent-violet" /> Alternative Titles
+            </h3>
+            <dl className="space-y-2 text-xs">
+              {anime.title_english && (
+                <div>
+                  <dt className="text-text-muted font-bold">English</dt>
+                  <dd className="font-semibold text-text-secondary mt-0.5">{anime.title_english}</dd>
                 </div>
+              )}
+              {anime.title_japanese && (
+                <div>
+                  <dt className="text-text-muted font-bold">Japanese</dt>
+                  <dd className="font-semibold text-text-secondary mt-0.5">{anime.title_japanese}</dd>
+                </div>
+              )}
+              {anime.title_synonyms && anime.title_synonyms.length > 0 && (
+                <div>
+                  <dt className="text-text-muted font-bold">Synonyms</dt>
+                  <dd className="font-semibold text-text-secondary mt-0.5">{anime.title_synonyms.join(', ')}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
 
-                <div className="flex-grow min-w-0 space-y-1">
-                  {relation.entry.map((entry) => (
-                    <div key={entry.mal_id} className="flex items-center justify-between gap-4 py-1 first:pt-0 last:pb-0 border-b border-border-subtle/20 last:border-b-0">
-                      <Link
-                        href={`/anime/${entry.mal_id}` as '/'}
-                        className="text-sm font-bold text-text-primary hover:text-accent-violet transition-colors truncate"
-                      >
-                        {entry.name}
-                      </Link>
-                      <Badge variant="ghost" size="xs" className="shrink-0">{entry.type}</Badge>
-                    </div>
+          {/* Links & Streaming */}
+          <div className="glass-panel border border-border-default/50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xs font-black text-text-primary uppercase tracking-widest flex items-center gap-1.5 border-b border-border-subtle/50 pb-2">
+              <ExternalLink size={12} className="text-accent-sakura" /> External Resources
+            </h3>
+            
+            {/* External Links */}
+            {anime.external && anime.external.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Official Sites & Databases</p>
+                <div className="flex flex-wrap gap-2">
+                  {anime.external.map((link) => (
+                    <a
+                      key={link.url}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-subtle text-text-secondary hover:text-accent-violet transition-colors flex items-center gap-1"
+                    >
+                      <span>{link.name}</span>
+                      <ExternalLink size={10} />
+                    </a>
                   ))}
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Streaming Links */}
+            {anime.streaming && anime.streaming.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border-subtle/20">
+                <p className="text-[10px] text-text-muted uppercase tracking-wider font-bold">Licensed Streaming Platforms</p>
+                <div className="flex flex-wrap gap-2">
+                  {anime.streaming.map((link) => (
+                    <a
+                      key={link.url}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-subtle text-text-secondary hover:text-accent-violet transition-colors flex items-center gap-1"
+                    >
+                      <span>{link.name}</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </section>
-      )}
+        </div>
+
+        {/* Background / Production Notes */}
+        {anime.background && (
+          <div className="glass-panel border border-border-default/50 rounded-2xl p-6 space-y-4">
+            <h3 className="text-xs font-black text-text-primary uppercase tracking-widest flex items-center gap-1.5 border-b border-border-subtle/50 pb-2">
+              <Sparkles size={12} className="text-accent-gold" /> Production Background
+            </h3>
+            <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-line">
+              {anime.background}
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Similar anime recommendations grid */}
       <section className="space-y-4">

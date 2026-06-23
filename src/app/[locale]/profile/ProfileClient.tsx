@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from '@/navigation';
 import { Play, Star, List, Film, Check, BookOpen, Pause, Trash } from 'lucide-react';
 import Progress from '@/components/ui/Progress';
@@ -34,6 +34,24 @@ type FilterStatus = 'all' | 'watching' | 'completed' | 'planning' | 'paused' | '
 
 export default function ProfileClient({ listEntries, stats }: ProfileClientProps) {
   const [activeTab, setActiveTab] = useState<FilterStatus>('all');
+  const [watchStats, setWatchStats] = useState<{
+    totalEpisodes: number;
+    totalWatchTimeMinutes: number;
+    episodesThisWeek: number;
+    currentlyWatching: number;
+    completedCount: number;
+    longestStreak: number;
+    currentStreak: number;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/user/stats')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.error) setWatchStats(data);
+      })
+      .catch((err) => console.error('Failed to fetch watch stats:', err));
+  }, []);
 
   const tabs: { key: FilterStatus; label: string; icon: React.ReactNode; count: number }[] = [
     { key: 'all', label: 'All Anime', icon: <List size={14} />, count: stats.totalAnime },
@@ -50,6 +68,34 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
 
   return (
     <div className="space-y-6">
+      {/* Watch Statistics Card */}
+      {watchStats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-surface-2 border border-border-default rounded-3xl p-5 shadow-sm animate-fade-up">
+          <div className="flex flex-col items-center justify-center p-3 text-center border-b md:border-b-0 border-white/5 md:border-r border-white/5 last:border-0">
+            <span className="text-xl font-black text-accent-violet">{watchStats.totalEpisodes}</span>
+            <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider mt-1">📺 Total Episodes</span>
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 text-center border-b md:border-b-0 border-white/5 md:border-r border-white/5 last:border-0">
+            <span className="text-xl font-black text-accent-sakura">
+              {watchStats.totalWatchTimeMinutes > 60
+                ? `${Math.round(watchStats.totalWatchTimeMinutes / 60)}h ${watchStats.totalWatchTimeMinutes % 60}m`
+                : `${watchStats.totalWatchTimeMinutes}m`}
+            </span>
+            <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider mt-1">⏱ Watch Time</span>
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 text-center border-b md:border-b-0 border-white/5 md:border-r border-white/5 last:border-0">
+            <span className="text-xl font-black text-accent-gold">
+              🔥 {watchStats.currentStreak} <span className="text-xs font-medium text-text-muted">/ {watchStats.longestStreak}</span>
+            </span>
+            <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider mt-1">Streak (Active / Max)</span>
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 text-center last:border-0">
+            <span className="text-xl font-black text-green-400">+{watchStats.episodesThisWeek}</span>
+            <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider mt-1">📈 Watched This Week</span>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Tabs */}
       <div className="flex gap-1.5 overflow-x-auto rail-scroll pb-1">
         {tabs.map((tab) => (
