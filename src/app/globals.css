@@ -301,17 +301,41 @@ body {
 }
 
 .server-btn:hover {
-  border-color: rgba(124,58,237,0.4);
+  border-color: var(--player-accent, #7c3aed);
   color: var(--text-primary);
-  background: rgba(124,58,237,0.1);
+  background: color-mix(in srgb, var(--player-accent, #7c3aed) 12%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--player-accent, #7c3aed) 15%, transparent);
 }
 
 .server-btn.active {
-  background: var(--accent-primary);
-  border-color: var(--accent-glow);
+  background: var(--player-accent, var(--accent-primary));
+  border-color: var(--player-accent, var(--accent-glow));
   color: white;
-  box-shadow: 0 0 16px rgba(124,58,237,0.4);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--player-accent, #7c3aed) 40%, transparent);
 }
+
+/* Server Suggestion Glow Animation */
+@keyframes pulseSuggest {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--player-accent, #7c3aed) 45%, transparent);
+    border-color: var(--player-accent, #7c3aed);
+  }
+  50% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--player-accent, #7c3aed) 0%, transparent);
+    border-color: var(--player-accent, #7c3aed);
+    transform: translateY(-1px) scale(1.03);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--player-accent, #7c3aed) 0%, transparent);
+    border-color: var(--player-accent, #7c3aed);
+  }
+}
+
+.server-btn.pulse-suggest {
+  animation: pulseSuggest 1.2s ease-in-out infinite;
+}
+
 
 .server-dot {
   width: 6px;
@@ -572,5 +596,30 @@ body {
   background: rgba(59, 130, 246, 0.15);
   color: #60a5fa;
   border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Custom Utility classes for bg-bg-secondary to fix dropdown transparency */
+.bg-bg-secondary {
+  background-color: var(--bg-secondary) !important;
+}
+.bg-bg-secondary\/95 {
+  background-color: color-mix(in srgb, var(--bg-secondary) 95%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.bg-bg-secondary\/70 {
+  background-color: color-mix(in srgb, var(--bg-secondary) 70%, transparent) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.bg-bg-secondary\/40 {
+  background-color: color-mix(in srgb, var(--bg-secondary) 40%, transparent) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.bg-bg-secondary\/20 {
+  background-color: color-mix(in srgb, var(--bg-secondary) 20%, transparent) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 

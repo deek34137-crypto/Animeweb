@@ -110,9 +110,41 @@ export const StreamingHealth = {
    * No bypasses for demo/test URLs — every URL is checked honestly.
    */
   checkSourceHealth: async (url: string): Promise<boolean> => {
-    // Return true immediately to bypass slow backend checks. Browser HTML5 player/HLS.js
-    // is best positioned to load streams and handle any media playback errors dynamically.
-    return true;
+    if (!url) return false;
+
+    // Ignore localhost, mock, or sample URLs
+    if (url.startsWith('http://localhost') || url.includes('mock-') || url.includes('sample.m3u8')) {
+      return true;
+    }
+
+    try {
+      // Use AbortController for a strict timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+        },
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+
+      clearTimeout(timeoutId);
+
+      // Specifically handle 404 (Not Found), 410 (Gone), and server errors
+      if (res.status === 404 || res.status === 410 || res.status >= 500) {
+        console.warn(`[StreamingHealth] Source health check failed for URL: ${url} (HTTP status ${res.status})`);
+        return false;
+      }
+
+      return true;
+    } catch (err: any) {
+      console.warn(`[StreamingHealth] Source health check error for URL: ${url} - ${err.message}`);
+      return false;
+    }
   },
 };
 

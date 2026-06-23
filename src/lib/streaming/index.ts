@@ -92,18 +92,33 @@ export const StreamingManager = {
         const streamInfo = await provider.getStreamInfo(animeId, episode, animeTitle);
         const responseTimeMs = Date.now() - attemptStart;
 
-        // Validate that provider returned sources
-        const activeSources = streamInfo.hindi && streamInfo.hindi.length > 0 
-          ? streamInfo.hindi 
-          : (streamInfo.sub && streamInfo.sub.length > 0 ? streamInfo.sub : streamInfo.sources);
-          
-        if (!activeSources || activeSources.length === 0) {
-          throw new Error('No stream sources returned by provider.');
+        // Select which sources list to validate based on preferredLanguage
+        let sourcesToCheck = streamInfo.sources;
+        const prefLang = preferredLanguage?.toLowerCase();
+        if (prefLang === 'hindi' && streamInfo.hindi && streamInfo.hindi.length > 0) {
+          sourcesToCheck = streamInfo.hindi;
+        } else if (prefLang === 'tamil' && streamInfo.tamil && streamInfo.tamil.length > 0) {
+          sourcesToCheck = streamInfo.tamil;
+        } else if (prefLang === 'telugu' && streamInfo.telugu && streamInfo.telugu.length > 0) {
+          sourcesToCheck = streamInfo.telugu;
+        } else if (prefLang === 'dub' && streamInfo.dub && streamInfo.dub.length > 0) {
+          sourcesToCheck = streamInfo.dub;
+        } else if (prefLang === 'sub' && streamInfo.sub && streamInfo.sub.length > 0) {
+          sourcesToCheck = streamInfo.sub;
+        } else {
+          // Fallback selection logic
+          sourcesToCheck = streamInfo.hindi && streamInfo.hindi.length > 0 
+            ? streamInfo.hindi 
+            : (streamInfo.sub && streamInfo.sub.length > 0 ? streamInfo.sub : streamInfo.sources);
+        }
+
+        if (!sourcesToCheck || sourcesToCheck.length === 0) {
+          throw new Error(`No stream sources returned by provider for preferred language: ${preferredLanguage || 'default'}`);
         }
 
         // Health-check the primary stream URL (skip for mock/fallback — those are known test URLs)
         if (!streamInfo.isFallback) {
-          const primarySrc = activeSources[0];
+          const primarySrc = sourcesToCheck[0];
           const isHealthy = await StreamingHealth.checkSourceHealth(primarySrc.url);
           if (!isHealthy) {
             throw new Error(`Primary stream source health check failed: ${primarySrc.url}`);

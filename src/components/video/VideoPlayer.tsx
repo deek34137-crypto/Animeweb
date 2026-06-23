@@ -15,6 +15,10 @@ import StreamDebugPanel from './StreamDebugPanel';
 import BookmarksPanel from './BookmarksPanel';
 import { useRouter } from '@/navigation';
 
+// STRICT IFRAME SANDBOX TOGGLE
+// Set to false to disable strict iframe sandboxing and allow all popups/redirects
+export const ENABLE_IFRAME_SANDBOX = true;
+
 interface EpisodeSource {
   url: string;
   quality: '1080p' | '720p' | '480p' | '360p' | 'auto' | 'default';
@@ -943,16 +947,31 @@ export default function VideoPlayer({
         setIsLoading(false);
         setToastMessage(`${getProviderFriendlyName(currentProviderName)} load timeout — try another server`);
         
-        const buttons = document.querySelectorAll('.server-btn:not(.active)');
-        if (buttons[0]) {
-          buttons[0].classList.add('pulse-suggest');
-          setTimeout(() => buttons[0].classList.remove('pulse-suggest'), 3000);
+        // Find next provider in list to suggest
+        const currentIndex = providersList.indexOf(currentProviderName);
+        const nextProvider = currentIndex !== -1 && currentIndex + 1 < providersList.length 
+          ? providersList[currentIndex + 1] 
+          : null;
+          
+        if (nextProvider) {
+          const btn = document.querySelector(`.server-btn[data-provider="${nextProvider}"]`);
+          if (btn) {
+            btn.classList.add('pulse-suggest');
+            setTimeout(() => btn.classList.remove('pulse-suggest'), 3000);
+          }
+        } else {
+          // Fallback to first inactive button if no next provider
+          const buttons = document.querySelectorAll('.server-btn:not(.active)');
+          if (buttons[0]) {
+            buttons[0].classList.add('pulse-suggest');
+            setTimeout(() => buttons[0].classList.remove('pulse-suggest'), 3000);
+          }
         }
       }
     }, 10000);
 
     return () => clearTimeout(timeout);
-  }, [isLoading, isIframeSource, currentProviderName]);
+  }, [isLoading, isIframeSource, currentProviderName, providersList]);
 
   // ─── HLS Load & Failover ───────────────────────────────────────────────────
   useEffect(() => {
@@ -1604,10 +1623,24 @@ export default function VideoPlayer({
       setToastMessage(`${getProviderFriendlyName(provider)} unavailable — try another server`);
       setIsLoading(false);
 
-      const buttons = document.querySelectorAll('.server-btn:not(.active)');
-      if (buttons[0]) {
-        buttons[0].classList.add('pulse-suggest');
-        setTimeout(() => buttons[0].classList.remove('pulse-suggest'), 3000);
+      // Find next provider in list to suggest
+      const currentIndex = providersList.indexOf(provider);
+      const nextProvider = currentIndex !== -1 && currentIndex + 1 < providersList.length 
+        ? providersList[currentIndex + 1] 
+        : null;
+
+      if (nextProvider) {
+        const btn = document.querySelector(`.server-btn[data-provider="${nextProvider}"]`);
+        if (btn) {
+          btn.classList.add('pulse-suggest');
+          setTimeout(() => btn.classList.remove('pulse-suggest'), 3000);
+        }
+      } else {
+        const buttons = document.querySelectorAll('.server-btn:not(.active)');
+        if (buttons[0]) {
+          buttons[0].classList.add('pulse-suggest');
+          setTimeout(() => buttons[0].classList.remove('pulse-suggest'), 3000);
+        }
       }
     }
   };
@@ -1886,7 +1919,7 @@ export default function VideoPlayer({
             className="w-full h-full border-0"
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture"
-            sandbox={activeSource?.url?.includes('piratexplay.cc') ? "allow-scripts allow-same-origin allow-forms allow-popups" : undefined}
+            sandbox={ENABLE_IFRAME_SANDBOX ? "allow-scripts allow-same-origin allow-forms" : undefined}
             onLoad={() => setIsLoading(false)}
           />
         ) : (
@@ -2565,6 +2598,7 @@ export default function VideoPlayer({
                 return (
                   <button
                     key={prov}
+                    data-provider={prov}
                     onClick={() => selectProvider(prov)}
                     className={`server-btn ${isActive ? 'active' : ''}`}
                     style={isActive ? { backgroundColor: 'var(--player-accent)', borderColor: 'var(--player-accent)' } : undefined}
