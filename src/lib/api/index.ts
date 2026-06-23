@@ -14,6 +14,7 @@ export interface UnifiedAnimeDetail extends AnimeData {
     completedAt: Date | null;
     notes: string | null;
     isPrivate: boolean;
+    isFavorite: boolean;
   } | null;
 }
 
@@ -67,6 +68,7 @@ export const AnimeApi = {
           completedAt: entry.completedAt,
           notes: entry.notes,
           isPrivate: entry.isPrivate,
+          isFavorite: entry.isFavorite,
         };
       }
     }
@@ -162,6 +164,9 @@ export const AnimeApi = {
       completedAt?: Date | null;
       notes?: string | null;
       isPrivate?: boolean;
+      isFavorite?: boolean;
+      isTopFavorite?: boolean;
+      topFavoriteOrder?: number | null;
     }
   ) => {
     let finalStatus = data.status;
@@ -176,7 +181,14 @@ export const AnimeApi = {
     const completedDate = isCompleted ? (data.completedAt || new Date()) : null;
     const startedDate = finalStatus === 'watching' ? (data.startedAt || new Date()) : data.startedAt;
 
-    return db.listEntry.upsert({
+    // Fetch existing for activity logging comparison
+    const existing = await db.listEntry.findUnique({
+      where: {
+        userId_animeId: { userId, animeId },
+      },
+    });
+
+    const result = await db.listEntry.upsert({
       where: {
         userId_animeId: {
           userId,
@@ -192,6 +204,9 @@ export const AnimeApi = {
         completedAt: completedDate,
         notes: data.notes !== undefined ? data.notes : undefined,
         isPrivate: data.isPrivate !== undefined ? data.isPrivate : undefined,
+        isFavorite: data.isFavorite !== undefined ? data.isFavorite : undefined,
+        isTopFavorite: data.isTopFavorite !== undefined ? data.isTopFavorite : undefined,
+        topFavoriteOrder: data.topFavoriteOrder !== undefined ? data.topFavoriteOrder : undefined,
       },
       create: {
         userId,
@@ -207,12 +222,77 @@ export const AnimeApi = {
         completedAt: completedDate,
         notes: data.notes,
         isPrivate: data.isPrivate || false,
+        isFavorite: data.isFavorite || false,
+        isTopFavorite: data.isTopFavorite || false,
+        topFavoriteOrder: data.topFavoriteOrder || null,
       },
     });
+
+    // Logging User Activity Milestones
+    try {
+      if (!existing) {
+        await db.activityLog.create({
+          data: {
+            userId,
+            action: 'ADD_LIBRARY',
+            animeId,
+            animeTitle: data.animeTitle,
+            details: `Added to library as ${finalStatus}`,
+          },
+        });
+      } else {
+        if (existing.status !== finalStatus) {
+          await db.activityLog.create({
+            data: {
+              userId,
+              action: 'STATUS_CHANGE',
+              animeId,
+              animeTitle: data.animeTitle,
+              details: `Changed status to ${finalStatus}`,
+            },
+          });
+        }
+        if (data.score !== undefined && existing.score !== data.score && data.score !== null) {
+          await db.activityLog.create({
+            data: {
+              userId,
+              action: 'RATED',
+              animeId,
+              animeTitle: data.animeTitle,
+              details: `Rated it ${data.score}/10`,
+            },
+          });
+        }
+        if (data.isFavorite !== undefined && existing.isFavorite !== data.isFavorite) {
+          await db.activityLog.create({
+            data: {
+              userId,
+              action: 'FAVORITE',
+              animeId,
+              animeTitle: data.animeTitle,
+              details: data.isFavorite ? 'Added to favorites' : 'Removed from favorites',
+            },
+          });
+        }
+      }
+      
+      // Prune old activity logs to keep only latest 100 entries per user
+      pruneActivityLogs(userId).catch(err => console.error('Pruning failed:', err));
+
+      // Mark insights dirty
+      await db.user.update({
+        where: { id: userId },
+        data: { insightsDirty: true },
+      }).catch(err => console.error('Failed to dirty insights:', err));
+    } catch (logErr) {
+      console.error('Failed to write activity log:', logErr);
+    }
+
+    return result;
   },
 
   deleteListEntry: async (userId: string, animeId: string) => {
-    return db.listEntry.delete({
+    const deleted = await db.listEntry.delete({
       where: {
         userId_animeId: {
           userId,
@@ -220,6 +300,14 @@ export const AnimeApi = {
         },
       },
     });
+
+    // Mark insights dirty
+    await db.user.update({
+      where: { id: userId },
+      data: { insightsDirty: true },
+    }).catch(err => console.error('Failed to dirty insights:', err));
+
+    return deleted;
   },
 
   getContinueWatching: async (userId: string) => {
@@ -294,3 +382,36 @@ export const AnimeApi = {
     );
   },
 };
+
+export async function pruneActivityLogs(userId: string) {
+  try {
+    // Only prune routine actions (rating, favorites, watch progress updates)
+    const routineActions = [
+      'ADD_LIBRARY',
+      'STATUS_CHANGE',
+      'RATED',
+      'FAVORITE',
+      'RESTORE',
+      'DELETE'
+    ];
+
+    const logs = await db.activityLog.findMany({
+      where: {
+        userId,
+        action: { in: routineActions as any },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+      skip: 500, // Keep latest 500 routine actions
+    });
+
+    if (logs.length > 0) {
+      const idsToDelete = logs.map(l => l.id);
+      await db.activityLog.deleteMany({
+        where: { id: { in: idsToDelete } },
+      });
+    }
+  } catch (err) {
+    console.error('[ActivityLog Pruning Failed]', err);
+  }
+}

@@ -17,7 +17,7 @@ import { useRouter } from '@/navigation';
 
 // STRICT IFRAME SANDBOX TOGGLE
 // Set to false to disable strict iframe sandboxing and allow all popups/redirects
-export const ENABLE_IFRAME_SANDBOX = true;
+export const ENABLE_IFRAME_SANDBOX = false;
 
 interface EpisodeSource {
   url: string;

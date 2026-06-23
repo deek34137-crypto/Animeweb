@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import { useSession } from 'next-auth/react';
 import { useWatchlistStore } from '@/store/useWatchlistStore';
 import { getEpisodeDisplay } from '@/lib/episode';
+import QuickActionsHover from '@/components/QuickActionsHover';
 
 interface AnimeCardProps {
   anime: AnimeData;
@@ -253,35 +254,40 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           )}
 
           {/* Quick Play & Library Action Overlay on Hover */}
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
-            {/* Quick Play */}
-            <button
-              onClick={handleQuickPlay}
-              className="w-10 h-10 rounded-full bg-accent-violet hover:bg-[#6b4ae6] text-white flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105"
-              title="Quick Play"
-            >
-              <Play size={15} fill="white" className="ml-0.5" />
-            </button>
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
+            {isLoggedIn ? (
+              <QuickActionsHover
+                animeId={String(anime.mal_id)}
+                animeTitle={title}
+                animeImage={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
+                animeEpisodes={anime.episodes}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center gap-3">
+                {/* Quick Play */}
+                <button
+                  onClick={handleQuickPlay}
+                  className="w-10 h-10 rounded-full bg-accent-violet hover:bg-[#6b4ae6] text-white flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105"
+                  title="Quick Play"
+                >
+                  <Play size={15} fill="white" className="ml-0.5" />
+                </button>
 
-            {/* Quick Library Toggle */}
-            <button
-              onClick={handleToggleWatchlist}
-              disabled={listLoading}
-              className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105 ${
-                hasEntry
-                  ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                  : 'bg-white/10 hover:bg-white/20 border border-white/20 text-white'
-              }`}
-              title={hasEntry ? 'In Library (Click to Remove)' : 'Add to Plan to Watch'}
-            >
-              {listLoading ? (
-                <Loader2 size={13} className="animate-spin text-white" />
-              ) : hasEntry ? (
-                <Check size={14} strokeWidth={2.5} />
-              ) : (
-                <Plus size={14} strokeWidth={2.5} />
-              )}
-            </button>
+                {/* Quick Library Toggle */}
+                <button
+                  onClick={handleToggleWatchlist}
+                  disabled={listLoading}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105"
+                  title="Add to Plan to Watch"
+                >
+                  {listLoading ? (
+                    <Loader2 size={13} className="animate-spin text-white" />
+                  ) : (
+                    <Plus size={14} strokeWidth={2.5} />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Episodes Badge */}

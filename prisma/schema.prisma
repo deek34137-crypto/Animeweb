@@ -45,6 +45,11 @@ model User {
   watchHistory  WatchHistory[]
   bookmarks     EpisodeBookmark[]
   preferences   UserPreferences?
+  collections   Collection[]
+  activityLogs  ActivityLog[]
+  colMembers    CollectionMember[]
+  insightsCache Json?
+  insightsDirty Boolean      @default(true)
 }
 
 model Account {
@@ -97,6 +102,9 @@ model ListEntry {
   completedAt     DateTime?
   notes           String?
   isPrivate       Boolean        @default(false)
+  isFavorite      Boolean        @default(false)
+  isTopFavorite   Boolean        @default(false)
+  topFavoriteOrder Int?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   
@@ -197,5 +205,101 @@ model UserPreferences {
   activeCursor      String?
   updatedAt         DateTime @updatedAt
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum CollectionVisibility {
+  PRIVATE
+  UNLISTED
+  PUBLIC
+}
+
+enum CoverSelectionType {
+  AUTO
+  CUSTOM
+  ANIME
+}
+
+enum ActivityAction {
+  ADD_LIBRARY
+  STATUS_CHANGE
+  RATED
+  FAVORITE
+  CREATE_COLLECTION
+  UPDATE_COLLECTION
+  SOFT_DELETE_COLLECTION
+  RESTORE_COLLECTION
+  DELETE_COLLECTION
+  ADD_COLLECTION_ENTRY
+  REMOVE_COLLECTION_ENTRY
+  RESTORE
+  DELETE
+}
+
+model Collection {
+  id                 String               @id @default(cuid())
+  userId             String
+  name               String
+  slug               String               @unique
+  description        String?
+  coverSelectionType CoverSelectionType   @default(AUTO)
+  coverImage         String?
+  coverAnimeId       String?
+  visibility         CollectionVisibility @default(PRIVATE)
+  deletedAt          DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries            CollectionEntry[]
+  members            CollectionMember[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model CollectionEntry {
+  id           String     @id @default(cuid())
+  collectionId String
+  animeId      String
+  animeSnapshot Json?
+  sortOrder    Int        @default(0)
+  notes        String?
+  score        Float?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, animeId])
+  @@index([collectionId])
+}
+
+model ActivityLog {
+  id         String         @id @default(cuid())
+  userId     String
+  action     ActivityAction
+  animeId    String?
+  animeTitle String?
+  details    String?
+  createdAt  DateTime       @default(now())
+  
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CollectionMember {
+  id           String     @id @default(cuid())
+  collectionId String
+  userId       String
+  role         String     @default("VIEWER") // OWNER, MODERATOR, EDITOR, VIEWER
+  createdAt    DateTime   @default(now())
+  
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, userId])
+  @@index([collectionId])
+  @@index([userId])
 }
 

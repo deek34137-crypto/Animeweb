@@ -25,6 +25,7 @@ interface TrackingData {
   completedAt: Date | null;
   notes: string | null;
   isPrivate: boolean;
+  isFavorite: boolean;
 }
 
 interface WatchProgress {

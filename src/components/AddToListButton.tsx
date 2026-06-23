@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, Play, CheckCircle2, Pause, XCircle, BookMarked, RefreshCw,
-  ChevronDown, Star, Trash, Loader2
+  ChevronDown, Star, Trash, Loader2, Heart, FolderPlus, FolderCheck
 } from 'lucide-react';
 import { useWatchlistStore } from '@/store/useWatchlistStore';
 
@@ -16,6 +16,7 @@ interface TrackingData {
   completedAt: Date | null;
   notes: string | null;
   isPrivate: boolean;
+  isFavorite: boolean;
 }
 
 interface AddToListButtonProps {
@@ -55,17 +56,17 @@ export default function AddToListButton({
 }: AddToListButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [collections, setCollections] = useState<any[]>([]);
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Get watchlist actions from Zustand store
+  // Get watchlist from Zustand store
   const { entries, fetchList, upsertEntry, deleteEntry } = useWatchlistStore();
 
-  // Load from store if available, fallback to SSR initial tracking
   const currentEntry = entries[animeId];
   const hasEntry = !!currentEntry;
 
   useEffect(() => {
-    // Populate store entries if empty
     if (isLoggedIn && Object.keys(entries).length === 0) {
       fetchList();
     }
@@ -75,6 +76,23 @@ export default function AddToListButton({
   const status = currentEntry?.status || initialTracking?.status || '';
   const score = currentEntry?.score !== undefined ? currentEntry.score : (initialTracking?.score ?? null);
   const episodesWatched = currentEntry?.episodesWatched !== undefined ? currentEntry.episodesWatched : (initialTracking?.episodesWatched ?? 0);
+  const isFavorite = currentEntry?.isFavorite !== undefined ? currentEntry.isFavorite : (initialTracking?.isFavorite ?? false);
+
+  // Fetch collections when dropdown opens
+  useEffect(() => {
+    if (isOpen && isLoggedIn) {
+      setCollectionsLoading(true);
+      fetch('/api/collections')
+        .then(res => res.json())
+        .then(data => {
+          if (data.collections) {
+            setCollections(data.collections);
+          }
+        })
+        .catch(err => console.error('Failed to load collections:', err))
+        .finally(() => setCollectionsLoading(false));
+    }
+  }, [isOpen, isLoggedIn]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -110,7 +128,7 @@ export default function AddToListButton({
         episodesWatched: 0,
         score: null,
       });
-      setIsOpen(true); // Open settings overlay for further adjustment
+      setIsOpen(true);
     } catch (err) {
       console.error(err);
     } finally {
@@ -118,14 +136,19 @@ export default function AddToListButton({
     }
   };
 
-  const handleUpdateField = async (fields: { status?: string; score?: number | null; episodesWatched?: number }) => {
+  const handleUpdateField = async (fields: { 
+    status?: string; 
+    score?: number | null; 
+    episodesWatched?: number;
+    isFavorite?: boolean;
+  }) => {
     setIsUpdating(true);
     try {
       const nextStatus = fields.status !== undefined ? fields.status : status;
       const nextScore = fields.score !== undefined ? fields.score : score;
+      const nextFav = fields.isFavorite !== undefined ? fields.isFavorite : isFavorite;
       let nextEps = fields.episodesWatched !== undefined ? fields.episodesWatched : episodesWatched;
 
-      // Validate episodes boundary
       if (episodes && nextEps > episodes) nextEps = episodes;
       if (nextEps < 0) nextEps = 0;
 
@@ -137,6 +160,7 @@ export default function AddToListButton({
         status: nextStatus || 'planning',
         score: nextScore,
         episodesWatched: nextEps,
+        isFavorite: nextFav,
       });
     } catch (err) {
       console.error(err);
@@ -154,6 +178,45 @@ export default function AddToListButton({
       console.error(err);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const toggleCollection = async (collectionId: string, isInCollection: boolean) => {
+    try {
+      if (isInCollection) {
+        // Remove from collection
+        const res = await fetch(`/api/collections/${collectionId}/entries?animeId=${animeId}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          setCollections(prev =>
+            prev.map(col =>
+              col.id === collectionId
+                ? { ...col, entries: col.entries.filter((e: any) => e.animeId !== animeId) }
+                : col
+            )
+          );
+        }
+      } else {
+        // Add to collection
+        const res = await fetch(`/api/collections/${collectionId}/entries`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ animeId, animeTitle, animeImage }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setCollections(prev =>
+            prev.map(col =>
+              col.id === collectionId
+                ? { ...col, entries: [...col.entries, data.entry] }
+                : col
+            )
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle collection:', err);
     }
   };
 
@@ -194,6 +257,20 @@ export default function AddToListButton({
           >
             <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
           </button>
+
+          {/* Quick Favorite Toggle Button */}
+          <button
+            onClick={() => handleUpdateField({ isFavorite: !isFavorite })}
+            disabled={isUpdating}
+            className={`ml-2 p-3 rounded-xl border transition-all duration-200 ${
+              isFavorite
+                ? 'bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20'
+                : 'bg-surface-2 border-border-default text-text-muted hover:text-text-primary'
+            }`}
+            title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+          >
+            <Heart size={16} fill={isFavorite ? "currentColor" : "none"} className={isFavorite ? "animate-pulse" : ""} />
+          </button>
         </>
       ) : (
         <button
@@ -208,7 +285,7 @@ export default function AddToListButton({
 
       {/* Popover Settings Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-72 rounded-2xl bg-surface-2 border border-border-default backdrop-blur-md shadow-2xl z-50 p-4 space-y-4 animate-fade-up">
+        <div className="absolute top-full left-0 mt-2 w-80 rounded-2xl bg-surface-2 border border-border-default backdrop-blur-md shadow-2xl z-50 p-4 space-y-4 animate-fade-up max-h-[500px] overflow-y-auto rail-scroll">
           {/* 1. Watch Status */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Watch Status</span>
@@ -290,7 +367,46 @@ export default function AddToListButton({
             </div>
           </div>
 
-          {/* 4. Delete / Remove Button */}
+          {/* 4. Add to Collections Section */}
+          <div className="space-y-1.5 pt-2 border-t border-border-subtle">
+            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Custom Collections</span>
+            {collectionsLoading ? (
+              <div className="flex items-center justify-center py-2">
+                <Loader2 size={16} className="animate-spin text-text-muted" />
+              </div>
+            ) : collections.length === 0 ? (
+              <span className="text-[11px] text-text-muted block py-1">No collections created yet.</span>
+            ) : (
+              <div className="space-y-1 max-h-36 overflow-y-auto rail-scroll pr-1">
+                {collections.map((col) => {
+                  const isInCol = col.entries.some((e: any) => e.animeId === animeId);
+                  return (
+                    <button
+                      key={col.id}
+                      type="button"
+                      onClick={() => toggleCollection(col.id, isInCol)}
+                      className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                        isInCol
+                          ? 'bg-accent-violet/5 border-accent-violet/30 text-accent-violet'
+                          : 'bg-surface-3 border-border-subtle hover:border-border-emphasis text-text-secondary'
+                      }`}
+                    >
+                      <span className="truncate">{col.name}</span>
+                      {isInCol ? (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-accent-violet">
+                          Already in Collection <FolderCheck size={11} />
+                        </span>
+                      ) : (
+                        <FolderPlus size={11} className="text-text-muted" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 5. Delete / Remove Button */}
           <div className="pt-2 border-t border-border-subtle flex justify-between items-center">
             <button
               type="button"
@@ -298,7 +414,7 @@ export default function AddToListButton({
               className="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 font-bold uppercase transition"
             >
               <Trash size={12} />
-              <span>Remove from List</span>
+              <span>Remove from Library</span>
             </button>
           </div>
         </div>

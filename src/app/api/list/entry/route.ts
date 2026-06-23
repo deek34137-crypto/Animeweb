@@ -46,6 +46,9 @@ export async function POST(req: Request) {
       rewatchCount,
       notes,
       isPrivate,
+      isFavorite,
+      isTopFavorite,
+      topFavoriteOrder,
     } = body;
 
     if (!animeId || !status) {
@@ -62,6 +65,9 @@ export async function POST(req: Request) {
       rewatchCount: rewatchCount !== undefined ? Number(rewatchCount) : 0,
       notes,
       isPrivate: !!isPrivate,
+      isFavorite: !!isFavorite,
+      isTopFavorite: !!isTopFavorite,
+      topFavoriteOrder: topFavoriteOrder !== undefined && topFavoriteOrder !== null ? Number(topFavoriteOrder) : null,
     });
 
     // Trigger external tracker sync in the background

@@ -162,6 +162,7 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
                 completedAt: entry.completedAt,
                 notes: entry.notes,
                 isPrivate: entry.isPrivate,
+                isFavorite: entry.isFavorite,
               };
             }
           }
