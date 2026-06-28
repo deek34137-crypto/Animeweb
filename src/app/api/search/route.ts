@@ -1,22 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { JikanAPI } from '@/services/jikan';
 
-export const runtime = 'nodejs';
+// Search results are always user-specific and must never be cached at the edge
+
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const q = searchParams.get('q')?.trim();
+  const q = searchParams.get('q')?.trim() || '';
   const type = searchParams.get('type') || 'anime';
-  const limit = Math.min(parseInt(searchParams.get('limit') || '8', 10), 20);
+  const limit = Math.min(parseInt(searchParams.get('limit') || '8', 10), 50);
 
-  if (!q || q.length < 2) {
+  const genres = searchParams.get('genres') || undefined;
+  const year = searchParams.get('year') || undefined;
+  const status = searchParams.get('status') || undefined;
+
+  const hasFilters = genres || year || status;
+
+  if (q.length < 2 && !hasFilters) {
     return NextResponse.json({ data: [] });
   }
 
   try {
     if (type === 'anime') {
-      const res = await JikanAPI.searchAnime(q, { limit });
-      return NextResponse.json({ data: res.data || [] });
+      try {
+        const res = await JikanAPI.searchAnime(q || '', { genres, year, status, limit });
+        return NextResponse.json({ data: res.data || [], pagination: res.pagination });
+      } catch (e) {
+        console.error('Jikan searchAnime error:', e);
+        return NextResponse.json({ data: [], pagination: { has_next_page: false, last_visible_page: 0 } });
+      }
+
     }
 
     if (type === 'character') {

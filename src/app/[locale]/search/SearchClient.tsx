@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
-import { AnimeApi } from '@/lib/api';
 import AnimeCard from '@/components/AnimeCard';
 import { Search as SearchIcon, Filter, RefreshCw, Calendar, Eye, Heart, Globe } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
@@ -66,12 +65,17 @@ export default function SearchClient({ initialQuery, initialLang = '' }: SearchC
         const json = await res.json();
         return json as { data: any[] };
       }
-      return AnimeApi.searchAnime(debouncedQuery, {
-        genres: selectedGenre ? String(selectedGenre) : undefined,
-        year: selectedYear || undefined,
-        status: selectedStatus || undefined,
-        limit: 24
-      });
+      
+      const params = new URLSearchParams();
+      if (debouncedQuery) params.append('q', debouncedQuery);
+      if (selectedGenre) params.append('genres', String(selectedGenre));
+      if (selectedYear) params.append('year', selectedYear);
+      if (selectedStatus) params.append('status', selectedStatus);
+      params.append('limit', '24');
+
+      const res = await fetch(`/api/search?${params.toString()}`);
+      if (!res.ok) throw new Error('Search failed');
+      return res.json();
     },
     placeholderData: (prev) => prev
   });

@@ -17,7 +17,10 @@ model User {
   avatar        String?
   banner        String?
   bio           String?
-  role          String      @default("USER")
+  role          UserRole    @default(USER)
+  sessionVersion Int        @default(0)
+  suspendedUntil DateTime?
+  suspensionReason String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   
@@ -50,6 +53,58 @@ model User {
   colMembers    CollectionMember[]
   insightsCache Json?
   insightsDirty Boolean      @default(true)
+
+  // Custom profile fields
+  favoriteQuote       String?
+  location            String?
+  profileAccentColor  String?             @default("#7c3aed")
+  profileVisibility   ProfileVisibility   @default(PUBLIC)
+  hideStats           Boolean             @default(false)
+  hideLibrary         Boolean             @default(false)
+  hideActivity        Boolean             @default(false)
+  hideFavorites       Boolean             @default(false)
+  hideAchievements    Boolean             @default(false)
+  selectedTitleId     String?
+  showcaseAnimeId     String?
+  showcaseCharacterId String?
+  showcaseStudioId    String?
+  showcaseGenreId     String?
+
+  // Rolling counter caches
+  completedAnimeCount Int                 @default(0)
+  episodeCount        Int                 @default(0)
+  reviewCount         Int                 @default(0)
+  collectionCount     Int                 @default(0)
+
+  // Gamification progress
+  xp                  Int                 @default(0)
+  streakCurrent       Int                 @default(0)
+  streakLongest       Int                 @default(0)
+  lastStreakActivity  DateTime?
+
+  // Gamification relations
+  achievements        UserAchievement[]
+  badges              UserBadge[]
+  challenges          UserChallenge[]
+  processedEvents     ProcessedEvent[]
+  recommendations     UserRecommendation[]
+
+  // Social & Community Fields
+  followersCount      Int                 @default(0)
+  followingCount      Int                 @default(0)
+  threads             ForumThread[]
+  forumPosts          ForumPost[]
+  episodeComments     EpisodeComment[]
+  followers           Follow[]            @relation("following")
+  following           Follow[]            @relation("follower")
+  notifications       Notification[]      @relation("user")
+  sentNotifications   Notification[]      @relation("sender")
+  commentLikes        EpisodeCommentLike[]
+  auditLogs           AuditLog[]
+  reportedFlags       Report[]
+  claimedFlags        FlaggedItem[]       @relation("claimant")
+  resolvedFlags       FlaggedItem[]       @relation("resolver")
+  pushSubscriptions   PushSubscription[]
 }
 
 model Account {
@@ -302,4 +357,559 @@ model CollectionMember {
   @@index([collectionId])
   @@index([userId])
 }
+
+enum ProfileVisibility {
+  PUBLIC
+  FRIENDS
+  PRIVATE
+}
+
+enum ChallengeType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum BadgeTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum XPEvent {
+  WATCH_EPISODE
+  COMPLETE
+  RATE
+  REVIEW
+  LOGIN
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  pinOrder  Int?
+  awardedAt DateTime @default(now())
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+model UserChallenge {
+  id          String        @id @default(cuid())
+  userId      String
+  challengeId String
+  progress    Int           @default(0)
+  target      Int
+  completedAt DateTime?
+  type        ChallengeType
+  resetAt     DateTime
+  
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@index([userId])
+}
+
+model ProcessedEvent {
+  id        String   @id
+  userId    String
+  eventType XPEvent
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// --- Normalized Anime Metadata Cache ---
+model AnimeCache {
+  animeId           String               @id // Jikan/MAL ID stored as String
+  title             String
+  poster            String
+  score             Float                @default(0.0)
+  type              String?              // TV, Movie, OVA, Special
+  episodes          Int?
+  duration          String?
+  source            String?
+  rating            String?
+  popularity        Int?                 // Popularity rank (smaller is more popular)
+  members           Int?                 // Member count
+  favorites         Int?                 // Favorite count
+  updatedAt         DateTime             @updatedAt
+
+  // Normalized Relations
+  genres            AnimeGenre[]
+  studios           AnimeStudio[]
+  recommendations   UserRecommendation[]
+  airingSchedule    AiringScheduleCache?
+}
+
+// --- Normalized Genre & Studio Tables ---
+model Genre {
+  id    String       @id // Jikan genre ID as string
+  name  String       @unique
+  anime AnimeGenre[]
+}
+
+model Studio {
+  id    String        @id // Jikan studio ID as string
+  name  String        @unique
+  anime AnimeStudio[]
+}
+
+model AnimeGenre {
+  animeId String
+  genreId String
+  anime   AnimeCache @relation(fields: [animeId], references: [animeId], onDelete: Cascade)
+  genre   Genre      @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, genreId])
+  @@index([genreId])
+  @@index([animeId])
+}
+
+model AnimeStudio {
+  animeId  String
+  studioId String
+  anime    AnimeCache  @relation(fields: [animeId], references: [animeId], onDelete: Cascade)
+  studio   Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, studioId])
+  @@index([studioId])
+  @@index([animeId])
+}
+
+// --- Airing Schedule Cache ---
+model AiringScheduleCache {
+  id           String      @id @default(cuid())
+  animeId      String      @unique
+  airingAt     DateTime    // Absolute UTC timestamp when next episode airs
+  broadcast    String?     // e.g. "Saturdays at 23:30 JST"
+  updatedAt    DateTime    @updatedAt
+
+  anime        AnimeCache  @relation(fields: [animeId], references: [animeId], onDelete: Cascade)
+}
+
+// --- Local Jikan Recommendation Cache ---
+model AnimeRecommendationCache {
+  id                 String   @id @default(cuid())
+  animeId            String
+  recommendedAnimeId String
+  votes              Int
+  updatedAt          DateTime @default(now()) @updatedAt
+
+  @@unique([animeId, recommendedAnimeId])
+  @@index([animeId])
+}
+
+// --- Franchise Relations Cache ---
+model AnimeRelations {
+  id             String   @id @default(cuid())
+  animeId        String
+  relatedAnimeId String
+  relationType   String   // e.g., SEQUEL, PREQUEL, SIDE_STORY, ALTERNATIVE, MOVIE, OVA
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  @@unique([animeId, relatedAnimeId, relationType])
+  @@index([animeId])
+}
+
+// --- User Recommendation Cache ---
+model UserRecommendation {
+  id               String      @id @default(cuid())
+  userId           String
+  animeId          String
+  score            Float       // Normalized score (0-100)
+  scoreBreakdown   Json        // { genre: 25, studio: 10, recommendations: 40, popularity: -5, rating: 13, recency: 10, completion: 5 }
+  reasonData       Json        // Array of explanation objects containing IDs only: [{"type": "SIMILAR_TO", "seedAnimeId": "5114", "seedScore": 10}, ...]
+  algorithmVersion Int
+  updatedAt        DateTime    @default(now()) @updatedAt
+
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime            AnimeCache  @relation(fields: [animeId], references: [animeId], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+  @@index([userId])
+}
+
+model ForumCategory {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  name        String
+  description String?
+  icon        String?       // Lucide icon name or emoji
+  sortOrder   Int           @default(0)
+  threads     ForumThread[]
+}
+
+model ForumThread {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  userId          String
+  categoryId      String
+  title           String
+  content         String        // Conceptually canonical Markdown only
+  animeId         String?       // Optional link to anime
+  views           Int           @default(0)
+  replyCount      Int           @default(0)
+  lastReplyAt     DateTime?
+  lastReplyUserId String?
+  locked          Boolean       @default(false)
+  pinned          Boolean       @default(false)
+  spoiler         Boolean       @default(false)
+  editedAt        DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  posts           ForumPost[]
+
+  @@index([createdAt])
+  @@index([categoryId])
+  @@index([animeId])
+  @@index([views])
+  @@index([slug])
+}
+
+model ForumPost {
+  id        String    @id @default(cuid())
+  threadId  String
+  userId    String
+  content   String    // Canonical Markdown only
+  spoiler   Boolean   @default(false)
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+model EpisodeComment {
+  id        String               @id @default(cuid())
+  animeId   String
+  episode   Int
+  userId    String
+  content   String               // Canonical Markdown only
+  spoiler   Boolean              @default(false)
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime             @default(now())
+  
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes     EpisodeCommentLike[]
+
+  @@index([animeId, episode, createdAt])
+}
+
+model EpisodeCommentLike {
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment   EpisodeComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, commentId])
+  @@index([userId])
+  @@index([commentId])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+enum NotificationType {
+  FOLLOW
+  REPLY
+  MENTION
+  SYSTEM
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String           // Recipient
+  senderId    String?          // Actor (null for system notifications)
+  type        NotificationType
+  entityId    String?          // Dynamic reference, e.g. thread slug, comment ID, user ID
+  entityType  String?          // Dynamic type reference, e.g. "THREAD", "COMMENT", "FOLLOW"
+  link        String?          // Fallback static redirection path
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  user        User             @relation("user", fields: [userId], references: [id], onDelete: Cascade)
+  sender      User?            @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+}
+
+// --- Phase 9 Enums ---
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum FlagStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum FlagReason {
+  SPAM
+  HARASSMENT
+  COPYRIGHT
+  SPOILER
+  NSFW
+  OTHER
+}
+
+enum FlagTargetType {
+  USER
+  COLLECTION
+  COMMENT
+  THREAD
+  REVIEW
+  PROFILE
+}
+
+enum FlagSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FlagResolution {
+  CONTENT_REMOVED
+  WARNING_SENT
+  USER_SUSPENDED
+  NO_VIOLATION
+  DUPLICATE
+  ESCALATED
+}
+
+enum AuditAction {
+  USER_ROLE_CHANGED
+  USER_SUSPENDED
+  USER_UNSUSPENDED
+  FLAG_RESOLVED
+  FLAG_DISMISSED
+  CONTENT_DELETED
+  SYSTEM_CONFIG_CHANGED
+}
+
+enum AuditTargetType {
+  USER
+  COLLECTION
+  COMMENT
+  THREAD
+  SYSTEM
+}
+
+// --- Admin Audit Logs (Append-Only) ---
+model AuditLog {
+  id                String          @id @default(cuid())
+  adminId           String?
+  adminNameSnapshot String?
+  action            AuditAction
+  targetType        AuditTargetType
+  targetId          String
+  metadata          Json?           // Structured schema: {"before": {...}, "after": {...}, "reason": "..."}
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime        @default(now())
+
+  admin             User?           @relation(fields: [adminId], references: [id], onDelete: SetNull)
+}
+
+// --- Content Moderation Flag Queue ---
+model FlaggedItem {
+  id             String          @id @default(cuid())
+  targetType     FlagTargetType
+  targetId       String
+  status         FlagStatus      @default(PENDING)
+  severity       FlagSeverity    @default(LOW)
+  primaryReason  FlagReason?     // Caches first report reason
+  resolutionType FlagResolution? // Captures granular resolution action
+  claimedBy      String?         // Moderator ID claiming the item
+  claimedAt      DateTime?       // Timestamp when claim was made (released after 30 mins)
+  resolvedBy     String?         // Moderator ID resolving the item
+  resolvedAt     DateTime?
+  resolutionNote String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  reports        Report[]
+  claimant       User?           @relation("claimant", fields: [claimedBy], references: [id], onDelete: SetNull)
+  resolver       User?           @relation("resolver", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@unique([targetType, targetId])
+  @@index([status, severity, createdAt]) // Optimized queue sorting composite index
+}
+
+model Report {
+  id            String      @id @default(cuid())
+  flaggedItemId String
+  reporterId    String
+  reason        FlagReason
+  details       String?     // reporter explanation
+  createdAt     DateTime    @default(now())
+
+  flaggedItem   FlaggedItem @relation(fields: [flaggedItemId], references: [id], onDelete: Cascade)
+  reporter      User        @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([flaggedItemId, reporterId]) // Prevent duplicate reports by the same user
+}
+
+// --- Video Stream Performance Analytics ---
+model StreamHealthLog {
+  id              String   @id @default(cuid())
+  eventId         String   @unique // Client-generated UUID for idempotency
+  animeId         String
+  episodeId       String   // Decouples from numbering quirks
+  provider        String
+  loadDurationMs  Int
+  bufferingStalls Int
+  failed          Boolean
+  error           String?
+  country         String?  // Geolocated country code
+  browser         String?  // Client browser name
+  platform        String?  // OS platform
+  playerVersion   String?  // Player version string
+  networkType     String?  // wifi, cellular, ethernet, unknown
+  createdAt       DateTime @default(now())
+
+  @@index([provider])
+  @@index([createdAt])
+}
+
+// --- Video Stream Daily Aggregates ---
+model StreamDailyAggregate {
+  id              String   @id @default(cuid())
+  date            DateTime // YYYY-MM-DD
+  provider        String
+  episodeId       String
+  avgLoadTimeMs   Float
+  totalStalls     Int
+  totalAttempts   Int
+  failureCount    Int
+  updatedAt       DateTime @updatedAt
+
+  @@unique([date, provider, episodeId])
+}
+
+// --- Canonical Content Tables ---
+model CanonicalAnimeMetadata {
+  animeId          String   @id @default(cuid())
+  anilistId        String?
+  malId            String?
+  tmdbId           String?
+  titleRomaji      String?
+  titleEnglish     String?
+  titleNative      String?
+  titleNormalized  String?
+  description      String?
+  genres           String[]
+  studio           String?
+  images           Json?
+  version          Int      @default(1)
+  pipelineVersion  Int
+  lastMergedAt     DateTime @default(now())
+  lastValidatedAt  DateTime @default(now())
+}
+
+model CanonicalEpisode {
+  episodeId        String   @id @default(cuid())
+  animeId          String
+  season           Int?
+  episodeNumber    Int
+  title            String?
+  version          Int      @default(1)
+  pipelineVersion  Int
+  lastMergedAt     DateTime @default(now())
+  lastValidatedAt  DateTime @default(now())
+  deletedAt        DateTime?
+  @@unique([animeId, season, episodeNumber])
+}
+
+model CanonicalStream {
+  streamId         String   @id @default(cuid())
+  episodeId        String
+  provider         String
+  language         String?
+  quality          String?
+  url              String
+  isM3u8           Boolean?
+  version          Int      @default(1)
+  pipelineVersion  Int
+  lastMergedAt     DateTime @default(now())
+  lastValidatedAt  DateTime @default(now())
+  deletedAt        DateTime?
+  @@unique([episodeId, provider, language, quality, url])
+}
+
+// --- Core Web Vitals Logs ---
+model WebVitalsLog {
+  id        String   @id @default(cuid())
+  name      String   // FCP, LCP, CLS, FID, INP, TTFB
+  value     Float
+  rating    String   // good, needs-improvement, poor
+  delta     Float
+  idStr     String   // unique page load session ID
+  path      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path])
+  @@index([name, createdAt])
+}
+
+model PushSubscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint             String   @unique
+  p256dh               String
+  auth                 String
+  notifyEpisodeRelease Boolean  @default(true)
+  notifyAnnouncements  Boolean  @default(true)
+  notifyReplies        Boolean  @default(true)
+  lastSeenAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+
+  @@index([userId])
+}
+
 

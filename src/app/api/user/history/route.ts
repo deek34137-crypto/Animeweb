@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { syncWatchProgress } from '@/lib/trackers';
 
+
 export async function POST(req: Request) {
   try {
     const session = await auth();

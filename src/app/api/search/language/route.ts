@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+
 import { JikanAPI } from '@/services/jikan';
 
 const TOONPLAY_HEADERS = {

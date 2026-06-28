@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { pruneActivityLogs } from '@/lib/api';
 
 // POST: Add an anime to the collection
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

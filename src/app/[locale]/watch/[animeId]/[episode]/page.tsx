@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { AnimeApi } from '@/lib/api';
 import { db } from '@/lib/db';
@@ -7,37 +8,16 @@ import { ArrowLeft, Play, Calendar, Film, Bookmark } from 'lucide-react';
 import { Link } from '@/navigation';
 import EpisodeSidebar from './EpisodeSidebar';
 import WatchPageClient from './WatchPageClient';
+import EpisodeCommentsSection from './EpisodeCommentsSection';
 
 interface WatchPageProps {
   params: Promise<{ animeId: string; episode: string; locale: string }>;
   searchParams?: Promise<{ start?: string }>;
 }
 
-export const revalidate = 0; // Dynamic route
-
-export default async function WatchPage({ params, searchParams }: WatchPageProps) {
-  const { animeId, episode, locale } = await params;
-  const sParams = searchParams ? await searchParams : {};
-  const startParam = sParams.start;
-
-  const epNum = parseInt(episode, 10);
+// Helper fetch to reuse in page and metadata
+async function fetchWatchAnimeInfo(animeId: string) {
   const isMalId = !animeId.startsWith('series-') && !animeId.startsWith('movies-');
-
-  // Verify parameters
-  if (isNaN(epNum) || (isMalId && isNaN(parseInt(animeId, 10)))) {
-    return (
-      <div className="py-20 text-center">
-        <h1 className="text-2xl font-black text-text-primary">Invalid Route Parameters</h1>
-        <Link href="/" className="mt-4 inline-block text-accent-violet hover:underline">← Return Home</Link>
-      </div>
-    );
-  }
-
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  let anime: any = null;
-
   if (!isMalId) {
     try {
       const TOONPLAY_HEADERS = {
@@ -53,7 +33,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
         const data = await res.json();
         if (data.success && data.anime) {
           const tpAnime = data.anime;
-          anime = {
+          return {
             mal_id: animeId as any,
             title: tpAnime.title,
             title_english: tpAnime.title,
@@ -85,11 +65,60 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
         }
       }
     } catch (error) {
-      console.error('Failed to load ToonPlay details on watch page:', error);
+      console.error('Failed to load ToonPlay details in watch helper:', error);
     }
+    return null;
   } else {
-    anime = await AnimeApi.getAnimeDetail(parseInt(animeId, 10), userId);
+    return AnimeApi.getAnimeDetail(parseInt(animeId, 10)).catch(() => null);
   }
+}
+
+export async function generateMetadata({ params }: WatchPageProps): Promise<Metadata> {
+  const { animeId, episode, locale } = await params;
+  const anime = await fetchWatchAnimeInfo(animeId);
+  const mainTitle = anime ? (anime.title_english || anime.title) : 'Anime';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aniworld.rj';
+
+  return {
+    title: `Watch ${mainTitle} Episode ${episode} Sub & Dub - AnimeWorld RJ`,
+    description: `Stream ${mainTitle} Episode ${episode} in High Definition with subtitles and English dubbing.`,
+    robots: {
+      index: false,
+      follow: true,
+    },
+    alternates: {
+      canonical: `${siteUrl}/${locale}/watch/${animeId}/${episode}`,
+      languages: {
+        en: `${siteUrl}/en/watch/${animeId}/${episode}`,
+        es: `${siteUrl}/es/watch/${animeId}/${episode}`,
+        ja: `${siteUrl}/ja/watch/${animeId}/${episode}`,
+      },
+    },
+  };
+}
+
+export default async function WatchPage({ params, searchParams }: WatchPageProps) {
+  const { animeId, episode, locale } = await params;
+  const sParams = searchParams ? await searchParams : {};
+  const startParam = sParams.start;
+
+  const epNum = parseInt(episode, 10);
+  const isMalId = !animeId.startsWith('series-') && !animeId.startsWith('movies-');
+
+  // Verify parameters
+  if (isNaN(epNum) || (isMalId && isNaN(parseInt(animeId, 10)))) {
+    return (
+      <div className="py-20 text-center">
+        <h1 className="text-2xl font-black text-text-primary">Invalid Route Parameters</h1>
+        <Link href="/" className="mt-4 inline-block text-accent-violet hover:underline">← Return Home</Link>
+      </div>
+    );
+  }
+
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const anime = await fetchWatchAnimeInfo(animeId) as any;
 
   if (!anime) {
     return (
@@ -155,8 +184,68 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
 
   const currentEp = episodes.find((e) => e.number === epNum);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aniworld.rj';
+  
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TVEpisode',
+    'name': currentEp?.title || `Episode ${epNum}`,
+    'episodeNumber': epNum,
+    'partOfTVSeries': {
+      '@type': 'TVSeries',
+      'name': mainTitle,
+      'url': `${siteUrl}/${locale}/anime/${animeId}`,
+    },
+    'description': anime.synopsis || '',
+    'image': anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || `${siteUrl}/app-icon.jpg`,
+  };
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': [
+      {
+        '@type': 'ListItem',
+        'position': 1,
+        'name': 'Home',
+        'item': `${siteUrl}/${locale}`,
+      },
+      {
+        '@type': 'ListItem',
+        'position': 2,
+        'name': 'Anime',
+        'item': `${siteUrl}/${locale}/discover`,
+      },
+      {
+        '@type': 'ListItem',
+        'position': 3,
+        'name': mainTitle,
+        'item': `${siteUrl}/${locale}/anime/${animeId}`,
+      },
+      {
+        '@type': 'ListItem',
+        'position': 4,
+        'name': `Episode ${epNum}`,
+        'item': `${siteUrl}/${locale}/watch/${animeId}/${episode}`,
+      }
+    ]
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-fade-up">
+      {/* JSON-LD Schemas */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, '\\u003c'),
+        }}
+      />
       {/* Back to details header */}
       <div className="flex items-center gap-2">
         <Link
@@ -329,6 +418,9 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
             </div>
           </section>
         )}
+
+        {/* Episode Comments Reviews Panel */}
+        <EpisodeCommentsSection animeId={String(animeId)} episode={epNum} />
       </div>
     </div>
   );

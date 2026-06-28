@@ -8,6 +8,7 @@ import {
   Settings, Check, AlertTriangle
 } from 'lucide-react';
 import AccountLink from '@/components/settings/AccountLink';
+import NotificationToggle from '@/components/ui/NotificationToggle';
 
 interface UserSettings {
   id: string;
@@ -491,6 +492,9 @@ export default function SettingsClient({ user }: SettingsClientProps) {
 
         {/* 2. Connected Trackers Sync Section */}
         <AccountLink user={user} setNotification={setNotification} />
+
+        {/* 3. PWA Push Notifications Section */}
+        <NotificationToggle />
       </div>
     </div>
   );

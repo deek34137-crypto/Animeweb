@@ -5,8 +5,6 @@ import { redirect } from '@/navigation';
 import { Clock } from 'lucide-react';
 import HistoryClient from './HistoryClient';
 
-export const revalidate = 0; // Dynamic route
-
 interface HistoryPageProps {
   params: Promise<{ locale: string }>;
 }

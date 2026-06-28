@@ -6,21 +6,33 @@ import Sidebar from '@/components/Sidebar';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import SearchModal from '@/components/search/SearchModal';
+import { useSession } from 'next-auth/react';
+import { useWatchlistStore } from '@/store/useWatchlistStore';
 
 interface AppShellProps {
   children: React.ReactNode;
-  myAnimeCount: number;
-  continueWatchingCount: number;
 }
 
 export default function AppShell({
   children,
-  myAnimeCount,
-  continueWatchingCount,
 }: AppShellProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const { data: session } = useSession();
+  const { entries, fetchList } = useWatchlistStore();
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchList();
+    }
+  }, [session?.user?.id, fetchList]);
+
+  const myAnimeCount = Object.keys(entries).length;
+  const continueWatchingCount = Object.values(entries).filter(
+    (entry) => entry.status === 'watching'
+  ).length;
 
   // Listen to open-search custom event
   useEffect(() => {

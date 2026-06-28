@@ -4,8 +4,6 @@ import { db } from '@/lib/db';
 import { redirect } from '@/navigation';
 import SettingsClient from './SettingsClient';
 
-export const revalidate = 0; // Dynamic route
-
 interface SettingsPageProps {
   params: Promise<{ locale: string }>;
 }

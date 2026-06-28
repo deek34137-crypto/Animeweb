@@ -6,9 +6,11 @@ import {
   Play, Star, List, Film, Check, BookOpen, Pause, Trash, Heart,
   BarChart3, Calendar, Settings, Shield, EyeOff, Eye, Globe,
   FolderCheck, Plus, CheckSquare, Square, RefreshCcw, Search, Filter,
-  ChevronDown, Download, Upload, ExternalLink, Undo2, AlertCircle, XCircle, Loader2
+  ChevronDown, Download, Upload, ExternalLink, Undo2, AlertCircle, XCircle, Loader2,
+  Award, Flame
 } from 'lucide-react';
 import Progress from '@/components/ui/Progress';
+import { ACHIEVEMENTS } from '@/lib/gamification/achievements-list';
 import { useWatchlistStore } from '@/store/useWatchlistStore';
 import { useSession } from 'next-auth/react';
 
@@ -36,11 +38,26 @@ interface ProfileClientProps {
     pausedCount: number;
     droppedCount: number;
   };
+  challenges?: any[];
+  achievements?: string[];
+  pinnedBadges?: any[];
+  showcaseAnime?: any;
+  profile?: any;
+  accentColor?: string;
 }
 
-type FilterStatus = 'all' | 'watching' | 'completed' | 'paused' | 'dropped' | 'planning' | 'favorites' | 'collections' | 'insights' | 'activity';
+type FilterStatus = 'all' | 'watching' | 'completed' | 'paused' | 'dropped' | 'planning' | 'favorites' | 'collections' | 'insights' | 'activity' | 'achievements' | 'challenges';
 
-export default function ProfileClient({ listEntries, stats }: ProfileClientProps) {
+export default function ProfileClient({
+  listEntries,
+  stats,
+  challenges,
+  achievements,
+  pinnedBadges,
+  showcaseAnime,
+  profile,
+  accentColor,
+}: ProfileClientProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const isLoggedIn = !!session;
@@ -299,6 +316,8 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
     { key: 'favorites', label: 'Favorites', icon: <Heart size={14} fill="currentColor" className="text-red-500" />, count: currentWatchlist.filter(e => e.isFavorite).length },
     { key: 'collections', label: 'Collections', icon: <FolderCheck size={14} className="text-accent-gold" /> },
     { key: 'insights', label: 'Insights', icon: <BarChart3 size={14} className="text-accent-sakura" /> },
+    { key: 'achievements', label: 'Milestones', icon: <Award size={14} className="text-accent-gold" /> },
+    { key: 'challenges', label: 'Challenges', icon: <Flame size={14} className="text-accent-sakura" /> },
     { key: 'activity', label: 'Activity Log', icon: <Calendar size={14} className="text-cyan-400" /> },
   ];
 
@@ -307,7 +326,14 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
     // 1. Status/Favorite Tab Filter
     if (activeTab === 'favorites') {
       if (!entry.isFavorite) return false;
-    } else if (activeTab !== 'all' && activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity') {
+    } else if (
+      activeTab !== 'all' &&
+      activeTab !== 'collections' &&
+      activeTab !== 'insights' &&
+      activeTab !== 'activity' &&
+      activeTab !== 'achievements' &&
+      activeTab !== 'challenges'
+    ) {
       if (entry.status !== activeTab) return false;
     }
 
@@ -328,6 +354,90 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
 
   return (
     <div className="space-y-6 relative pb-20">
+      {/* Bento Showcase & Pinned Badges Bar */}
+      {((pinnedBadges && pinnedBadges.length > 0) || showcaseAnime || profile?.showcaseCharacterId || profile?.showcaseStudioId || profile?.showcaseGenreId) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-up">
+          {/* Bento Showcase Grid */}
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {showcaseAnime && (
+              <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-4 items-center shadow-sm">
+                <div className="w-16 aspect-[3/4] bg-surface-3 rounded-lg overflow-hidden flex-shrink-0 border border-border-subtle">
+                  <img src={showcaseAnime.animeImage} alt={showcaseAnime.animeTitle} className="w-full h-full object-cover" />
+                </div>
+                <div className="space-y-1 overflow-hidden">
+                  <p className="text-[9px] text-accent-gold font-bold uppercase tracking-wider">Favorite Anime</p>
+                  <h4 className="text-xs font-black text-text-primary truncate">{showcaseAnime.animeTitle}</h4>
+                  <div className="flex gap-2.5 items-center text-[10px] text-text-muted">
+                    <span className="flex items-center gap-0.5">
+                      <Star size={10} className="text-accent-gold fill-current" />
+                      {showcaseAnime.score ? showcaseAnime.score.toFixed(1) : 'Unrated'}
+                    </span>
+                    <span className="capitalize">{showcaseAnime.status}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {profile?.showcaseCharacterId && (
+              <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-3.5 items-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-accent-sakura/10 border border-accent-sakura/20 flex items-center justify-center text-lg">
+                  👤
+                </div>
+                <div>
+                  <p className="text-[9px] text-accent-sakura font-bold uppercase tracking-wider">Favorite Character</p>
+                  <h4 className="text-xs font-black text-text-primary">{profile.showcaseCharacterId}</h4>
+                </div>
+              </div>
+            )}
+
+            {profile?.showcaseStudioId && (
+              <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-3.5 items-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-accent-gold/10 border border-accent-gold/20 flex items-center justify-center text-lg">
+                  🏢
+                </div>
+                <div>
+                  <p className="text-[9px] text-accent-gold font-bold uppercase tracking-wider">Favorite Studio</p>
+                  <h4 className="text-xs font-black text-text-primary">{profile.showcaseStudioId}</h4>
+                </div>
+              </div>
+            )}
+
+            {profile?.showcaseGenreId && (
+              <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-3.5 items-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-lg">
+                  🧬
+                </div>
+                <div>
+                  <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">Favorite Genre</p>
+                  <h4 className="text-xs font-black text-text-primary">{profile.showcaseGenreId}</h4>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Pinned Badges Bar */}
+          {pinnedBadges && pinnedBadges.length > 0 && (
+            <div className="bg-surface-2 border border-border-default rounded-3xl p-6 flex flex-col justify-between shadow-sm md:col-span-1 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-widest text-text-muted">Pinned Badges</h3>
+              <div className="flex flex-wrap gap-3">
+                {pinnedBadges.map((badge: any) => (
+                  <div
+                    key={badge.id}
+                    className="group relative flex items-center justify-center w-12 h-12 rounded-2xl bg-surface-3 border border-border-subtle hover:border-accent-violet/40 transition cursor-help shadow-sm text-2xl"
+                  >
+                    <span>{badge.icon}</span>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-40 p-2 bg-[#0D0D14] border border-border-default rounded-xl text-center shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 space-y-0.5">
+                      <p className="text-[10px] font-black text-white">{badge.name}</p>
+                      <p className="text-[8px] text-text-secondary leading-normal">{badge.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Navigation Tabs */}
       <div className="flex gap-1.5 overflow-x-auto rail-scroll pb-1">
         {tabs.map((tab) => (
@@ -356,7 +466,7 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
       </div>
 
       {/* SEARCH AND FILTERS PANEL (Only shown for list entry views) */}
-      {activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity' && (
+      {activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity' && activeTab !== 'achievements' && activeTab !== 'challenges' && (
         <div className="bg-surface-2 border border-border-default rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm animate-fade-up">
           {/* Search bar */}
           <div className="relative w-full md:w-80">
@@ -432,7 +542,7 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
       )}
 
       {/* ─── TAB 1: LIST ENTRIES (GRID DISPLAY) ─────────────────────────────────── */}
-      {activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity' && (
+      {activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity' && activeTab !== 'achievements' && activeTab !== 'challenges' && (
         <>
           {bulkMode && (
             <div className="flex items-center justify-between px-4 py-2 bg-accent-violet/10 border border-accent-violet/30 rounded-xl text-xs font-semibold text-accent-violet animate-fade-down">
@@ -823,6 +933,108 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── TAB 5: ACHIEVEMENTS & MILESTONES ────────────────────────────────────── */}
+      {activeTab === 'achievements' && achievements && (
+        <div className="space-y-8 animate-fade-up">
+          <div>
+            <h2 className="text-lg font-bold text-text-primary">Player Achievements</h2>
+            <p className="text-xs text-text-muted">Milestones you have unlocked by exploring the platform.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {Object.values(ACHIEVEMENTS).map((ach) => {
+              const isUnlocked = achievements.includes(ach.id);
+              if (ach.isHidden && !isUnlocked) return null;
+              
+              return (
+                <div
+                  key={ach.id}
+                  className={`relative p-5 rounded-3xl border transition shadow-sm flex items-center gap-4 ${
+                    isUnlocked
+                      ? 'bg-surface-2 border-accent-gold/45 shadow-[0_0_12px_rgba(234,179,8,0.06)]'
+                      : 'bg-surface-2/40 border-border-subtle opacity-60'
+                  }`}
+                >
+                  {isUnlocked && (
+                    <div className="absolute top-3 right-3 text-[10px] font-black text-accent-gold tracking-widest flex items-center gap-0.5">
+                      <Star size={10} className="fill-current animate-pulse" /> UNLOCKED
+                    </div>
+                  )}
+                  
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${
+                    isUnlocked ? 'bg-accent-gold/10 text-accent-gold border border-accent-gold/20' : 'bg-surface-3 text-text-disabled border border-border-subtle'
+                  }`}>
+                    {isUnlocked ? '🏆' : '🔒'}
+                  </div>
+
+                  <div className="space-y-1 overflow-hidden">
+                    <h4 className="text-xs font-black text-text-primary truncate">{ach.name}</h4>
+                    <p className="text-[10px] text-text-secondary leading-normal">{ach.description}</p>
+                    <div className="flex gap-2.5 pt-1 items-center text-[9px] font-bold">
+                      <span className="text-accent-gold">+{ach.xpAward} XP</span>
+                      {ach.badgeAwardId && <span className="text-accent-violet">🎖️ Badge Reward</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 6: ACTIVE CHALLENGES ────────────────────────────────────────────── */}
+      {activeTab === 'challenges' && challenges && (
+        <div className="space-y-8 animate-fade-up">
+          <div>
+            <h2 className="text-lg font-bold text-text-primary">Daily &amp; Weekly Challenges</h2>
+            <p className="text-xs text-text-muted">Earn bonus XP by completing targeted watching tasks.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {challenges.map((ch) => {
+              const pct = Math.min(100, Math.round((ch.progress / ch.target) * 100));
+              const isCompleted = ch.completedAt !== null;
+              
+              const hrs = Math.max(0, Math.ceil((new Date(ch.resetAt).getTime() - Date.now()) / (1000 * 60 * 60)));
+              
+              return (
+                <div key={ch.id || ch.challengeId} className="bg-surface-2 border border-border-default rounded-3xl p-6 flex flex-col justify-between shadow-sm space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                        ch.type === 'DAILY' ? 'bg-accent-sakura/10 text-accent-sakura' : ch.type === 'WEEKLY' ? 'bg-accent-violet/10 text-accent-violet' : 'bg-accent-gold/10 text-accent-gold'
+                      }`}>
+                        {ch.type}
+                      </span>
+                      {isCompleted && <span className="text-[10px] font-black text-emerald-400">✓ COMPLETED</span>}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-text-primary">{ch.name}</h4>
+                      <p className="text-[10px] text-text-secondary leading-relaxed">{ch.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 border-t border-white/5 pt-4">
+                    <div className="flex justify-between items-end text-[10px] font-semibold text-text-secondary">
+                      <span>{ch.progress} / {ch.target}</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="w-full bg-surface-3 rounded-full h-1.5 overflow-hidden border border-border-subtle">
+                      <div className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-emerald-400' : 'bg-accent-violet'}`} style={{ width: `${pct}%`, backgroundColor: isCompleted ? undefined : 'var(--player-accent)' }} />
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-[9px] font-bold">
+                      <span className="text-accent-gold">+{ch.xpAward} XP</span>
+                      <span className="text-text-muted">Resets in {hrs}h</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

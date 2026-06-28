@@ -15,7 +15,7 @@ export default function Footer() {
             />
           </Link>
           <p className="text-xs text-text-muted mt-2">
-            © {new Date().getFullYear()} Aniworld. Discover, track, and discuss your favorite anime in style.
+            © 2025 Aniworld. Discover, track, and discuss your favorite anime in style.
           </p>
         </div>
         <nav className="flex space-x-6 text-xs text-text-muted" aria-label="Footer navigation">

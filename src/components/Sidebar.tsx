@@ -109,7 +109,7 @@ export default function Sidebar({
       
       {/* Sidebar Footer context */}
       <div className="pt-4 border-t border-border-subtle mt-4 text-[10px] text-text-muted px-2">
-        &copy; {new Date().getFullYear()} Aniworld. All rights reserved.
+        &copy; 2025 Aniworld. All rights reserved.
       </div>
     </div>
   );

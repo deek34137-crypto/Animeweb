@@ -8,6 +8,12 @@ export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure client-only rendering after mount to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -29,6 +35,10 @@ export default function ThemeToggle() {
   ];
 
   const ActiveIcon = () => {
+    // Render a placeholder until client mount to match server output
+    if (!mounted) {
+      return <Laptop size={15} className="text-text-secondary" />;
+    }
     switch (theme) {
       case 'light':
         return <Sun size={15} className="text-amber-500 animate-pulse-slow" />;
