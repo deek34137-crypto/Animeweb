@@ -143,6 +143,12 @@ export interface AnimeData {
 
   // Relations (present only on "full" endpoints)
   relations?: RelationItem[];
+  theme?: {
+    openings: string[];
+    endings: string[];
+  } | null;
+  external?: Array<{ name: string; url: string }> | null;
+  streaming?: Array<{ name: string; url: string }> | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -261,6 +267,7 @@ export interface ScheduleEntry {
   title: string;
   title_english: string | null;
   title_japanese: string | null;
+  type: string | null;
   episodes: number | null;
   status: string | null;
   airing: boolean;

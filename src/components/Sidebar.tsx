@@ -4,9 +4,10 @@ import React from 'react';
 import { usePathname } from '@/navigation';
 import { Link } from '@/navigation';
 import {
-  Home, Play, Heart, Clock, Flame, Calendar, Star, Settings, X, Tv
+  Home, Play, Heart, Clock, Flame, Calendar, Settings, X, Tv, Compass, MessageSquare, Trophy, ShieldAlert
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useSession } from 'next-auth/react';
 
 interface SidebarProps {
   myAnimeCount?: number;
@@ -23,9 +24,12 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const t = useTranslations('Navbar');
+  const { data: session } = useSession();
+  const userRole = session?.user?.role;
 
   const navLinks = [
     { href: '/', label: 'Home', icon: Home },
+    { href: '/discover', label: 'Discover', icon: Compass },
     {
       href: '/profile?tab=watching',
       label: 'Continue Watching',
@@ -39,11 +43,16 @@ export default function Sidebar({
       badge: myAnimeCount > 0 ? myAnimeCount : null,
     },
     { href: '/history', label: 'History', icon: Clock },
-    { href: '/search?sort=trending', label: 'Trending', icon: Flame },
-    { href: '/search?season=current', label: 'Calendar', icon: Calendar },
-    { href: '/search?sort=score', label: 'Top Rated', icon: Star },
+    { href: '/calendar', label: 'Calendar', icon: Calendar },
+    { href: '/seasonal', label: 'Seasonal', icon: Flame },
+    { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+    { href: '/community', label: 'Community', icon: MessageSquare },
     { href: '/profile/settings', label: 'Settings', icon: Settings },
   ];
+
+  if (userRole === 'ADMIN' || userRole === 'MODERATOR') {
+    navLinks.push({ href: '/admin', label: 'Admin Panel', icon: ShieldAlert });
+  }
 
   const isActive = (href: string) => {
     if (href === '/') {

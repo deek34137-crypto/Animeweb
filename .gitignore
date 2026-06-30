@@ -48,3 +48,8 @@ next-env.d.ts
 *.sqlite
 prisma/dev.db
 
+
+# scripts logs
+scripts/*.log
+scripts/logs/
+

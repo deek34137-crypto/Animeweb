@@ -44,49 +44,49 @@ export const AnimeApi = {
     'use cache';
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`trending-page:${page}`);
-    return JikanAPI.getTrendingAnime(page);
+    return rewriteImages(await JikanAPI.getTrendingAnime(page));
   },
 
   getTopRatedAnime: async (page = 1) => {
     'use cache';
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`top-rated-page:${page}`);
-    return JikanAPI.getTopRatedAnime(page);
+    return rewriteImages(await JikanAPI.getTopRatedAnime(page));
   },
 
   getSeasonalAnime: async (page = 1) => {
     'use cache';
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`seasonal-page:${page}`);
-    return JikanAPI.getSeasonalAnime(page);
+    return rewriteImages(await JikanAPI.getSeasonalAnime(page));
   },
 
   getUpcomingSeasonalAnime: async (page = 1) => {
     'use cache';
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`upcoming-seasonal-page:${page}`);
-    return JikanAPI.getUpcomingSeasonalAnime(page);
+    return rewriteImages(await JikanAPI.getUpcomingSeasonalAnime(page));
   },
 
   getTopAiringAnime: async (page = 1) => {
     'use cache';
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`top-airing-page:${page}`);
-    return JikanAPI.getTopAiringAnime(page);
+    return rewriteImages(await JikanAPI.getTopAiringAnime(page));
   },
 
   getAiringSchedule: async (page = 1) => {
     'use cache';
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`airing-schedule-page:${page}`);
-    return JikanAPI.getAiringSchedule(page);
+    return rewriteImages(await JikanAPI.getAiringSchedule(page));
   },
 
   getRecentAnimeRecommendations: async (page = 1) => {
     'use cache';
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`recent-recommendations-page:${page}`);
-    return JikanAPI.getRecentAnimeRecommendations(page);
+    return rewriteImages(await JikanAPI.getRecentAnimeRecommendations(page));
   },
 
   getAnimeDetail: cache(async (id: number, userId?: string): Promise<UnifiedAnimeDetail> => {
@@ -118,17 +118,17 @@ export const AnimeApi = {
       }
     }
 
-    return {
+    return rewriteImages({
       ...anime,
       userTracking,
-    };
+    });
   }),
 
   getAnimeEpisodes: cache(async (id: number): Promise<EpisodeData[]> => {
     const animeIdStr = String(id);
     const cached = await EpisodeCache.get(animeIdStr);
     if (cached) {
-      return cached;
+      return rewriteImages(cached);
     }
 
     const res = await getJikanAnimeEpisodes(id);
@@ -143,7 +143,7 @@ export const AnimeApi = {
     }
 
     await EpisodeCache.set(animeIdStr, episodes, isAiring);
-    return episodes;
+    return rewriteImages(episodes);
   }),
 
   getAnimeCharacters: cache(async (id: number): Promise<CharacterRoster[]> => {
@@ -151,7 +151,7 @@ export const AnimeApi = {
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`anime-characters:${id}`);
     const res = await JikanAPI.getAnimeCharacters(id);
-    return res.data || [];
+    return rewriteImages(res.data || []);
   }),
 
   getAnimeRecommendations: cache(async (id: number): Promise<RecommendationItem[]> => {
@@ -159,7 +159,7 @@ export const AnimeApi = {
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`anime-recommendations:${id}`);
     const res = await JikanAPI.getAnimeRecommendations(id);
-    return res.data || [];
+    return rewriteImages(res.data || []);
   }),
 
   getAnimeStaff: cache(async (id: number): Promise<StaffMember[]> => {
@@ -167,7 +167,7 @@ export const AnimeApi = {
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`anime-staff:${id}`);
     const res = await JikanAPI.getAnimeStaff(id);
-    return res.data || [];
+    return rewriteImages(res.data || []);
   }),
 
   getAnimeReviews: cache(async (id: number): Promise<UserReview[]> => {
@@ -175,11 +175,11 @@ export const AnimeApi = {
     cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
     cacheTag(`anime-reviews:${id}`);
     const res = await JikanAPI.getAnimeReviews(id);
-    return res.data || [];
+    return rewriteImages(res.data || []);
   }),
 
   searchAnime: async (query: string, filters: Parameters<typeof JikanAPI.searchAnime>[1] = {}) => {
-    return JikanAPI.searchAnime(query, filters);
+    return rewriteImages(await JikanAPI.searchAnime(query, filters));
   },
 
   // --- Database Tracking Methods ---

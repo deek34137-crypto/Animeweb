@@ -60,6 +60,9 @@ import type {
   JikanPagination,
 } from '@/services/metadata/types/compatibility';
 
+import { env } from '@/lib/config/env';
+import { MetadataService } from '@/services/metadata/MetadataService';
+
 // ---------------------------------------------------------------------------
 // Minimal in-memory cache (replaced by Redis in Phase 4)
 // ---------------------------------------------------------------------------
@@ -183,7 +186,7 @@ function mapAnilistMedia(m: any): AnimeData {
     members: m.popularity ?? null,
     favorites: m.favourites ?? null,
     synopsis,
-    background: null,
+    background: m.bannerImage ?? null,
     season: m.season ? (seasonMap[m.season] ?? m.season.toLowerCase()) : null,
     year: m.seasonYear ?? m.startDate?.year ?? null,
     broadcast: { day: null, time: null, timezone: null, string: null },
@@ -388,6 +391,15 @@ export const JikanAPI = {
   // ── Anime detail ──────────────────────────────────────────────────────────
 
   async getAnimeDetail(id: number): Promise<{ data: AnimeData }> {
+    if (env.FLAG_USE_NEW_METADATA) {
+      try {
+        const detail = await MetadataService.getAnimeDetail(id);
+        return { data: detail };
+      } catch (err) {
+        console.warn(`Canary: MetadataService failed for ID ${id}, falling back to legacy AniList:`, err);
+      }
+    }
+
     const cacheKey = `detail-${id}`;
     const cached = getCache<{ data: AnimeData }>(cacheKey);
     if (cached) return cached;
@@ -687,6 +699,19 @@ export const JikanAPI = {
     } = {}
   ): Promise<{ data: AnimeData[]; pagination: { has_next_page: boolean; last_visible_page: number } }> {
     const { genres, year, status, limit = 20, page = 1 } = filters;
+
+    if (env.FLAG_USE_NEW_METADATA) {
+      try {
+        const results = await MetadataService.searchAnime(query, limit);
+        return {
+          data: results,
+          pagination: { has_next_page: false, last_visible_page: 1 }
+        };
+      } catch (err) {
+        console.warn('Canary: MetadataService search failed, falling back to legacy search:', err);
+      }
+    }
+
     const cacheKey = `search-${query}-${JSON.stringify(filters)}`;
     const cached = getCache<{ data: AnimeData[]; pagination: { has_next_page: boolean; last_visible_page: number } }>(cacheKey);
     if (cached) return cached;

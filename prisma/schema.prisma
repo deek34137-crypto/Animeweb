@@ -912,4 +912,203 @@ model PushSubscription {
   @@index([userId])
 }
 
+// --- Normalized Anime Metadata Mirror V4 ---
 
+enum ProviderType {
+  ANILIST
+  MAL
+  TMDB
+  KITSU
+  SIMKL
+  ANIDB
+}
+
+model Anime {
+  id             String         @id @default(cuid())
+  slug           String         @unique
+  status         String         // ONGOING, FINISHED, UPCOMING, HIATUS
+  season         String?        // WINTER, SPRING, SUMMER, FALL
+  year           Int?
+  episodesCount  Int            @default(0)
+  popularity     Int            @default(0)
+  score          Float?         @default(0.0)
+  version        Int            @default(1)
+  isDeleted      Boolean        @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  translations   AnimeTranslation[]
+  aliases        AnimeAlias[]
+  externalIds    ExternalMapping[]
+  provenance     FieldProvenance[]
+  episodes       Episode[]
+  relations      AnimeRelation[] @relation("SourceAnime")
+  relatedTo      AnimeRelation[] @relation("TargetAnime")
+
+  @@index([status])
+  @@index([year, season])
+}
+
+model AnimeTranslation {
+  id          String   @id @default(cuid())
+  animeId     String
+  language    String   // e.g. "en", "es", "ja", "de"
+  title       String
+  synopsis    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  anime       Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([animeId, language])
+  @@index([language])
+}
+
+model AnimeAlias {
+  id        String   @id @default(cuid())
+  animeId   String
+  alias     String   // Synonyms, abbreviations, romanizations
+  type      String   // ROMAJI, ENGLISH, NATIVE, ABBREVIATION, SYNONYM
+  createdAt DateTime @default(now())
+
+  anime     Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([animeId, alias])
+  @@index([alias])
+}
+
+model ExternalMapping {
+  id             String       @id @default(cuid())
+  animeId        String
+  provider       ProviderType
+  providerId     String
+  verified       Boolean      @default(false)
+  confidence     Float        @default(1.0)
+  lastVerified   DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  anime          Anime        @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@unique([animeId, provider])
+  @@index([animeId])
+}
+
+model FieldProvenance {
+  id             String       @id @default(cuid())
+  animeId        String
+  fieldName      String       // e.g. "synopsis", "episodesCount"
+  provider       ProviderType
+  confidence     Float
+  lastVerified   DateTime     @default(now())
+
+  anime          Anime        @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([animeId, fieldName])
+}
+
+model Episode {
+  id           String   @id @default(cuid())
+  animeId      String
+  number       Int
+  title        String
+  synopsis     String?
+  thumbnail    String?
+  airDate      DateTime?
+  duration     Int?
+  isFiller     Boolean  @default(false)
+  isRecap      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  
+  anime        Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([animeId, number])
+}
+
+model AnimeRelation {
+  id            String   @id @default(cuid())
+  sourceId      String
+  targetId      String
+  relationType  String   // PREQUEL, SEQUEL, SPIN_OFF, ADAPTATION
+
+  source        Anime    @relation("SourceAnime", fields: [sourceId], references: [id], onDelete: Cascade)
+  target        Anime    @relation("TargetAnime", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId, relationType])
+}
+
+model MetadataVersion {
+  id               String   @id @default(cuid())
+  schemaVersion    Int      @default(1)
+  payloadVersion   Int      @default(1)
+  migrationVersion String
+  updatedAt        DateTime @updatedAt
+}
+
+enum OutboxStatus {
+  PENDING
+  LEASED
+  SENT
+  RETRY
+  FAILED
+  DLQ
+}
+
+model OutboxEvent {
+  id          String       @id @default(cuid())
+  eventType   String       // "anime.updated", "episode.created"
+  payload     Json         // Serialized event details
+  status      OutboxStatus @default(PENDING)
+  locked_by   String?
+  locked_at   DateTime?
+  retry_count Int          @default(0)
+  last_error  String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status, createdAt])
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model SyncJob {
+  id             String    @id @default(cuid())
+  queueName      String    // "sync-priority-queue", etc.
+  status         JobStatus @default(PENDING)
+  payload        Json?
+  errorDetails   String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([status])
+  @@index([queueName])
+}
+
+model ProviderAuditLog {
+  id             String       @id @default(cuid())
+  provider       ProviderType
+  endpoint       String
+  statusCode     Int
+  latencyMs      Int
+  errorMessage   String?
+  createdAt      DateTime     @default(now())
+
+  @@index([provider, createdAt])
+}
+
+model DeadLetterQueue {
+  id             String    @id @default(cuid())
+  queueName      String
+  payload        Json
+  errorStack     String
+  resolved       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+}

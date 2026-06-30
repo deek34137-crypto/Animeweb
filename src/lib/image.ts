@@ -37,7 +37,8 @@ export function rewriteImages(obj: any): any {
           key === 'avatar' ||
           key === 'banner' ||
           key === 'logo' ||
-          key === 'coverImage')
+          key === 'coverImage' ||
+          key === 'background')
       ) {
         newObj[key] = proxyUrl(obj[key]);
       } else if (key === 'animeSnapshot' && obj[key] && typeof obj[key] === 'object') {

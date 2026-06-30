@@ -4,7 +4,13 @@ import { generateSeeds } from '../src/lib/discover/recommendations/seedGenerator
 import { rankAndBalance } from '../src/lib/discover/recommendations/rankingEngine';
 import { scoreCandidates } from '../src/lib/discover/recommendations/scoringEngine';
 import { cacheRelations, getInverseRelationType } from '../src/lib/anime/relations';
+import { JikanAPI } from '../src/services/jikan';
 import { getNextAiringTime } from '../src/app/api/discover/schedule/route';
+// Mock Jikan API to prevent Jikan rate-limiting and connection delays during E2E verification
+(JikanAPI as any).getTrendingAnime = async () => ({ data: [] });
+(JikanAPI as any).getAnimeDetail = async () => ({ data: null });
+(JikanAPI as any).getAnimeRecommendations = async () => ({ data: [] });
+(JikanAPI as any).searchAnime = async () => ({ data: [] });
 
 async function runTests() {
   console.log('=== STARTING RECOMMENDATION ENGINE INTEGRATION TEST SUITE ===');
@@ -23,6 +29,23 @@ async function runTests() {
         email: testUserId + '@example.com',
       },
     });
+
+    // Pre-seed AnimeCache for beginner fallback list to bypass Jikan API rate-limits during testing
+    const beginnerIds = ['1535', '5114', '16498', '38000', '30276', '20583', '31964', '40748'];
+    const nowForCache = new Date();
+    for (const id of beginnerIds) {
+      await db.animeCache.upsert({
+        where: { animeId: id },
+        create: {
+          animeId: id,
+          title: `Beginner Fallback Anime ${id}`,
+          poster: `https://cdn.myanimelist.net/images/anime/fallback-${id}.jpg`,
+          score: 8.5,
+          updatedAt: nowForCache
+        },
+        update: {}
+      });
+    }
 
     // --- TEST 1: Cold Start (No watch history) ---
     console.log('\n[Test 1] Testing Cold Start...');

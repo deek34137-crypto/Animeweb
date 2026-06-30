@@ -19,10 +19,41 @@ async function runTests() {
 
   // Helper to clean database tables after/before test runs
   const cleanDb = async (userIds: string[], flagIds: string[]) => {
-    await prisma.report.deleteMany({ where: { flaggedItemId: { in: flagIds } } });
-    await prisma.flaggedItem.deleteMany({ where: { id: { in: flagIds } } });
-    await prisma.auditLog.deleteMany({ where: { adminId: { in: userIds } } });
-    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    await prisma.report.deleteMany({
+      where: {
+        OR: [
+          { flaggedItemId: { in: flagIds } },
+          { reporterId: { startsWith: 'concurrent-usr-' } }
+        ]
+      }
+    });
+    await prisma.flaggedItem.deleteMany({
+      where: {
+        OR: [
+          { id: { in: flagIds } },
+          { targetId: 'coll-concurrent-test' }
+        ]
+      }
+    });
+    await prisma.auditLog.deleteMany({
+      where: {
+        OR: [
+          { adminId: { in: userIds } },
+          { adminId: 'mod-a-id' },
+          { adminId: 'mod-b-id' }
+        ]
+      }
+    });
+    await prisma.user.deleteMany({
+      where: {
+        OR: [
+          { id: { in: userIds } },
+          { id: { startsWith: 'concurrent-usr-' } },
+          { id: 'mod-a-id' },
+          { id: 'mod-b-id' }
+        ]
+      }
+    });
     await prisma.streamHealthLog.deleteMany({});
     await prisma.streamDailyAggregate.deleteMany({});
   };

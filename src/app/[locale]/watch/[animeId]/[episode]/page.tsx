@@ -135,7 +135,14 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
   let episodes: any[] = [];
   if (isMalId) {
     try {
-      episodes = await AnimeApi.getAnimeEpisodes(parseInt(animeId, 10));
+      const rawEpisodes = await AnimeApi.getAnimeEpisodes(parseInt(animeId, 10));
+      episodes = rawEpisodes.map((ep) => ({
+        number: ep.mal_id,
+        title: ep.title || `Episode ${ep.mal_id}`,
+        aired: ep.aired || undefined,
+        filler: ep.filler || false,
+        recap: ep.recap || false,
+      }));
     } catch (e) {
       console.error('Failed to fetch Jikan episodes on watch page, falling back to provider:', e);
       episodes = await StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []);

@@ -113,8 +113,16 @@ export default async function HomePage() {
     trending = trendingRes.data || [];
     seasonal = seasonalRes.data || [];
     topRated = topRatedRes.data || [];
-    recommendations = recsRes.data || [];
-    schedules = schedulesRes.data || [];
+    recommendations = ((recsRes.data || []) as any[]).map((item) => ({
+      mal_id: item.entry.mal_id,
+      title: item.entry.title,
+      images: item.entry.images,
+      url: item.entry.url,
+      score: null,
+      type: 'TV',
+      episodes: null,
+    })) as unknown as AnimeData[];
+    schedules = (schedulesRes.data as unknown as AnimeData[]) || [];
 
     // If every feed came back empty simultaneously, the API is likely down
     jikanDown = [

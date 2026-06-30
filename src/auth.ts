@@ -51,6 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           image: user.avatar,
           username: user.username,
+          role: user.role,
         };
       },
     }),
@@ -66,6 +67,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.username = (user as any).username;
         token.picture = user.image;
         token.name = user.name;
+        token.role = (user as any).role;
       }
       
       if (!token.id) {
@@ -103,6 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.username = token.username as string;
         session.user.image = token.picture;
         session.user.name = token.name;
+        session.user.role = token.role as string;
       } else {
         return null as any;
       }
