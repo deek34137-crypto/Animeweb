@@ -106,7 +106,7 @@ export default function HeroSpotlight({ items }: HeroSpotlightProps) {
             <Flame size={9} />
             #{currentIndex + 1} Trending
           </Badge>
-          {genres.slice(0, 2).map((g) => (
+          {genres.slice(0, 2).map((g: { mal_id: number; name: string }) => (
             <Badge key={g.mal_id} variant="ghost" size="xs">
               {g.name}
             </Badge>

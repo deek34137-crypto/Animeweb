@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { pruneActivityLogs } from '@/lib/api';
 
+
 function slugify(text: string) {
   return text
     .toString()

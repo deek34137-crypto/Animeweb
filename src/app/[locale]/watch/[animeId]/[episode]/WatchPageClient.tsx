@@ -1,7 +1,19 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import VideoPlayer from '@/components/video/VideoPlayer';
+import dynamic from 'next/dynamic';
+
+const VideoPlayer = dynamic(
+  () => import('@/components/video/VideoPlayer'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="aspect-video w-full rounded-2xl bg-bg-secondary/40 border border-border-subtle flex items-center justify-center text-text-muted text-xs animate-pulse">
+        Initializing player components...
+      </div>
+    )
+  }
+);
 
 interface EpisodeSource {
   url: string;

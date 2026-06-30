@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { pruneActivityLogs } from '@/lib/api';
 
 // POST: Restore entries for bulk undo
+
 export async function POST(req: Request) {
   try {
     const session = await auth();

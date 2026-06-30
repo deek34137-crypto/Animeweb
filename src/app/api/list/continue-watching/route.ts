@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { auth } from '@/auth';
 import { AnimeApi } from '@/lib/api';
 

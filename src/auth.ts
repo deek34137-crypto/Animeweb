@@ -50,6 +50,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.displayName || user.username,
           email: user.email,
           image: user.avatar,
+          username: user.username,
+          role: user.role,
         };
       },
     }),
@@ -62,31 +64,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
+        token.username = (user as any).username;
+        token.picture = user.image;
+        token.name = user.name;
+        token.role = (user as any).role;
       }
       
       if (!token.id) {
         return null;
       }
 
-      // Fetch the user from database to ensure they still exist and sync properties
-      const dbUser = await db.user.findUnique({
-        where: { id: token.id as string },
-        select: { id: true, username: true, avatar: true, displayName: true },
-      });
-
-      if (!dbUser) {
-        console.warn(`[NextAuth] JWT token contains non-existent user ID: ${token.id}. Invalidating session.`);
-        return null;
-      }
-
+      // Only run database sync on settings update or if token fields are missing
       if (trigger === 'update' && session) {
         if (session.name) token.name = session.name;
         if (session.image) token.picture = session.image;
         if (session.username) token.username = session.username;
-      } else {
-        token.username = dbUser.username;
-        token.picture = dbUser.avatar;
-        token.name = dbUser.displayName || dbUser.username;
+
+        // Sync with database to get full updated user object
+        const dbUser = await db.user.findUnique({
+          where: { id: token.id as string },
+          select: { id: true, username: true, avatar: true, displayName: true },
+        });
+
+        if (dbUser) {
+          token.username = dbUser.username;
+          token.picture = dbUser.avatar;
+          token.name = dbUser.displayName || dbUser.username;
+        }
+      } else if (!token.username) {
+        // Legacy tokens issued before username was embedded in the JWT payload.
+        // Force re-authentication instead of performing a DB hydration query on
+        // every /api/auth/session call — keeps session checks as crypto-only.
+        return null;
       }
       return token;
     },
@@ -96,6 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.username = token.username as string;
         session.user.image = token.picture;
         session.user.name = token.name;
+        session.user.role = token.role as string;
       } else {
         return null as any;
       }

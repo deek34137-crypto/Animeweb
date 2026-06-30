@@ -29,7 +29,7 @@ function formatTime(seconds: number): string {
 // Simple client-side Markdown formatter for rich-text notes
 function parseInlineMarkdown(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  let currentText = text;
+  const currentText = text;
   let i = 0;
   
   while (i < currentText.length) {

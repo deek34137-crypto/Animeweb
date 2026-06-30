@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { AnimeApi } from '@/lib/api';
@@ -19,8 +19,6 @@ import SeasonalAnime from '@/components/dashboard/SeasonalAnime';
 import RecentlyUpdated from '@/components/dashboard/RecentlyUpdated';
 import RecommendedForYou from '@/components/dashboard/RecommendedForYou';
 import Genres from '@/components/dashboard/Genres';
-
-export const revalidate = 900; // Cache homepage SSR data for 15 minutes to prevent Jikan rate limiting
 
 // Helper: Calculate watch streak
 async function calculateCurrentStreak(userId: string): Promise<number> {
@@ -87,189 +85,94 @@ function formatRelativeTime(date: Date): string {
   return `${diffDays}d ago`;
 }
 
+// ─── Main Landing Page (Compiles Static Shell Instantly) ──────────────────────
 export default async function HomePage() {
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  // ─── Logged In Personal Data Loading ───
-  let listEntries: any[] = [];
-  let continueWatching: any[] = [];
-  let watchHistory: any[] = [];
-  let streak = 0;
-
-  if (userId) {
-    try {
-      const [entriesRes, continueRes, historyRes, streakRes] = await Promise.all([
-        db.listEntry.findMany({ where: { userId } }),
-        AnimeApi.getContinueWatching(userId),
-        db.watchHistory.findMany({
-          where: { userId },
-          orderBy: { completedAt: 'desc' },
-          take: 6,
-        }),
-        calculateCurrentStreak(userId),
-      ]);
-
-      listEntries = entriesRes;
-      continueWatching = continueRes;
-      watchHistory = historyRes.map((h) => ({
-        animeId: h.animeId,
-        animeTitle: h.animeTitle,
-        animeImage: h.animeImage,
-        episode: h.episode,
-        completedAt: formatRelativeTime(new Date(h.completedAt)),
-      }));
-      streak = streakRes;
-    } catch (error) {
-      console.error('Failed to load personalized database tracker:', error);
-    }
-  }
-
-  // ─── Jikan API Feeds Loading (Parallelized & Stable) ───
+  // ─── Jikan API Feeds Loading (Parallelized, Aggressively Cached via AnimeApi) ───
   let trending: AnimeData[] = [];
   let seasonal: AnimeData[] = [];
-  let topAiring: AnimeData[] = [];
   let topRated: AnimeData[] = [];
-  let schedules: AnimeData[] = [];
   let recommendations: AnimeData[] = [];
-  let becauseWatchedTitle = '';
-  let becauseWatchedRecs: AnimeData[] = [];
+  let schedules: AnimeData[] = [];
+  let jikanDown = false;
 
   try {
     const [
       trendingRes,
       seasonalRes,
-      topAiringRes,
       topRatedRes,
-      schedulesRes,
       recsRes,
+      schedulesRes,
     ] = await Promise.all([
-      AnimeApi.getTrendingAnime(1).catch(() => ({ data: [] })),
-      AnimeApi.getSeasonalAnime(1).catch(() => ({ data: [] })),
-      AnimeApi.getTopAiringAnime(1).catch(() => ({ data: [] })),
-      AnimeApi.getTopRatedAnime(1).catch(() => ({ data: [] })),
-      AnimeApi.getAiringSchedule(1).catch(() => ({ data: [] })),
-      AnimeApi.getRecentAnimeRecommendations(1).catch(() => ({ data: [] })),
+      AnimeApi.getTrendingAnime(1).catch(() => ({ data: [] as AnimeData[] })),
+      AnimeApi.getSeasonalAnime(1).catch(() => ({ data: [] as AnimeData[] })),
+      AnimeApi.getTopRatedAnime(1).catch(() => ({ data: [] as AnimeData[] })),
+      AnimeApi.getRecentAnimeRecommendations(1).catch(() => ({ data: [] as AnimeData[] })),
+      AnimeApi.getAiringSchedule(1).catch(() => ({ data: [] as AnimeData[] })),
     ]);
 
     trending = trendingRes.data || [];
     seasonal = seasonalRes.data || [];
-    topAiring = topAiringRes.data || [];
     topRated = topRatedRes.data || [];
-    schedules = schedulesRes.data || [];
-    recommendations = recsRes.data || [];
+    recommendations = ((recsRes.data || []) as any[]).map((item) => ({
+      mal_id: item.entry.mal_id,
+      title: item.entry.title,
+      images: item.entry.images,
+      url: item.entry.url,
+      score: null,
+      type: 'TV',
+      episodes: null,
+    })) as unknown as AnimeData[];
+    schedules = (schedulesRes.data as unknown as AnimeData[]) || [];
 
-    // Personalization logic: "Because You Watched"
-    let completedShowId = '';
-    const completedList = listEntries.filter((e) => e.status === 'completed');
-    
-    if (completedList.length > 0) {
-      // Find highest rated completed show
-      const topCompleted = completedList.sort((a, b) => (b.score || 0) - (a.score || 0))[0];
-      completedShowId = topCompleted.animeId;
-      becauseWatchedTitle = topCompleted.animeTitle;
-    } else {
-      // Fallback for guests / new users: recommend based on Demon Slayer (MAL ID: 38000)
-      completedShowId = '38000';
-      becauseWatchedTitle = 'Demon Slayer';
-    }
-
-    if (completedShowId) {
-      try {
-        const rawRecs = await AnimeApi.getAnimeRecommendations(parseInt(completedShowId, 10));
-        becauseWatchedRecs = rawRecs.map((r) => r.entry).filter(Boolean) as AnimeData[];
-      } catch (err) {
-        console.error('Failed to load personalized recommendations:', err);
-      }
-    }
+    // If every feed came back empty simultaneously, the API is likely down
+    jikanDown = [
+      trending, seasonal, topRated, recommendations, schedules,
+    ].every((feed) => feed.length === 0);
   } catch (error) {
     console.error('Failed to fetch dashboard content feeds:', error);
+    jikanDown = true;
   }
-
-  // Stats
-  const watchingCount = listEntries.filter((e) => e.status === 'watching').length;
-  const completedCount = listEntries.filter((e) => e.status === 'completed').length;
-  const totalEpisodesWatched = listEntries.reduce((sum, e) => sum + e.episodesWatched, 0);
-  const totalHours = Math.round((totalEpisodesWatched * 24) / 60);
-
-  const resumeUrl = continueWatching.length > 0
-    ? `/watch/${continueWatching[0].animeId}/${continueWatching[0].episodesWatched}`
-    : null;
 
   return (
     <div className="space-y-10 pb-16 animate-fade-in">
-      {/* 1. Hero Spotlight Carousel Rotation */}
-      <HeroBanner
-        continueWatching={continueWatching.length > 0 ? continueWatching[0] : null}
-        trendingToday={trending.length > 0 ? trending[0] : null}
-        seasonSpotlight={seasonal.length > 0 ? seasonal[0] : null}
-        upcomingRelease={schedules.length > 0 ? schedules[0] : null}
-        editorsPick={topRated.length > 0 ? topRated[0] : null}
-        randomRec={recommendations.length > 0 ? recommendations[Math.floor(Math.random() * recommendations.length)] : null}
-        guestMode={!userId}
-      />
 
-      {/* 2. Quick Actions Row */}
-      <QuickActions resumeUrl={resumeUrl} guestMode={!userId} />
+      {/* Jikan API outage banner */}
+      {jikanDown && (
+        <div className="mx-4 md:mx-0 flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+          <span className="mt-0.5 text-yellow-400">⚠️</span>
+          <div>
+            <p className="font-semibold">Anime catalog temporarily unavailable</p>
+            <p className="text-yellow-300/70 text-xs mt-0.5">
+              MyAnimeList / Jikan API is experiencing downtime. Trending, seasonal, and top-rated
+              sections will reappear automatically once the service recovers. Streaming still works normally.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 1. Hero Spotlight Carousel Rotation (Suspended) */}
+      <Suspense fallback={<div className="h-[480px] shimmer-loader rounded-2xl animate-pulse" />}>
+        <HeroSection
+          trending={trending}
+          seasonal={seasonal}
+          schedules={schedules}
+          topRated={topRated}
+          recommendations={recommendations}
+        />
+      </Suspense>
+
+      {/* 2. Quick Actions Row (Suspended) */}
+      <Suspense fallback={<div className="h-16 shimmer-loader rounded-xl animate-pulse" />}>
+        <QuickActionsSection />
+      </Suspense>
 
       {/* Recently Visited Links */}
       <RecentHistory />
 
-      {/* 3. Continue Watching (logged-in only; including stats and progress) */}
-      {userId ? (
-        <div className="space-y-8">
-          {/* Logged In Tracker Statistics */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Dashboard Stats</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              <StatCard title="Watching" value={watchingCount} icon={<Play size={16} className="text-accent-violet" />} />
-              <StatCard title="Completed" value={completedCount} icon={<CheckCircle size={16} className="text-emerald-500" />} />
-              <StatCard title="Episodes Watched" value={totalEpisodesWatched} icon={<Tv size={16} className="text-accent-pink" />} />
-              <StatCard title="Hours Watched" value={`${totalHours}h`} icon={<Clock size={16} className="text-accent-cyan" />} />
-              <StatCard title="Current Streak" value={`${streak} days`} icon={<Flame size={16} className="text-amber-500" />} description={streak > 0 ? "Keep it up!" : "Watch today to start!"} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left: Other Continue Watching */}
-            <div className="lg:col-span-2 space-y-3">
-              <SectionHeader title="Other Continue Watching" />
-              {continueWatching.length > 1 ? (
-                <div className="flex gap-4 overflow-x-auto pb-3 rail-scroll snap-x scrollbar-thin">
-                  {continueWatching.slice(1).map((entry) => (
-                    <div key={entry.animeId} className="snap-start">
-                      <ContinueWatchingCard entry={entry} />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-border-subtle bg-bg-secondary/20 py-8 text-center text-xs text-text-muted">
-                  No other shows in progress.
-                </div>
-              )}
-            </div>
-
-            {/* Right: Recently Watched list */}
-            <div className="space-y-3">
-              <SectionHeader title="Recently Watched" />
-              {watchHistory.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2.5">
-                  {watchHistory.map((entry) => (
-                    <RecentWatchCard key={`${entry.animeId}-${entry.episode}`} entry={entry} />
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-border-subtle bg-bg-secondary/20 py-8 text-center text-xs text-text-muted">
-                  No recently watched episodes.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Guest View Onboarding banner */
-        <GuestWelcome />
-      )}
+      {/* 3. Continue Watching & User Dashboard Stats (Suspended) */}
+      <Suspense fallback={<div className="h-64 shimmer-loader rounded-2xl animate-pulse" />}>
+        <UserDashboardSection />
+      </Suspense>
 
       {/* ─── Content Feed Carousels ─── */}
       <div className="space-y-12">
@@ -285,12 +188,178 @@ export default async function HomePage() {
         {/* New Episodes Today */}
         <RecentlyUpdated items={seasonal.slice(6, 18)} />
 
-        {/* Recommended For You (logged-in only) */}
-        {userId && <RecommendedForYou items={recommendations} />}
+        {/* Recommended For You (logged-in only; Suspended) */}
+        <Suspense fallback={null}>
+          <UserRecommendationsSection recommendations={recommendations} />
+        </Suspense>
 
         {/* Genres */}
         <Genres />
       </div>
     </div>
   );
+}
+
+// ─── Suspenseful Server Component: Hero Section ──────────────────────────────
+async function HeroSection({
+  trending,
+  seasonal,
+  schedules,
+  topRated,
+  recommendations,
+}: {
+  trending: AnimeData[];
+  seasonal: AnimeData[];
+  schedules: AnimeData[];
+  topRated: AnimeData[];
+  recommendations: AnimeData[];
+}) {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  let continueWatching: any[] = [];
+  if (userId) {
+    continueWatching = await AnimeApi.getContinueWatching(userId).catch(() => []);
+  }
+
+  return (
+    <HeroBanner
+      continueWatching={continueWatching.length > 0 ? continueWatching[0] : null}
+      trendingToday={trending.length > 0 ? trending[0] : null}
+      seasonSpotlight={seasonal.length > 0 ? seasonal[0] : null}
+      upcomingRelease={schedules.length > 0 ? schedules[0] : null}
+      editorsPick={topRated.length > 0 ? topRated[0] : null}
+      randomRec={recommendations.length > 0 ? recommendations[Math.floor(Math.random() * recommendations.length)] : null}
+      guestMode={!userId}
+    />
+  );
+}
+
+// ─── Suspenseful Server Component: Quick Actions ─────────────────────────────
+async function QuickActionsSection() {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  let continueWatching: any[] = [];
+  if (userId) {
+    continueWatching = await AnimeApi.getContinueWatching(userId).catch(() => []);
+  }
+
+  const resumeUrl = continueWatching.length > 0
+    ? `/watch/${continueWatching[0].animeId}/${continueWatching[0].episodesWatched}`
+    : null;
+
+  return <QuickActions resumeUrl={resumeUrl} guestMode={!userId} />;
+}
+
+// ─── Suspenseful Server Component: User Dashboard Stats & Continue Watching ───
+async function UserDashboardSection() {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  if (!userId) {
+    return <GuestWelcome />;
+  }
+
+  let listEntries: any[] = [];
+  let continueWatching: any[] = [];
+  let watchHistory: any[] = [];
+  let streak = 0;
+
+  try {
+    const [entriesRes, continueRes, historyRes, streakRes] = await Promise.all([
+      db.listEntry.findMany({ where: { userId } }),
+      AnimeApi.getContinueWatching(userId),
+      db.watchHistory.findMany({
+        where: { userId },
+        orderBy: { completedAt: 'desc' },
+        take: 6,
+      }),
+      calculateCurrentStreak(userId),
+    ]);
+
+    listEntries = entriesRes;
+    continueWatching = continueRes;
+    watchHistory = historyRes.map((h) => ({
+      animeId: h.animeId,
+      animeTitle: h.animeTitle,
+      animeImage: h.animeImage,
+      episode: h.episode,
+      completedAt: formatRelativeTime(new Date(h.completedAt)),
+    }));
+    streak = streakRes;
+  } catch (error) {
+    console.error('Failed to load personalized database tracker:', error);
+  }
+
+  const watchingCount = listEntries.filter((e) => e.status === 'watching').length;
+  const completedCount = listEntries.filter((e) => e.status === 'completed').length;
+  const totalEpisodesWatched = listEntries.reduce((sum, e) => sum + e.episodesWatched, 0);
+  const totalHours = Math.round((totalEpisodesWatched * 24) / 60);
+
+  return (
+    <div className="space-y-8">
+      {/* Tracker Statistics */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Dashboard Stats</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <StatCard title="Watching" value={watchingCount} icon={<Play size={16} className="text-accent-violet" />} />
+          <StatCard title="Completed" value={completedCount} icon={<CheckCircle size={16} className="text-emerald-500" />} />
+          <StatCard title="Episodes Watched" value={totalEpisodesWatched} icon={<Tv size={16} className="text-accent-pink" />} />
+          <StatCard title="Hours Watched" value={`${totalHours}h`} icon={<Clock size={16} className="text-accent-cyan" />} />
+          <StatCard title="Current Streak" value={`${streak} days`} icon={<Flame size={16} className="text-amber-500" />} description={streak > 0 ? "Keep it up!" : "Watch today to start!"} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left: Other Continue Watching */}
+        <div className="lg:col-span-2 space-y-3">
+          <SectionHeader title="Other Continue Watching" />
+          {continueWatching.length > 1 ? (
+            <div className="flex gap-4 overflow-x-auto pb-3 rail-scroll snap-x scrollbar-thin">
+              {continueWatching.slice(1).map((entry) => (
+                <div key={entry.animeId} className="snap-start">
+                  <ContinueWatchingCard entry={entry} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border-subtle bg-bg-secondary/20 py-8 text-center text-xs text-text-muted">
+              No other shows in progress.
+            </div>
+          )}
+        </div>
+
+        {/* Right: Recently Watched list */}
+        <div className="space-y-3">
+          <SectionHeader title="Recently Watched" />
+          {watchHistory.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2.5">
+              {watchHistory.map((entry) => (
+                <RecentWatchCard key={`${entry.animeId}-${entry.episode}`} entry={entry} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border-subtle bg-bg-secondary/20 py-8 text-center text-xs text-text-muted">
+              No recently watched episodes.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Suspenseful Server Component: User Recommendations ─────────────────────
+async function UserRecommendationsSection({
+  recommendations,
+}: {
+  recommendations: AnimeData[];
+}) {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  if (!userId) return null;
+
+  return <RecommendedForYou items={recommendations} />;
 }

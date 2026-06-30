@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { syncWatchProgress } from '@/lib/trackers';
+import { triggerGamification } from '@/lib/gamification/background';
+
 
 export async function POST(req: Request) {
   try {
@@ -74,6 +76,12 @@ export async function POST(req: Request) {
     let listEntryUpdated = false;
 
     if (isCompleted) {
+      // Award XP for watching the episode
+      triggerGamification(userId, {
+        eventType: 'WATCH_EPISODE',
+        animeId: String(animeId),
+        episode: epNum,
+      });
 
       // 2b. Auto list tracking updates
       // Find user's list entry for this anime
@@ -113,6 +121,13 @@ export async function POST(req: Request) {
               completedAt: completedDate,
             },
           });
+
+          if (finalStatus === 'completed' && listEntry.status !== 'completed') {
+            triggerGamification(userId, {
+              eventType: 'COMPLETE',
+              animeId: String(animeId),
+            });
+          }
           listEntryUpdated = true;
           // Trigger sync in the background
           syncWatchProgress(userId, String(animeId), finalStatus, finalEpsWatched).catch((err) => {
@@ -142,6 +157,13 @@ export async function POST(req: Request) {
             completedAt: completedDate,
           },
         });
+
+        if (finalStatus === 'completed') {
+          triggerGamification(userId, {
+            eventType: 'COMPLETE',
+            animeId: String(animeId),
+          });
+        }
         listEntryUpdated = true;
         // Trigger sync in the background
         syncWatchProgress(userId, String(animeId), finalStatus, epNum).catch((err) => {

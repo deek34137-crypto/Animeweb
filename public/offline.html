@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline Mode | AnimeWorld RJ</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #111118;
+      --bg-elevated: #1a1a27;
+      --accent-primary: #7c3aed;
+      --accent-secondary: #06b6d4;
+      --accent-pink: #ec4899;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #475569;
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-img {
+      height: 36px;
+      width: 36px;
+      border-radius: 8px;
+    }
+
+    .logo-text {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #9f5eff, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--accent-pink);
+      background: rgba(236, 72, 153, 0.1);
+      padding: 6px 12px;
+      border-radius: 100px;
+      border: 1px solid rgba(236, 72, 153, 0.2);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent-pink);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.6; }
+    }
+
+    main {
+      width: 100%;
+      max-width: 800px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .offline-hero {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .offline-hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.05) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .icon-wrapper {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      color: var(--text-secondary);
+    }
+
+    .hero-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .hero-desc {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 500px;
+      line-height: 1.6;
+    }
+
+    .retry-btn {
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+      border: none;
+      color: white;
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 100px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+    }
+
+    .retry-btn:active {
+      transform: translateY(0);
+    }
+
+    .warning-banner {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      color: #fb923c;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tabs-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 8px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    .anime-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+
+    .anime-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s;
+    }
+
+    .anime-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .card-img-wrapper {
+      position: relative;
+      aspect-ratio: 11 / 16;
+      background: var(--bg-elevated);
+      overflow: hidden;
+    }
+
+    .card-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .card-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: white;
+      text-transform: capitalize;
+    }
+
+    .badge-watching { background-color: #3b82f6; }
+    .badge-completed { background-color: #10b981; }
+    .badge-dropped { background-color: #ef4444; }
+    .badge-paused { background-color: #f59e0b; }
+    .badge-planning { background-color: #6366f1; }
+    .badge-default { background-color: var(--text-muted); }
+
+    .card-info {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-grow: 1;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.4;
+      height: 40px;
+    }
+
+    .card-progress {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      border: 2px dashed var(--border-subtle);
+      border-radius: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .empty-icon {
+      font-size: 32px;
+      color: var(--text-muted);
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* Recommendation card custom styles */
+    .rec-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      gap: 16px;
+    }
+
+    .rec-img {
+      width: 70px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+    }
+
+    .rec-body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      flex-grow: 1;
+    }
+
+    .rec-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .rec-synopsis {
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.4;
+    }
+
+    .rec-genres {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .genre-tag {
+      font-size: 10px;
+      background: var(--bg-elevated);
+      color: var(--accent-secondary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-container">
+      <img src="/logo.png" alt="Aniworld" class="logo-img" onerror="this.src='/app-icon.jpg'">
+      <span class="logo-text">Aniworld</span>
+    </div>
+    <div class="connection-status">
+      <div class="status-dot"></div>
+      Offline Mode
+    </div>
+  </header>
+
+  <main>
+    <section class="offline-hero">
+      <div class="icon-wrapper">🔌</div>
+      <h1 class="hero-title">You're Offline</h1>
+      <p class="hero-desc">It looks like your device is disconnected from the internet. You can still browse your watchlist, recently viewed shows, and offline recommendations.</p>
+      <button class="retry-btn" onclick="checkConnection()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Retry Connection
+      </button>
+    </section>
+
+    <div class="warning-banner">
+      <span>⚠️</span>
+      <span><strong>Offline limits:</strong> Video streaming and posting forum comments require an active connection and are disabled.</span>
+    </div>
+
+    <nav class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('watchlist')">Watchlist</button>
+      <button class="tab-btn" onclick="switchTab('recently')">Recently Opened</button>
+      <button class="tab-btn" onclick="switchTab('recommendations')">Recommendations</button>
+    </nav>
+
+    <!-- Watchlist Tab -->
+    <div id="tab-watchlist" class="tab-content active">
+      <div id="watchlist-container" class="anime-grid"></div>
+      <div id="watchlist-empty" class="empty-state" style="display: none;">
+        <div class="empty-icon">📁</div>
+        <h3>No Offline Watchlist</h3>
+        <p>You haven't synchronized your library to this browser yet. Visit your library online to save it here.</p>
+      </div>
+    </div>
+
+    <!-- Recently Opened Tab -->
+    <div id="tab-recently" class="tab-content">
+      <div id="recently-container" class="anime-grid"></div>
+      <div id="recently-empty" class="empty-state" style="display: none;">
+        <div class="empty-icon">🕒</div>
+        <h3>No Recently Opened Shows</h3>
+        <p>Browse anime details pages online to cache them for offline viewing.</p>
+      </div>
+    </div>
+
+    <!-- Recommendations Tab -->
+    <div id="tab-recommendations" class="tab-content">
+      <div id="rec-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
+      <div id="rec-empty" class="empty-state" style="display: none;">
+        <div class="empty-icon">✨</div>
+        <h3>No Offline Recommendations</h3>
+        <p>Tap "Feeling Lucky" while online to cache surprise shows for later.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    AnimeWorld RJ PWA Core • Cache version: 2026-06-24
+  </footer>
+
+  <script>
+    function checkConnection() {
+      const btn = document.querySelector('.retry-btn');
+      btn.style.opacity = '0.7';
+      btn.innerText = 'Checking...';
+      
+      // Perform a light fetch test
+      fetch('/favicon.ico', { method: 'HEAD', cache: 'no-store' })
+        .then(() => {
+          // Success means we are back online!
+          window.location.reload();
+        })
+        .catch(() => {
+          // Fail means we are still offline
+          setTimeout(() => {
+            btn.style.opacity = '1';
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Retry Connection';
+            alert('Device is still offline. Please check your network cables or Wi-Fi.');
+          }, 600);
+        });
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      // Find trigger button
+      const targetBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.innerText.toLowerCase().includes(tabId.substring(0, 3)));
+      if (targetBtn) targetBtn.classList.add('active');
+
+      const targetContent = document.getElementById(`tab-${tabId}`);
+      if (targetContent) targetContent.classList.add('active');
+    }
+
+    // Load Data from LocalStorage snapshots
+    function loadOfflineData() {
+      // 1. Load Watchlist
+      const watchlistJson = localStorage.getItem('offline-watchlist');
+      const watchlistContainer = document.getElementById('watchlist-container');
+      const watchlistEmpty = document.getElementById('watchlist-empty');
+
+      if (watchlistJson) {
+        try {
+          const list = JSON.parse(watchlistJson);
+          if (list && list.length > 0) {
+            watchlistEmpty.style.display = 'none';
+            watchlistContainer.innerHTML = '';
+            list.forEach(item => {
+              const card = document.createElement('div');
+              card.className = 'anime-card';
+              
+              const statusClass = `badge-${item.status.toLowerCase()}`;
+              
+              card.innerHTML = `
+                <div class="card-img-wrapper">
+                  <img src="${item.animeImage}" alt="${item.animeTitle}" class="card-img" onerror="this.style.display='none'">
+                  <span class="card-badge ${statusClass}">${item.status}</span>
+                </div>
+                <div class="card-info">
+                  <h4 class="card-title">${item.animeTitle}</h4>
+                  <div class="card-progress">
+                    <span>Ep ${item.episodesWatched || 0}/${item.animeEpisodes || '?'}</span>
+                    <span>⭐ ${item.score || '-'}</span>
+                  </div>
+                </div>
+              `;
+              watchlistContainer.appendChild(card);
+            });
+          } else {
+            watchlistEmpty.style.display = 'flex';
+          }
+        } catch (e) {
+          watchlistEmpty.style.display = 'flex';
+        }
+      } else {
+        watchlistEmpty.style.display = 'flex';
+      }
+
+      // 2. Load Recently Viewed
+      const recentlyJson = localStorage.getItem('offline-recently-viewed');
+      const recentlyContainer = document.getElementById('recently-container');
+      const recentlyEmpty = document.getElementById('recently-empty');
+
+      if (recentlyJson) {
+        try {
+          const list = JSON.parse(recentlyJson);
+          if (list && list.length > 0) {
+            recentlyEmpty.style.display = 'none';
+            recentlyContainer.innerHTML = '';
+            list.forEach(item => {
+              const card = document.createElement('div');
+              card.className = 'anime-card';
+              
+              // Set a default status display
+              const statusClass = 'badge-default';
+              const displayStatus = item.status || 'Anime';
+              
+              card.innerHTML = `
+                <div class="card-img-wrapper">
+                  <img src="${item.coverImage}" alt="${item.title}" class="card-img" onerror="this.style.display='none'">
+                  <span class="card-badge ${statusClass}">${displayStatus}</span>
+                </div>
+                <div class="card-info">
+                  <h4 class="card-title">${item.title}</h4>
+                  <div class="card-progress">
+                    <span>${item.episodeCount ? item.episodeCount + ' Episodes' : 'TV Show'}</span>
+                  </div>
+                </div>
+              `;
+              recentlyContainer.appendChild(card);
+            });
+          } else {
+            recentlyEmpty.style.display = 'flex';
+          }
+        } catch (e) {
+          recentlyEmpty.style.display = 'flex';
+        }
+      } else {
+        recentlyEmpty.style.display = 'flex';
+      }
+
+      // 3. Load Recommendations
+      const recJson = localStorage.getItem('offline-recommendation');
+      const recContainer = document.getElementById('rec-container');
+      const recEmpty = document.getElementById('rec-empty');
+
+      if (recJson) {
+        try {
+          const list = JSON.parse(recJson);
+          if (list && list.length > 0) {
+            recEmpty.style.display = 'none';
+            recContainer.innerHTML = '';
+            list.forEach(item => {
+              const row = document.createElement('div');
+              row.className = 'rec-item';
+              
+              const genresHtml = (item.genres || []).slice(0, 3).map(g => `<span class="genre-tag">${g}</span>`).join('');
+              
+              row.innerHTML = `
+                <img src="${item.coverImage}" alt="${item.title}" class="rec-img" onerror="this.style.display='none'">
+                <div class="rec-body">
+                  <h4 class="rec-title">${item.title}</h4>
+                  <p class="rec-synopsis">${item.synopsis || 'No description available.'}</p>
+                  <div class="rec-genres">
+                    ${genresHtml}
+                  </div>
+                </div>
+              `;
+              recContainer.appendChild(row);
+            });
+          } else {
+            recEmpty.style.display = 'flex';
+          }
+        } catch (e) {
+          recEmpty.style.display = 'flex';
+        }
+      } else {
+        recEmpty.style.display = 'flex';
+      }
+    }
+
+    // Check connectivity on page focus
+    window.addEventListener('focus', () => {
+      if (navigator.onLine) {
+        window.location.reload();
+      }
+    });
+
+    // Initial Load
+    document.addEventListener('DOMContentLoaded', loadOfflineData);
+  </script>
+</body>
+</html>

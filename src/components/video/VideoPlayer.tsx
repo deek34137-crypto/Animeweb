@@ -14,6 +14,7 @@ import ShortcutsOverlay from './ShortcutsOverlay';
 import StreamDebugPanel from './StreamDebugPanel';
 import BookmarksPanel from './BookmarksPanel';
 import { useRouter } from '@/navigation';
+import { savePlayerState, restorePlayerState } from '@/lib/usePlayerSession';
 
 // STRICT IFRAME SANDBOX TOGGLE
 // Set to false to disable strict iframe sandboxing and allow all popups/redirects
@@ -544,6 +545,22 @@ export default function VideoPlayer({
   const activeSubtitleIdxRef = useRef(-1);
   const isPlayingRef = useRef(false);
 
+  // Analytics telemetry refs
+  const loadStartRef = useRef<number>(0);
+  const loadDurationRef = useRef<number>(0);
+  const stallsRef = useRef<number>(0);
+  const failedRef = useRef<boolean>(false);
+  const errorRef = useRef<string | null>(null);
+  const eventIdRef = useRef<string>('');
+  const hasSentRef = useRef<boolean>(false);
+
+  // Tracks the latest provider/language/quality so save callbacks never go stale
+  const latestSessionRef = useRef({
+    provider: currentProviderName,
+    language: currentLanguage as string,
+    quality: currentQuality,
+  });
+
   // Sync prop changes
   useEffect(() => {
     const isDifferentArray = (a: any[] | undefined, b: any[] | undefined) => {
@@ -587,6 +604,56 @@ export default function VideoPlayer({
   useEffect(() => { activeSubtitleIdxRef.current = activeSubtitleIdx; }, [activeSubtitleIdx]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
+  // ─── Session Persistence ─────────────────────────────────────────────────
+
+  // Keep latestSessionRef up to date so interval and event callbacks are fresh
+  useEffect(() => {
+    latestSessionRef.current = {
+      provider: currentProviderName,
+      language: currentLanguage,
+      quality: currentQuality,
+    };
+  }, [currentProviderName, currentLanguage, currentQuality]);
+
+  // Immediate save whenever provider / language / quality changes
+  useEffect(() => {
+    savePlayerState({
+      animeId,
+      episode: episodeNumber,
+      provider: currentProviderName,
+      language: currentLanguage,
+      quality: currentQuality,
+      currentTime: currentTimeRef.current,
+    });
+  }, [currentProviderName, currentLanguage, currentQuality, animeId, episodeNumber]);
+
+  // Periodic save (every 5 s) + save on tab hide + flush on unmount
+  useEffect(() => {
+    const save = () => {
+      savePlayerState({
+        animeId,
+        episode: episodeNumber,
+        provider: latestSessionRef.current.provider,
+        language: latestSessionRef.current.language as 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu',
+        quality: latestSessionRef.current.quality,
+        currentTime: currentTimeRef.current,
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) save();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const interval = setInterval(save, 5000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+      save(); // Flush on unmount so the next mount restores a fresh snapshot
+    };
+  }, [animeId, episodeNumber]);
+
   // Sync activeSubtitleIdx to video.textTracks mode
   useEffect(() => {
     const video = videoRef.current;
@@ -615,6 +682,30 @@ export default function VideoPlayer({
 
   // Load preferences from localStorage + DB on mount
   useEffect(() => {
+    // 0. Restore from session (most recent tab state) — primes localStorage before
+    //    the existing restore logic runs, so the freshest values win.
+    const session = restorePlayerState(animeId, episodeNumber);
+    if (session) {
+      if (session.provider) {
+        localStorage.setItem('animeworld:provider', session.provider);
+      }
+      if (session.language && ['sub', 'dub', 'hindi', 'tamil', 'telugu'].includes(session.language)) {
+        localStorage.setItem('animeworld:preferredLanguage', session.language);
+      }
+      if (session.quality) {
+        localStorage.setItem('animeworld:preferredQuality', session.quality);
+      }
+      // Only override localStorage time when session has a meaningful position.
+      // The existing restore logic (initialPosition > localStorage > default) will
+      // then pick up this fresher value.
+      if (session.currentTime > 90) {
+        localStorage.setItem(
+          `animeworld:playbackTime:${animeId}:${episodeNumber}`,
+          String(session.currentTime),
+        );
+      }
+    }
+
     // 1. First, load from localStorage as immediate synchronous fallback
     const savedAutoplay = localStorage.getItem('animeworld:autoplay_next');
     if (savedAutoplay !== null) {
@@ -973,10 +1064,82 @@ export default function VideoPlayer({
     return () => clearTimeout(timeout);
   }, [isLoading, isIframeSource, currentProviderName, providersList]);
 
+  const sendTelemetry = () => {
+    if (hasSentRef.current || !eventIdRef.current || !activeSource) return;
+
+    hasSentRef.current = true;
+
+    // Detect browser and platform
+    let browser = 'Unknown';
+    let platform = 'Unknown';
+    if (typeof window !== 'undefined') {
+      const ua = window.navigator.userAgent;
+      if (ua.includes('Firefox')) browser = 'Firefox';
+      else if (ua.includes('Chrome')) browser = 'Chrome';
+      else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+      else if (ua.includes('Edge')) browser = 'Edge';
+
+      if (ua.includes('Windows')) platform = 'Windows';
+      else if (ua.includes('Mac')) platform = 'macOS';
+      else if (ua.includes('Linux')) platform = 'Linux';
+      else if (ua.includes('iPhone') || ua.includes('iPad')) platform = 'iOS';
+      else if (ua.includes('Android')) platform = 'Android';
+    }
+
+    // Detect network type
+    let networkType = 'unknown';
+    const connection = typeof window !== 'undefined' && ((navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection);
+    if (connection) {
+      networkType = connection.type || connection.effectiveType || 'unknown';
+    }
+
+    const payload = {
+      eventId: eventIdRef.current,
+      animeId,
+      episodeId: episodeNumber.toString(),
+      provider: currentProvider || 'unknown',
+      loadDurationMs: Math.max(0, loadDurationRef.current),
+      bufferingStalls: stallsRef.current,
+      failed: failedRef.current,
+      error: errorRef.current,
+      browser,
+      platform,
+      playerVersion: '1.0.0',
+      networkType,
+    };
+
+    try {
+      if (typeof window !== 'undefined' && navigator.sendBeacon) {
+        navigator.sendBeacon('/api/stream/analytics', JSON.stringify(payload));
+      } else {
+        throw new Error('sendBeacon not supported');
+      }
+    } catch (e) {
+      fetch('/api/stream/analytics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch((err) => console.error('Failed to send stream analytics', err));
+    }
+  };
+
   // ─── HLS Load & Failover ───────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !activeSource) return;
+
+    // Reset telemetry session for new active source
+    if (eventIdRef.current) {
+      sendTelemetry();
+    }
+    eventIdRef.current = typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2));
+    loadStartRef.current = Date.now();
+    loadDurationRef.current = 0;
+    stallsRef.current = 0;
+    failedRef.current = false;
+    errorRef.current = null;
+    hasSentRef.current = false;
 
     setIsLoading(true);
     setErrorMessage(null);
@@ -984,9 +1147,12 @@ export default function VideoPlayer({
     const handleLoadedMetadata = () => {
       setIsLoading(false);
       setDuration(video.duration);
+      if (loadDurationRef.current === 0 && loadStartRef.current > 0) {
+        loadDurationRef.current = Date.now() - loadStartRef.current;
+      }
       
       // Seek to playback position sequentially with end buffer threshold check
-      let restoreTime = currentTimeRef.current;
+      const restoreTime = currentTimeRef.current;
       if (restoreTime > 0) {
         if (restoreTime < video.duration - 30) {
           video.currentTime = restoreTime;
@@ -1037,6 +1203,9 @@ export default function VideoPlayer({
 
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             setIsLoading(false);
+            if (loadDurationRef.current === 0 && loadStartRef.current > 0) {
+              loadDurationRef.current = Date.now() - loadStartRef.current;
+            }
 
             // Populate quality levels from HLS manifest — user-friendly labels only
             const parsedLevels = hls.levels
@@ -1076,7 +1245,7 @@ export default function VideoPlayer({
             // Sync the active audio track immediately
             syncHlsAudioTrack(currentLanguage, hls);
 
-            let restoreTime = currentTimeRef.current;
+            const restoreTime = currentTimeRef.current;
             if (restoreTime > 0) {
               if (restoreTime < video.duration - 30) {
                 video.currentTime = restoreTime;
@@ -1099,6 +1268,9 @@ export default function VideoPlayer({
           hls.on(Hls.Events.ERROR, (event: any, data: any) => {
             if (data.fatal) {
               console.warn(`HLS fatal error: ${data.type}`);
+              failedRef.current = true;
+              errorRef.current = `HLS Fatal Error: ${data.type} - details: ${data.details || 'unknown'}`;
+              sendTelemetry();
               handleSourceError();
             }
           });
@@ -1118,28 +1290,100 @@ export default function VideoPlayer({
     };
   }, [activeSourceIdx, activeSource?.url, currentLanguage]);
 
-  // ─── Mid-playback buffering / stall detection ──────────────────────────────
+  // ─── Mid-playback buffering / stall detection & Telemetry ──────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const handleWaiting = () => setIsLoading(true);
-    const handleStalled = () => setIsLoading(true);
-    const handlePlaying = () => setIsLoading(false);
-    const handleCanPlay = () => setIsLoading(false);
+    const handleWaiting = () => {
+      setIsLoading(true);
+      stallsRef.current += 1;
+    };
+    const handleStalled = () => {
+      setIsLoading(true);
+      stallsRef.current += 1;
+    };
+    const handlePlaying = () => {
+      setIsLoading(false);
+      if (loadDurationRef.current === 0 && loadStartRef.current > 0) {
+        loadDurationRef.current = Date.now() - loadStartRef.current;
+      }
+    };
+    const handleCanPlay = () => {
+      setIsLoading(false);
+      if (loadDurationRef.current === 0 && loadStartRef.current > 0) {
+        loadDurationRef.current = Date.now() - loadStartRef.current;
+      }
+    };
+
+    const handlePlay = () => {
+      if (hasSentRef.current) {
+        eventIdRef.current = typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2));
+        loadStartRef.current = Date.now();
+        loadDurationRef.current = 0;
+        stallsRef.current = 0;
+        failedRef.current = false;
+        errorRef.current = null;
+        hasSentRef.current = false;
+      }
+    };
+
+    const handlePause = () => {
+      sendTelemetry();
+    };
+
+    const handleEnded = () => {
+      sendTelemetry();
+    };
+
+    const handleError = () => {
+      if (video.error) {
+        failedRef.current = true;
+        errorRef.current = `HTML5 Video Error: code ${video.error.code} - message: ${video.error.message || 'unknown'}`;
+        sendTelemetry();
+      }
+    };
 
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('stalled', handleStalled);
     video.addEventListener('playing', handlePlaying);
     video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('ended', handleEnded);
+    video.addEventListener('error', handleError);
 
     return () => {
+      sendTelemetry();
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('stalled', handleStalled);
       video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('error', handleError);
     };
-  }, []);
+  }, [activeSourceIdx, activeSource?.url]);
+
+  // ─── Playback telemetry flushing (every 60 seconds) ────────────────────────
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    const interval = setInterval(() => {
+      sendTelemetry();
+      // Regenerate eventId for the next segment
+      eventIdRef.current = typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2));
+      loadStartRef.current = Date.now();
+      loadDurationRef.current = 0;
+      stallsRef.current = 0;
+      failedRef.current = false;
+      errorRef.current = null;
+      hasSentRef.current = false;
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(interval);
+  }, [isPlaying]);
 
   const handleSourceError = () => {
     if (activeSourceIdx + 1 < activeSources.length) {

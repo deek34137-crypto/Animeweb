@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { Link, useRouter, usePathname } from '@/navigation';
 import {
-  Search, Menu, Globe, User, LogOut, Settings, Clock, Command, Tv, Sliders, MousePointer
+  Search, Menu, Globe, User, LogOut, Settings, Clock, Command, Tv, Sliders, MousePointer, ShieldAlert
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
@@ -183,6 +183,15 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
                 >
                   <MousePointer size={13} className="text-[#9f5eff]" /> Custom Cursor ⭐
                 </Link>
+                {((session?.user as any)?.role === 'ADMIN' || (session?.user as any)?.role === 'MODERATOR') && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#ef4444] hover:bg-red-500/10 rounded-xl transition-all"
+                  >
+                    <ShieldAlert size={13} className="text-[#ef4444]" /> Admin Panel
+                  </Link>
+                )}
               </nav>
               <div className="border-t border-border-subtle mt-1.5 pt-1">
                 <button

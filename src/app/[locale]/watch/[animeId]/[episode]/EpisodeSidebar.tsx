@@ -96,8 +96,6 @@ export default function EpisodeSidebar({
       if (!res.ok) {
         throw new Error('Failed to toggle watch state');
       }
-
-      router.refresh();
     } catch (err) {
       console.error(err);
       setLocalWatched(localWatched);
@@ -330,7 +328,7 @@ export default function EpisodeSidebar({
       {/* Footer stats summary */}
       <div className="p-3 border-t border-border-subtle text-[10px] text-text-muted font-semibold bg-surface-1/50 flex-shrink-0 flex justify-between">
         <span>Total: {resolvedEpisodes.length} episodes</span>
-        <span>Watched: {watchedEpisodes.length}</span>
+        <span>Watched: {localWatched.length}</span>
       </div>
     </div>
   );

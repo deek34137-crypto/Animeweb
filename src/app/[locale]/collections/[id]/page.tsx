@@ -103,7 +103,7 @@ export default function CollectionDetailPage() {
   // Sorting Handler
   useEffect(() => {
     if (!collection) return;
-    let sorted = [...(collection.entries || [])];
+    const sorted = [...(collection.entries || [])];
 
     if (sortBy === 'alphabetical') {
       sorted.sort((a, b) => a.animeTitle.localeCompare(b.animeTitle));
