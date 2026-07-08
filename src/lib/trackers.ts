@@ -1,7 +1,4 @@
 import { db } from './db';
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
 // Mapping local statuses to AniList's MediaListStatus enum
 const mapStatusToAnilist = (status: string): string => {
   const map: Record<string, string> = {

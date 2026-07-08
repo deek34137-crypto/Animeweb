@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('System Health API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

@@ -83,6 +83,14 @@ export async function GET(req: Request) {
   }
 }
 
+import { z } from 'zod';
+
+const postSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  visibility: z.enum(['PUBLIC', 'UNLISTED', 'PRIVATE']).optional(),
+});
+
 // POST: Create a new custom collection
 export async function POST(req: Request) {
   try {
@@ -92,12 +100,19 @@ export async function POST(req: Request) {
     }
     const userId = session.user.id;
 
-    const body = await req.json();
-    const { name, description, visibility } = body;
-
-    if (!name) {
-      return NextResponse.json({ error: 'Collection name is required.' }, { status: 400 });
+    let payload;
+    try {
+      payload = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
+
+    const result = postSchema.safeParse(payload);
+    if (!result.success) {
+      return NextResponse.json({ error: 'Invalid input', details: result.error.format() }, { status: 400 });
+    }
+
+    const { name, description, visibility } = result.data;
 
     // Get user's username for the slug prefix
     const user = await db.user.findUnique({

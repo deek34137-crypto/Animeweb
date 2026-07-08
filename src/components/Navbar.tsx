@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Link, useRouter, usePathname } from '@/navigation';
 import {
   Search, Menu, Globe, User, LogOut, Settings, Clock, Command, Tv, Sliders, MousePointer, ShieldAlert
@@ -16,23 +16,36 @@ interface NavbarProps {
 
 export default function Navbar({ onToggleSidebar }: NavbarProps) {
   const locale = useLocale();
+  const t = useTranslations('Navbar');
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
-  // Close menus on click outside
+  // Close menus on click outside or Escape key
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handler = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent) {
+        if (e.key === 'Escape' && userMenuOpen) {
+          setUserMenuOpen(false);
+          userMenuTriggerRef.current?.focus();
+        }
+        return;
+      }
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    document.addEventListener('mousedown', handler as EventListener);
+    document.addEventListener('keydown', handler as EventListener);
+    return () => {
+      document.removeEventListener('mousedown', handler as EventListener);
+      document.removeEventListener('keydown', handler as EventListener);
+    };
+  }, [userMenuOpen]);
 
   const handleLanguageChange = (newLocale: string) => {
     router.replace(pathname, { locale: newLocale as 'en' | 'es' | 'ja' });
@@ -75,7 +88,7 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
           aria-label="Search Command Palette"
         >
           <Search size={13} className="text-text-muted group-hover:text-text-primary transition-colors" />
-          <span className="hidden sm:inline">Search anime...</span>
+          <span className="hidden sm:inline">{t('searchPlaceholder')}</span>
           <div className="hidden sm:flex items-center gap-0.5 text-[9px] text-text-disabled font-mono border border-border-subtle rounded px-1 py-0.2">
             <Command size={8} />
             <span>K</span>
@@ -84,8 +97,10 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
 
         {/* Language Selector */}
         <div className="hidden sm:flex items-center bg-white/[0.04] border border-border-subtle rounded-xl px-3 py-1.5 text-xs text-text-secondary">
-          <Globe size={13} className="text-[#7c3aed] mr-1.5" />
+          <Globe size={13} className="text-[#7c3aed] mr-1.5" aria-hidden="true" />
+          <label htmlFor="navbar-locale" className="sr-only">Language</label>
           <select
+            id="navbar-locale"
             value={locale}
             onChange={(e) => handleLanguageChange(e.target.value)}
             className="bg-transparent border-none outline-none text-xs font-semibold cursor-pointer text-text-secondary"
@@ -106,10 +121,12 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
         <div ref={userMenuRef} className="relative">
           {session ? (
             <button
+              ref={userMenuTriggerRef}
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center gap-2 p-1 rounded-xl bg-white/[0.04] border border-border-subtle hover:border-[#7c3aed]/50 hover:bg-white/[0.08] transition-all duration-200"
               aria-label="User menu"
               aria-expanded={userMenuOpen}
+              aria-haspopup="true"
             >
               <div className="w-7 h-7 rounded-lg bg-[#7c3aed]/20 border border-[#7c3aed]/40 flex items-center justify-center text-xs font-bold text-[#7c3aed] overflow-hidden flex-shrink-0">
                 {session.user?.image ? (
@@ -131,7 +148,7 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
                 href="/login"
                 className="px-3 py-1.5 rounded-xl text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-all"
               >
-                Log In
+                {t('login')}
               </Link>
             </div>
           )}
@@ -153,35 +170,35 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-xl transition-all"
                 >
-                  <User size={13} className="text-text-muted" /> My Library
+                  <User size={13} className="text-text-muted" /> {t('myLibrary')}
                 </Link>
                 <Link
                   href="/history"
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-xl transition-all"
                 >
-                  <Clock size={13} className="text-text-muted" /> Watch History
+                  <Clock size={13} className="text-text-muted" /> {t('watchHistory')}
                 </Link>
                 <Link
                   href="/profile/settings"
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-xl transition-all"
                 >
-                  <Settings size={13} className="text-text-muted" /> Player Settings
+                  <Settings size={13} className="text-text-muted" /> {t('playerSettings')}
                 </Link>
                 <Link
                   href="/settings"
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-xl transition-all"
                 >
-                  <Sliders size={13} className="text-text-muted" /> Account Settings
+                  <Sliders size={13} className="text-text-muted" /> {t('accountSettings')}
                 </Link>
                 <Link
                   href="/cursors"
                   onClick={() => setUserMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-text-secondary hover:text-[#9f5eff] hover:bg-bg-elevated rounded-xl transition-all"
                 >
-                  <MousePointer size={13} className="text-[#9f5eff]" /> Custom Cursor ⭐
+                  <MousePointer size={13} className="text-[#9f5eff]" /> {t('customCursor')}
                 </Link>
                 {((session?.user as any)?.role === 'ADMIN' || (session?.user as any)?.role === 'MODERATOR') && (
                   <Link
@@ -189,7 +206,7 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
                     onClick={() => setUserMenuOpen(false)}
                     className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#ef4444] hover:bg-red-500/10 rounded-xl transition-all"
                   >
-                    <ShieldAlert size={13} className="text-[#ef4444]" /> Admin Panel
+                    <ShieldAlert size={13} className="text-[#ef4444]" /> {t('adminPanel')}
                   </Link>
                 )}
               </nav>
@@ -201,7 +218,7 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-500 hover:bg-red-500/10 rounded-xl transition-all text-left"
                 >
-                  <LogOut size={13} /> Sign Out
+                  <LogOut size={13} aria-hidden="true" /> {t('signOut')}
                 </button>
               </div>
             </div>

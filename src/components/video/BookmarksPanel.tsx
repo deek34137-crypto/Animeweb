@@ -160,7 +160,9 @@ export default function BookmarksPanel({
             {formatTime(currentTime)}
           </span>
         </div>
+        <label htmlFor="bookmark-note" className="sr-only">Bookmark note</label>
         <textarea
+          id="bookmark-note"
           placeholder="Bookmark note... (supports **bold**, *italics*, `code`, - lists)"
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
@@ -171,7 +173,7 @@ export default function BookmarksPanel({
           disabled={isSubmitting}
           className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-accent-violet hover:bg-accent-violet/85 text-white font-bold text-xs transition-colors disabled:opacity-50"
         >
-          <Plus size={14} />
+          <Plus size={14} aria-hidden="true" />
           Add Bookmark
         </button>
       </form>
@@ -194,8 +196,9 @@ export default function BookmarksPanel({
                 <button
                   onClick={() => onSeek(b.timestamp)}
                   className="flex items-center gap-1.5 text-xs font-mono font-bold text-accent-violet hover:text-accent-violet/80 transition-colors"
+                  aria-label={`Jump to ${formatTime(b.timestamp)}`}
                 >
-                  <Play size={10} fill="currentColor" />
+                  <Play size={10} fill="currentColor" aria-hidden="true" />
                   {formatTime(b.timestamp)}
                 </button>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -204,16 +207,16 @@ export default function BookmarksPanel({
                       <button
                         onClick={() => startEdit(b)}
                         className="text-text-secondary hover:text-white transition-colors"
-                        title="Edit Note"
+                        aria-label="Edit note"
                       >
-                        <Edit2 size={12} />
+                        <Edit2 size={12} aria-hidden="true" />
                       </button>
                       <button
                         onClick={() => onDeleteBookmark(b.id)}
                         className="text-red-400 hover:text-red-300 transition-colors"
-                        title="Delete Bookmark"
+                        aria-label="Delete bookmark"
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={12} aria-hidden="true" />
                       </button>
                     </>
                   ) : (
@@ -221,16 +224,16 @@ export default function BookmarksPanel({
                       <button
                         onClick={() => handleSaveEdit(b.id)}
                         className="text-emerald-400 hover:text-emerald-300 transition-colors"
-                        title="Save"
+                        aria-label="Save note"
                       >
-                        <Check size={12} />
+                        <Check size={12} aria-hidden="true" />
                       </button>
                       <button
                         onClick={() => setEditingId(null)}
                         className="text-text-secondary hover:text-white transition-colors"
-                        title="Cancel"
+                        aria-label="Cancel edit"
                       >
-                        <X size={12} />
+                        <X size={12} aria-hidden="true" />
                       </button>
                     </>
                   )}
@@ -244,11 +247,15 @@ export default function BookmarksPanel({
                   <p className="text-[10px] italic text-white/35">No note added</p>
                 )
               ) : (
-                <textarea
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  className="w-full h-12 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-accent-violet resize-none"
-                />
+                <>
+                  <label htmlFor={`bookmark-edit-${b.id}`} className="sr-only">Edit bookmark note</label>
+                  <textarea
+                    id={`bookmark-edit-${b.id}`}
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="w-full h-12 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-accent-violet resize-none"
+                  />
+                </>
               )}
             </div>
           ))

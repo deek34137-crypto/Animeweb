@@ -1,4 +1,5 @@
 import React from 'react';
+import { Metadata } from 'next';
 import { db } from '@/lib/db';
 import { fetchUserProfile } from '@/services/profile';
 import { auth } from '@/auth';
@@ -10,12 +11,45 @@ import { getLevelFromXP, getXPForLevel } from '@/lib/gamification/xp';
 import { BADGES } from '@/lib/gamification/badges';
 import { ACHIEVEMENTS } from '@/lib/gamification/achievements';
 import Progress from '@/components/ui/Progress';
+import { getSeoMetadata, getBreadcrumbSchema, getProfileSchema } from '@/lib/seo';
+import { getCachedUserProfile } from '@/lib/db-cache';
 
 interface PublicProfileProps {
   params: Promise<{
     locale: string;
     username: string;
   }>;
+}
+
+export async function generateMetadata({ params }: PublicProfileProps): Promise<Metadata> {
+  const { locale, username } = await params;
+  const decodedUsername = decodeURIComponent(username);
+  
+  const session = await auth();
+  const requestorId = session?.user?.id;
+  const profile = await getCachedUserProfile(decodedUsername, requestorId);
+
+  if (!profile) {
+    return {
+      title: 'User Not Found',
+      description: 'The requested user profile does not exist.',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const isPrivate = profile.profileVisibility === 'PRIVATE';
+  const siteUrl = process.env.SITE_URL || 'https://aniworld.rj';
+  const userAvatarUrl = profile.avatar ? (profile.avatar.startsWith('http') ? profile.avatar : `${siteUrl}${profile.avatar}`) : '';
+  const displayName = profile.displayName || profile.username;
+
+  return getSeoMetadata({
+    title: `${displayName} (@${profile.username}) - Otaku Profile`,
+    description: profile.bio || `View ${displayName}'s anime list, watchlist status, unlocked achievements, and custom collections on AnimeWorld RJ.`,
+    path: `/user/${username}`,
+    locale,
+    ogImage: userAvatarUrl || `${siteUrl}/app-icon.jpg`,
+    preventIndexing: isPrivate,
+  });
 }
 
 const TITLE_MAP: Record<string, string> = {
@@ -123,8 +157,39 @@ export default async function PublicProfilePage({ params }: PublicProfileProps) 
     });
   }
 
+  const siteUrl = process.env.SITE_URL || 'https://aniworld.rj';
+  const profileUrl = `${siteUrl}/${locale}/user/${profile.username}`;
+  
+  // Breadcrumbs schema
+  const breadcrumbJson = getBreadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: `@${profile.username}`, path: `/user/${profile.username}` },
+  ], locale);
+
+  // ProfilePage schema
+  const profilePageJson = getProfileSchema({
+    username: profile.username,
+    displayName: profile.displayName || profile.username,
+    avatar: profile.avatar ? (profile.avatar.startsWith('http') ? profile.avatar : `${siteUrl}${profile.avatar}`) : null,
+    bio: profile.bio || null,
+    createdAt: profile.createdAt || new Date(),
+  }, profileUrl);
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-fade-up" style={customAccentStyle}>
+      {/* JSON-LD Schemas */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJson).replace(/</g, '\\u003c'),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(profilePageJson).replace(/</g, '\\u003c'),
+        }}
+      />
       {/* Banner Header Area */}
       <div className="relative rounded-3xl overflow-hidden border border-border-default bg-surface-2 shadow-lg">
         <div className="relative h-48 sm:h-56 w-full bg-surface-3 overflow-hidden">

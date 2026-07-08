@@ -45,8 +45,8 @@ export class MetadataService {
       try {
         const aniListProvider = ProviderManager.getProvider(ProviderType.ANILIST);
         
-        // On-demand fetch from AniList (first query)
-        const aniListRes = await aniListProvider.getAnime(id.toString());
+        // On-demand fetch from AniList (first query) using MAL ID prefix
+        const aniListRes = await aniListProvider.getAnime(`mal:${id}`);
         const rawPayload = aniListRes.data;
 
         // Create the Anime record synchronously to satisfy the client immediately
@@ -129,7 +129,19 @@ export class MetadataService {
       throw new Error('New metadata pipeline is disabled');
     }
 
-    return SearchService.search(query, limit);
+    const res = await SearchService.search(query, limit);
+    const flat: AnimeData[] = [];
+    if (res.sections.topMatch) flat.push(res.sections.topMatch);
+    flat.push(...res.sections.relatedSeries);
+    flat.push(...res.sections.recommendations);
+    flat.push(...res.sections.otherResults);
+
+    const seen = new Set<number>();
+    return flat.filter((anime) => {
+      if (seen.has(anime.mal_id)) return false;
+      seen.add(anime.mal_id);
+      return true;
+    }).slice(0, limit);
   }
 
   /**

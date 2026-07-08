@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { env } from '@/lib/config/env';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { AnimeApi } from '@/lib/api';
@@ -27,7 +28,8 @@ async function fetchWatchAnimeInfo(animeId: string) {
       };
       const res = await fetch(`https://animesalt.streamindia.co.in/api/info?id=${animeId}`, {
         headers: TOONPLAY_HEADERS,
-        next: { revalidate: 1800 }
+        next: { revalidate: 1800 },
+        signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -77,7 +79,7 @@ export async function generateMetadata({ params }: WatchPageProps): Promise<Meta
   const { animeId, episode, locale } = await params;
   const anime = await fetchWatchAnimeInfo(animeId);
   const mainTitle = anime ? (anime.title_english || anime.title) : 'Anime';
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aniworld.rj';
+  const siteUrl = env.APP_URL;
 
   return {
     title: `Watch ${mainTitle} Episode ${episode} Sub & Dub - AnimeWorld RJ`,
@@ -118,7 +120,40 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
   const session = await auth();
   const userId = session?.user?.id;
 
-  const anime = await fetchWatchAnimeInfo(animeId) as any;
+  const numericMalId = isMalId ? parseInt(animeId, 10) : null;
+
+  // 1. Parallelize all independent metadata and database fetches
+  const animePromise = fetchWatchAnimeInfo(animeId);
+  const jikanEpisodesPromise = numericMalId ? AnimeApi.getAnimeEpisodes(numericMalId).catch(() => []) : Promise.resolve([]);
+  const charactersPromise = numericMalId ? AnimeApi.getAnimeCharacters(numericMalId).catch(() => []) : Promise.resolve([]);
+  const recommendationsPromise = numericMalId ? AnimeApi.getAnimeRecommendations(numericMalId).catch(() => []) : Promise.resolve([]);
+
+  const progressPromise = userId && startParam !== 'beginning'
+    ? db.watchProgress.findUnique({
+        where: {
+          userId_animeId_episode: {
+            userId,
+            animeId: String(animeId),
+            episode: epNum,
+          },
+        },
+      })
+    : Promise.resolve(null);
+
+  const historyPromise = userId
+    ? db.watchHistory.findMany({
+        where: {
+          userId,
+          animeId: String(animeId),
+        },
+        select: {
+          episode: true,
+        },
+      })
+    : Promise.resolve([]);
+
+  // Resolve metadata first to get the mainTitle
+  const anime = await animePromise as any;
 
   if (!anime) {
     return (
@@ -131,18 +166,22 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
 
   const mainTitle = anime.title_english || anime.title;
 
-  // Now fetch stream info and episodes with the resolved title
+  // 2. Resolve episodes list
   let episodes: any[] = [];
   if (isMalId) {
     try {
-      const rawEpisodes = await AnimeApi.getAnimeEpisodes(parseInt(animeId, 10));
-      episodes = rawEpisodes.map((ep) => ({
-        number: ep.mal_id,
-        title: ep.title || `Episode ${ep.mal_id}`,
-        aired: ep.aired || undefined,
-        filler: ep.filler || false,
-        recap: ep.recap || false,
-      }));
+      const rawEpisodes = await jikanEpisodesPromise;
+      if (rawEpisodes && rawEpisodes.length > 0) {
+        episodes = rawEpisodes.map((ep) => ({
+          number: ep.mal_id,
+          title: ep.title || `Episode ${ep.mal_id}`,
+          aired: ep.aired || undefined,
+          filler: ep.filler || false,
+          recap: ep.recap || false,
+        }));
+      } else {
+        episodes = await StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []);
+      }
     } catch (e) {
       console.error('Failed to fetch Jikan episodes on watch page, falling back to provider:', e);
       episodes = await StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []);
@@ -151,47 +190,34 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
     episodes = await StreamingManager.getEpisodes(animeId, mainTitle).catch(() => []);
   }
 
-  const [streamInfo, characters, recommendations] = await Promise.all([
-    StreamingManager.getStreamInfo(animeId, epNum, mainTitle).catch(() => ({ sources: [], sub: [], dub: [], subtitles: [], providers: [], currentProvider: 'mock', isFallback: true, fallbackReason: 'Stream resolution threw an unhandled error.' } as any)),
-    isMalId ? AnimeApi.getAnimeCharacters(parseInt(animeId, 10)).catch(() => []) : Promise.resolve([]),
-    isMalId ? AnimeApi.getAnimeRecommendations(parseInt(animeId, 10)).catch(() => []) : Promise.resolve([]),
+  // 3. Resolve streaming sources and remaining metadata in parallel
+  const [streamInfo, characters, recommendations, progress, history] = await Promise.all([
+    StreamingManager.getStreamInfo(animeId, epNum, mainTitle).catch(() => ({
+      sources: [],
+      sub: [],
+      dub: [],
+      subtitles: [],
+      providers: [],
+      currentProvider: 'mock',
+      isFallback: true,
+      fallbackReason: 'Stream resolution threw an unhandled error.',
+    } as any)),
+    charactersPromise,
+    recommendationsPromise,
+    progressPromise,
+    historyPromise,
   ]);
 
   // Fetch last saved position if authenticated
   let initialPosition = 0;
-  let watchedEpisodes: number[] = [];
-
-  if (userId) {
-    if (startParam !== 'beginning') {
-      const progress = await db.watchProgress.findUnique({
-        where: {
-          userId_animeId_episode: {
-            userId,
-            animeId: String(animeId),
-            episode: epNum,
-          },
-        },
-      });
-      if (progress) {
-        initialPosition = progress.position;
-      }
-    }
-
-    const history = await db.watchHistory.findMany({
-      where: {
-        userId,
-        animeId: String(animeId),
-      },
-      select: {
-        episode: true,
-      },
-    });
-    watchedEpisodes = history.map((h) => h.episode);
+  if (progress) {
+    initialPosition = progress.position;
   }
+  const watchedEpisodes = history.map((h) => h.episode);
 
   const currentEp = episodes.find((e) => e.number === epNum);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aniworld.rj';
+  const siteUrl = env.APP_URL;
   
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -259,10 +285,15 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
           href={`/anime/${animeId}` as '/'}
           className="inline-flex items-center gap-2 text-xs font-bold text-text-muted hover:text-white transition-colors"
         >
-          <ArrowLeft size={14} />
+          <ArrowLeft size={14} aria-hidden="true" />
           Back to Details
         </Link>
       </div>
+
+      {/* Screen-reader page title */}
+      <h1 className="sr-only">
+        {mainTitle} — Episode {epNum}{currentEp?.title ? `: ${currentEp.title}` : ''}
+      </h1>
 
       {/* Main Grid Layout: Player and Episodes Browser */}
       <WatchPageClient
@@ -290,6 +321,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
         providerSlug={streamInfo.providerSlug}
         nextEpisodeTitle={episodes[epNum]?.title || undefined}
         nextEpisodeThumbnail={anime.images.webp.large_image_url || ''}
+        torrentsEnabled={env.FLAG_ENABLE_TORRENTS}
         sidebar={
           <Suspense fallback={<div className="h-[520px] w-full rounded-2xl shimmer-loader" />}>
             {(() => {

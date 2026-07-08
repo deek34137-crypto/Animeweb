@@ -1,9 +1,39 @@
 import React from 'react';
+import { Metadata } from 'next';
 import { BookOpen, UserCheck, ShieldAlert, Cpu, AlertTriangle } from 'lucide-react';
+import { getSeoMetadata, getBreadcrumbSchema } from '@/lib/seo';
 
-export default function TermsOfServicePage() {
+interface Props {
+  params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  return getSeoMetadata({
+    title: locale === 'ja' ? '利用規約 - AnimeWorld RJ' : locale === 'es' ? 'Términos de Servicio - AnimeWorld RJ' : 'Terms of Service - AnimeWorld RJ',
+    description: 'Understand the terms of service, platform rules, disclaimer of liability, and third-party integrations for AnimeWorld RJ.',
+    path: '/terms',
+    locale,
+  });
+}
+
+export default async function TermsOfServicePage({ params }: Props) {
+  const { locale } = await params;
+
+  const breadcrumbJson = getBreadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Terms of Service', path: '/terms' },
+  ], locale);
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fade-up">
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-up">
+      {/* JSON-LD breadcrumb */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJson).replace(/</g, '\\u003c'),
+        }}
+      />
       {/* Header */}
       <div className="flex items-center gap-4 pb-6 border-b border-white/10">
         <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-400">

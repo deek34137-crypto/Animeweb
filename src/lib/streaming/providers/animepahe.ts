@@ -1,12 +1,11 @@
 import { StreamingProviderInterface, EpisodeItem, EpisodeStreamInfo, EpisodeSource } from '../types';
-
-const CONSUMET_BASE = process.env.CONSUMET_API_URL || 'https://api.consumet.org';
+import { fetchUpstream } from '../upstream';
 
 /**
  * AnimePahe Provider (via Consumet API)
  *
- * Uses the Consumet API /anime/animepahe endpoint as a secondary
- * fallback behind the consumet/zoro provider.
+ * Uses the configured Consumet API mirrors to resolve
+ * anime episodes and HLS stream sources.
  */
 export const animepaheProvider: StreamingProviderInterface = {
   name: 'animepahe',
@@ -85,18 +84,17 @@ async function searchAnimePahe(title: string): Promise<string> {
     .replace(/[^\w\s]/g, '')
     .trim();
 
-  const url = `${CONSUMET_BASE}/anime/animepahe/${encodeURIComponent(query)}`;
-  console.info(`[AnimePahe] Searching: ${url}`);
+  const path = `/anime/animepahe/${encodeURIComponent(query)}`;
+  console.info(`[AnimePahe] Searching: ${path}`);
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'AniWorld/1.0 (+https://aniworld.app)' },
-    signal: AbortSignal.timeout(8000),
+  const res = await fetchUpstream(path, {
+    method: 'GET',
   });
 
   if (!res.ok) {
     const err: any = new Error(`AnimePahe search failed with status ${res.status}`);
     err.status = res.status;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 
@@ -106,7 +104,7 @@ async function searchAnimePahe(title: string): Promise<string> {
   if (!Array.isArray(results) || results.length === 0) {
     const err: any = new Error(`No results from AnimePahe for "${title}"`);
     err.status = 404;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 
@@ -125,18 +123,17 @@ async function searchAnimePahe(title: string): Promise<string> {
 }
 
 async function fetchAnimePaheEpisodes(animeId: string): Promise<(EpisodeItem & { episodeId: string })[]> {
-  const url = `${CONSUMET_BASE}/anime/animepahe/info?id=${encodeURIComponent(animeId)}`;
-  console.info(`[AnimePahe] Fetching info: ${url}`);
+  const path = `/anime/animepahe/info?id=${encodeURIComponent(animeId)}`;
+  console.info(`[AnimePahe] Fetching info: ${path}`);
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'AniWorld/1.0 (+https://aniworld.app)' },
-    signal: AbortSignal.timeout(10000),
+  const res = await fetchUpstream(path, {
+    method: 'GET',
   });
 
   if (!res.ok) {
     const err: any = new Error(`AnimePahe info failed with status ${res.status}`);
     err.status = res.status;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 
@@ -146,7 +143,7 @@ async function fetchAnimePaheEpisodes(animeId: string): Promise<(EpisodeItem & {
   if (!Array.isArray(episodes) || episodes.length === 0) {
     const err: any = new Error(`No episodes from AnimePahe for id "${animeId}"`);
     err.status = 404;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 
@@ -161,18 +158,17 @@ async function fetchAnimePaheStreams(episodeId: string): Promise<{
   sub: EpisodeSource[];
   dub: EpisodeSource[];
 }> {
-  const url = `${CONSUMET_BASE}/anime/animepahe/watch?episodeId=${encodeURIComponent(episodeId)}`;
-  console.info(`[AnimePahe] Fetching streams: ${url}`);
+  const path = `/anime/animepahe/watch?episodeId=${encodeURIComponent(episodeId)}`;
+  console.info(`[AnimePahe] Fetching streams: ${path}`);
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'AniWorld/1.0 (+https://aniworld.app)' },
-    signal: AbortSignal.timeout(10000),
+  const res = await fetchUpstream(path, {
+    method: 'GET',
   });
 
   if (!res.ok) {
     const err: any = new Error(`AnimePahe watch failed with status ${res.status}`);
     err.status = res.status;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 

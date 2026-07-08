@@ -32,7 +32,7 @@ export async function GET(
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('[Thread Posts GET Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to fetch replies' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch replies' }, { status: 500 });
   }
 }
 
@@ -69,6 +69,6 @@ export async function POST(
     return NextResponse.json({ success: true, post }, { status: 201 });
   } catch (error: any) {
     console.error('[Thread Posts POST Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to post reply' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to post reply' }, { status: 400 });
   }
 }

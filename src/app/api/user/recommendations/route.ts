@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Recommendations GET API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Recommendations POST API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

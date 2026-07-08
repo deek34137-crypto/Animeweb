@@ -122,8 +122,8 @@ export default function QuickActionsHover({
       <div className="flex items-center justify-between border-b border-white/10 pb-1.5 w-full">
         <span className="text-[10px] font-black uppercase tracking-wider text-accent-violet">Quick Actions</span>
         {onClose && (
-          <button onClick={onClose} className="p-0.5 hover:text-red-400 transition">
-            <X size={12} />
+          <button onClick={onClose} className="p-0.5 hover:text-red-400 transition" aria-label="Close quick actions">
+            <X size={12} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -145,6 +145,7 @@ export default function QuickActionsHover({
                     <button
                       key={col.id}
                       onClick={() => handleToggleCollection(col.id, isInCol)}
+                      aria-pressed={isInCol}
                       className={`w-full flex items-center justify-between p-1 px-2 rounded text-[10px] font-semibold border ${
                         isInCol
                           ? 'bg-accent-violet/10 border-accent-violet/30 text-accent-violet'
@@ -152,7 +153,7 @@ export default function QuickActionsHover({
                       }`}
                     >
                       <span className="truncate max-w-[120px]">{col.name}</span>
-                      {isInCol ? <FolderCheck size={10} /> : <FolderPlus size={10} />}
+                      {isInCol ? <FolderCheck size={10} aria-hidden="true" /> : <FolderPlus size={10} aria-hidden="true" />}
                     </button>
                   );
                 })}
@@ -181,12 +182,14 @@ export default function QuickActionsHover({
                       setShowRating(false);
                     }}
                     className="p-0.5 transition"
-                    title={`${starVal} Star${starVal > 1 ? 's' : ''}`}
+                    aria-label={`Score ${starVal} out of 10`}
+                    aria-pressed={score === starVal}
                   >
                     <Star
                       size={13}
                       fill={isActive ? 'currentColor' : 'none'}
                       className={isActive ? 'text-accent-gold' : 'text-text-disabled hover:text-accent-gold'}
+                      aria-hidden="true"
                     />
                   </button>
                 );
@@ -204,7 +207,9 @@ export default function QuickActionsHover({
         {showNoteInput && (
           <div className="space-y-1 w-full">
             <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Add Note</span>
+            <label htmlFor="quick-note" className="sr-only">Quick note for {animeTitle}</label>
             <textarea
+              id="quick-note"
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               placeholder="Write a quick note..."
@@ -235,62 +240,64 @@ export default function QuickActionsHover({
             {/* 1. Favorite Heart */}
             <button
               onClick={() => handleUpdate({ isFavorite: !isFavorite })}
+              aria-pressed={isFavorite}
+              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               className={`p-2 rounded-xl flex items-center justify-center border transition-all ${
                 isFavorite
                   ? 'bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20'
                   : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/20'
               }`}
-              title={isFavorite ? 'Unfavorite' : 'Favorite'}
             >
-              <Heart size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+              <Heart size={14} fill={isFavorite ? 'currentColor' : 'none'} aria-hidden="true" />
             </button>
 
             {/* 2. Complete Check */}
             <button
               onClick={() => handleUpdate({ status: 'completed' })}
+              aria-pressed={status === 'completed'}
+              aria-label={status === 'completed' ? 'Marked as completed' : 'Mark as completed'}
               className={`p-2 rounded-xl flex items-center justify-center border transition-all ${
                 status === 'completed'
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                   : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/20'
               }`}
-              title="Mark Completed"
             >
-              <Check size={14} />
+              <Check size={14} aria-hidden="true" />
             </button>
 
             {/* 3. Add to Collection */}
             <button
               onClick={() => setShowCollections(true)}
+              aria-label="Add to collection"
               className="p-2 rounded-xl bg-white/5 border border-white/5 text-white/60 hover:text-white hover:border-white/20 flex items-center justify-center transition-all"
-              title="Add to Collection"
             >
-              <Plus size={14} />
+              <Plus size={14} aria-hidden="true" />
             </button>
 
             {/* 4. Quick Rate */}
             <button
               onClick={() => setShowRating(true)}
+              aria-label={score !== null ? `Rated ${score}/10 — change rating` : 'Rate this anime'}
               className={`p-2 rounded-xl flex items-center justify-center border transition-all ${
                 score !== null
                   ? 'bg-accent-gold/10 border-accent-gold/30 text-accent-gold hover:bg-accent-gold/20'
                   : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/20'
               }`}
-              title="Rate Star"
             >
-              <Star size={14} fill={score !== null ? 'currentColor' : 'none'} />
+              <Star size={14} fill={score !== null ? 'currentColor' : 'none'} aria-hidden="true" />
             </button>
 
             {/* 5. Add Note */}
             <button
               onClick={() => setShowNoteInput(true)}
+              aria-label={notes ? 'Edit note' : 'Add quick note'}
               className={`p-2 rounded-xl flex items-center justify-center border transition-all ${
                 notes
                   ? 'bg-accent-violet/10 border-accent-violet/30 text-accent-violet hover:bg-accent-violet/20'
                   : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/20'
               }`}
-              title="Quick Note"
             >
-              <FileText size={14} />
+              <FileText size={14} aria-hidden="true" />
             </button>
           </div>
         )}

@@ -38,7 +38,7 @@ export async function GET(
     });
   } catch (error: any) {
     console.error('[Follow GET Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to check follow status' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to check follow status' }, { status: 500 });
   }
 }
 
@@ -92,6 +92,6 @@ export async function POST(
     });
   } catch (error: any) {
     console.error('[Follow POST Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to toggle follow' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to toggle follow' }, { status: 400 });
   }
 }

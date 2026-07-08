@@ -27,7 +27,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, post: updated });
   } catch (error: any) {
     console.error('[Post PATCH Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to update reply' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to update reply' }, { status: 400 });
   }
 }
 
@@ -49,6 +49,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[Post DELETE Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to delete reply' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to delete reply' }, { status: 400 });
   }
 }

@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link } from '@/navigation';
+import { useTranslations } from 'next-intl';
 
 export default function Footer() {
+  const t = useTranslations('Footer');
   return (
     <footer className="bg-surface-1 border-t border-border-subtle py-10 mt-auto" role="contentinfo">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
@@ -15,18 +17,18 @@ export default function Footer() {
             />
           </Link>
           <p className="text-xs text-text-muted mt-2">
-            © 2025 Aniworld. Discover, track, and discuss your favorite anime in style.
+            © {new Date().getFullYear()} Aniworld. {t('discoverTrackDiscuss')}
           </p>
         </div>
         <nav className="flex space-x-6 text-xs text-text-muted" aria-label="Footer navigation">
           <Link href="/privacy" className="hover:text-accent-violet transition-colors focus-visible:text-accent-violet">
-            Privacy Policy
+            {t('privacyPolicy')}
           </Link>
           <Link href="/terms" className="hover:text-accent-violet transition-colors focus-visible:text-accent-violet">
-            Terms of Service
+            {t('termsOfService')}
           </Link>
           <Link href="/contact" className="hover:text-accent-violet transition-colors focus-visible:text-accent-violet">
-            Contact Us
+            {t('contactUs')}
           </Link>
         </nav>
       </div>

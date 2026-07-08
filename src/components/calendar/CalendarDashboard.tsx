@@ -56,7 +56,7 @@ export default function CalendarDashboard({ schedule }: CalendarDashboardProps) 
   return (
     <div className="space-y-6">
       {/* Weekday Tab Switchers */}
-      <div className="flex flex-wrap md:flex-nowrap gap-2 bg-bg-secondary p-1.5 rounded-xl border border-border-subtle overflow-x-auto scrollbar-none">
+      <div className="flex flex-wrap md:flex-nowrap gap-2 bg-bg-secondary p-1.5 rounded-xl border border-border-subtle overflow-x-auto no-scrollbar">
         {DAYS_OF_WEEK.map((day, idx) => {
           const count = groupedSchedule[idx].length;
           const isToday = idx === todayIndex;

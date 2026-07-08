@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, Ban, Check, UserMinus, UserCheck, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface User {
   id: string;
@@ -177,7 +178,13 @@ export default function AdminUsers() {
         {loading && users.length === 0 ? (
           <div className="p-12 text-center text-text-secondary animate-pulse">Loading user directory...</div>
         ) : users.length === 0 ? (
-          <div className="p-12 text-center text-text-secondary">No users matched your query.</div>
+          <EmptyState
+            icon={UserMinus}
+            title="No Users Found"
+            description="No users matched your query. Try a different username or email."
+            size="sm"
+            className="border-none bg-transparent shadow-none"
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

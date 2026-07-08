@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { ShieldAlert, AlertTriangle, Check, X, Lock, Unlock, Eye, MessageSquare, AlertCircle, RefreshCw } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface Report {
   id: string;
@@ -218,9 +219,12 @@ export default function AdminModeration() {
           <p>{error}</p>
         </div>
       ) : flags.length === 0 ? (
-        <div className="p-12 text-center text-text-secondary bg-white/[0.01] border border-white/5 rounded-2xl">
-          No reports found. The queue is clean!
-        </div>
+        <EmptyState
+          icon={Check}
+          title="Queue is Clean"
+          description="No reports found. All content is moderated!"
+          size="md"
+        />
       ) : (
         <div className="space-y-4">
           {flags.map((flag) => {

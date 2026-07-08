@@ -1,11 +1,24 @@
 import React from 'react';
+import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { redirect } from '@/navigation';
 import SettingsClient from './SettingsClient';
+import { getSeoMetadata } from '@/lib/seo';
 
 interface SettingsPageProps {
   params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: SettingsPageProps): Promise<Metadata> {
+  const { locale } = await params;
+  return getSeoMetadata({
+    title: 'Account Settings - AnimeWorld RJ',
+    description: 'Manage your profile and account settings on AnimeWorld RJ.',
+    path: '/settings',
+    locale,
+    preventIndexing: true,
+  });
 }
 
 export default async function SettingsPage({ params }: SettingsPageProps) {

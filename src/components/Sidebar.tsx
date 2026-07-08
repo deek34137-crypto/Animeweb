@@ -8,6 +8,51 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+
+// Mobile drawer wrapper with focus trap and dialog ARIA
+function MobileSidebarDrawer({ onClose, children }: { onClose?: () => void; children: React.ReactNode }) {
+  const trapRef = useFocusTrap(true, onClose);
+  return (
+    <div className="lg:hidden fixed inset-0 z-50 flex">
+      {/* Overlay backdrop */}
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      {/* Drawer content panel */}
+      <div
+        ref={trapRef as React.RefCallback<HTMLDivElement>}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        className="relative flex flex-col w-64 max-w-xs h-full bg-bg-secondary shadow-2xl transition-transform duration-300 ease-out"
+        style={{ animation: 'slideInLeft 0.25s ease-out both' }}
+      >
+        {/* Close button */}
+        <div className="flex items-center justify-between p-4 border-b border-border-subtle">
+          <div className="flex items-center gap-2">
+            <div className="w-6.5 h-6.5 rounded-lg bg-gradient-to-tr from-[#7c3aed] to-[#ec4899] flex items-center justify-center text-white">
+              <Tv size={12} aria-hidden="true" />
+            </div>
+            <span className="logo-text text-base">Aniworld</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
+            aria-label="Close navigation menu"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface SidebarProps {
   myAnimeCount?: number;
@@ -28,30 +73,30 @@ export default function Sidebar({
   const userRole = session?.user?.role;
 
   const navLinks = [
-    { href: '/', label: 'Home', icon: Home },
-    { href: '/discover', label: 'Discover', icon: Compass },
+    { href: '/', key: 'home', icon: Home },
+    { href: '/discover', key: 'discover', icon: Compass },
     {
       href: '/profile?tab=watching',
-      label: 'Continue Watching',
+      key: 'continueWatching',
       icon: Play,
       badge: continueWatchingCount > 0 ? continueWatchingCount : null,
     },
     {
       href: '/profile',
-      label: 'Library',
+      key: 'library',
       icon: Heart,
       badge: myAnimeCount > 0 ? myAnimeCount : null,
     },
-    { href: '/history', label: 'History', icon: Clock },
-    { href: '/calendar', label: 'Calendar', icon: Calendar },
-    { href: '/seasonal', label: 'Seasonal', icon: Flame },
-    { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
-    { href: '/community', label: 'Community', icon: MessageSquare },
-    { href: '/profile/settings', label: 'Settings', icon: Settings },
+    { href: '/history', key: 'history', icon: Clock },
+    { href: '/calendar', key: 'calendar', icon: Calendar },
+    { href: '/seasonal', key: 'seasonal', icon: Flame },
+    { href: '/leaderboard', key: 'leaderboard', icon: Trophy },
+    { href: '/community', key: 'community', icon: MessageSquare },
+    { href: '/profile/settings', key: 'settings', icon: Settings },
   ];
 
   if (userRole === 'ADMIN' || userRole === 'MODERATOR') {
-    navLinks.push({ href: '/admin', label: 'Admin Panel', icon: ShieldAlert });
+    navLinks.push({ href: '/admin', key: 'adminPanel', icon: ShieldAlert });
   }
 
   const isActive = (href: string) => {
@@ -76,13 +121,14 @@ export default function Sidebar({
 
       {/* Nav links */}
       <nav className="flex-1 space-y-1">
-        {navLinks.map(({ href, label, icon: Icon, badge }) => {
+        {navLinks.map(({ href, key, icon: Icon, badge }) => {
           const active = isActive(href);
           return (
             <Link
               key={href}
               href={href as '/'}
               onClick={onClose}
+              aria-current={active ? 'page' : undefined}
               className={`group flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
                 active
                   ? 'bg-accent-violet/10 text-[#7c3aed]'
@@ -92,11 +138,12 @@ export default function Sidebar({
               <div className="flex items-center gap-3">
                 <Icon
                   size={16}
+                  aria-hidden="true"
                   className={`transition-colors duration-200 ${
                     active ? 'text-[#7c3aed]' : 'text-text-muted group-hover:text-text-secondary'
                   }`}
                 />
-                <span>{label}</span>
+                <span>{t(key)}</span>
               </div>
 
               {/* Badge */}
@@ -132,42 +179,9 @@ export default function Sidebar({
 
       {/* Mobile Sidebar Slide-out Drawer */}
       {isOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          {/* Overlay backdrop */}
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
-            onClick={onClose}
-          />
-
-          {/* Drawer content panel */}
-          <div
-            className="relative flex flex-col w-64 max-w-xs h-full bg-bg-secondary shadow-2xl transition-transform duration-300 ease-out"
-            style={{
-              animation: 'slideInLeft 0.25s ease-out both',
-            }}
-          >
-            {/* Close button inside Drawer */}
-            <div className="flex items-center justify-between p-4 border-b border-border-subtle">
-              <div className="flex items-center gap-2">
-                <div className="w-6.5 h-6.5 rounded-lg bg-gradient-to-tr from-[#7c3aed] to-[#ec4899] flex items-center justify-center text-white">
-                  <Tv size={12} />
-                </div>
-                <span className="logo-text text-base">Aniworld</span>
-              </div>
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
-                aria-label="Close menu"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto">
-              <SidebarContent />
-            </div>
-          </div>
-        </div>
+        <MobileSidebarDrawer onClose={onClose}>
+          <SidebarContent />
+        </MobileSidebarDrawer>
       )}
     </>
   );

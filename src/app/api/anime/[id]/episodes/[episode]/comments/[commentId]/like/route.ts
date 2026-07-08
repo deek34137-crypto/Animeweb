@@ -21,6 +21,6 @@ export async function POST(
     return NextResponse.json({ success: true, ...result });
   } catch (error: any) {
     console.error('[Comment Like Toggle Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to toggle like' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to toggle like' }, { status: 400 });
   }
 }

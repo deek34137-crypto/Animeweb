@@ -14,7 +14,7 @@ async function main() {
   }
 
   const client = new Meilisearch({
-    host: env.MEILISEARCH_HOST,
+    host: env.MEILISEARCH_HOST!,
     apiKey: env.MEILISEARCH_KEY
   });
 

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, subscription: savedSub });
   } catch (error: any) {
     console.error('[Web Push] Subscription error:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to save subscription.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to save subscription.' }, { status: 500 });
   }
 }
 
@@ -102,7 +102,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true, message: 'Unsubscribed successfully.' });
   } catch (error: any) {
     console.error('[Web Push] Unsubscription error:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to remove subscription.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to remove subscription.' }, { status: 500 });
   }
 }
 
@@ -183,6 +183,6 @@ export async function PUT() {
     });
   } catch (error: any) {
     console.error('[Web Push] Test alert error:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to dispatch test notification.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to dispatch test notification.' }, { status: 500 });
   }
 }

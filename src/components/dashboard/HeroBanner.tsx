@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from '@/navigation';
 import { Play, Star, Clock, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { AnimeData } from '@/services/jikan';
@@ -186,18 +187,23 @@ export default function HeroBanner({
     <div className="relative overflow-hidden rounded-3xl aspect-[16/7.2] sm:aspect-[21/8] min-h-[250px] sm:min-h-[310px] border border-border-subtle bg-bg-secondary shadow-xl transition-all duration-300 group">
       {/* Background Media */}
       <div className="absolute inset-0 z-0 select-none">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={current.banner}
           alt=""
           aria-hidden="true"
-          className="w-full h-full object-cover blur-2xl opacity-15 scale-110 pointer-events-none"
+          fill
+          unoptimized
+          sizes="100vw"
+          className="object-cover blur-2xl opacity-15 scale-110 pointer-events-none"
         />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={current.banner}
           alt={current.title}
-          className="absolute inset-0 w-full h-full object-cover opacity-35 transition-opacity duration-500 ease-out animate-hero-zoom"
+          fill
+          unoptimized
+          sizes="100vw"
+          priority
+          className="object-cover opacity-35 transition-opacity duration-500 ease-out animate-hero-zoom"
           key={current.id}
           referrerPolicy="no-referrer"
         />

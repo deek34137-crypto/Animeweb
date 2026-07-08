@@ -161,7 +161,7 @@ export default function SettingsClient({
     .filter(t => t.name);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-8 animate-fade-up">
+    <div className="max-w-3xl mx-auto space-y-8 animate-fade-up">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-4">
         <div className="flex items-center gap-3">

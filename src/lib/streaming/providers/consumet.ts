@@ -1,11 +1,10 @@
 import { StreamingProviderInterface, EpisodeItem, EpisodeStreamInfo, EpisodeSource } from '../types';
-
-const CONSUMET_BASE = process.env.CONSUMET_API_URL || 'https://api.consumet.org';
+import { fetchUpstream } from '../upstream';
 
 /**
  * Consumet API Provider
  *
- * Uses the public Consumet API (https://api.consumet.org) to resolve
+ * Uses the configured Consumet API mirrors to resolve
  * anime episodes and HLS stream sources. Falls back to the /anime/zoro
  * endpoint which uses HiAnime/AniWatch as its backend.
  *
@@ -93,18 +92,17 @@ async function searchZoro(title: string): Promise<string> {
     .replace(/[^\w\s]/g, '')
     .trim();
 
-  const url = `${CONSUMET_BASE}/anime/zoro/${encodeURIComponent(query)}`;
-  console.info(`[Consumet] Searching Zoro: ${url}`);
+  const path = `/anime/zoro/${encodeURIComponent(query)}`;
+  console.info(`[Consumet] Searching Zoro: ${path}`);
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'AniWorld/1.0 (+https://aniworld.app)' },
-    signal: AbortSignal.timeout(8000),
+  const res = await fetchUpstream(path, {
+    method: 'GET',
   });
 
   if (!res.ok) {
     const err: any = new Error(`Consumet Zoro search failed with status ${res.status} for "${title}"`);
     err.status = res.status;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 
@@ -114,7 +112,7 @@ async function searchZoro(title: string): Promise<string> {
   if (!Array.isArray(results) || results.length === 0) {
     const err: any = new Error(`No results from Consumet/Zoro for "${title}"`);
     err.status = 404;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 
@@ -137,18 +135,17 @@ async function searchZoro(title: string): Promise<string> {
 }
 
 async function fetchZoroEpisodes(animeId: string): Promise<(EpisodeItem & { episodeId: string })[]> {
-  const url = `${CONSUMET_BASE}/anime/zoro/info?id=${encodeURIComponent(animeId)}`;
-  console.info(`[Consumet] Fetching info: ${url}`);
+  const path = `/anime/zoro/info?id=${encodeURIComponent(animeId)}`;
+  console.info(`[Consumet] Fetching info: ${path}`);
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'AniWorld/1.0 (+https://aniworld.app)' },
-    signal: AbortSignal.timeout(10000),
+  const res = await fetchUpstream(path, {
+    method: 'GET',
   });
 
   if (!res.ok) {
     const err: any = new Error(`Consumet Zoro info failed with status ${res.status}`);
     err.status = res.status;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 
@@ -158,7 +155,7 @@ async function fetchZoroEpisodes(animeId: string): Promise<(EpisodeItem & { epis
   if (!Array.isArray(episodes) || episodes.length === 0) {
     const err: any = new Error(`No episodes returned by Consumet/Zoro for id "${animeId}"`);
     err.status = 404;
-    err.url = url;
+    err.url = path;
     throw err;
   }
 
@@ -177,16 +174,15 @@ async function fetchZoroStreams(episodeId: string): Promise<{
   subtitles: { label: string; lang: string; url: string }[];
 }> {
   // Try sub first
-  const subUrl = `${CONSUMET_BASE}/anime/zoro/watch?episodeId=${encodeURIComponent(episodeId)}&server=vidstreaming`;
+  const subUrl = `/anime/zoro/watch?episodeId=${encodeURIComponent(episodeId)}&server=vidstreaming`;
   console.info(`[Consumet] Fetching streams: ${subUrl}`);
 
   let subData: any = null;
   let dubData: any = null;
 
   try {
-    const res = await fetch(subUrl, {
-      headers: { 'User-Agent': 'AniWorld/1.0 (+https://aniworld.app)' },
-      signal: AbortSignal.timeout(10000),
+    const res = await fetchUpstream(subUrl, {
+      method: 'GET',
     });
     if (res.ok) {
       subData = await res.json();
@@ -202,10 +198,9 @@ async function fetchZoroStreams(episodeId: string): Promise<{
   
   if (dubEpId !== episodeId) {
     try {
-      const dubUrl = `${CONSUMET_BASE}/anime/zoro/watch?episodeId=${encodeURIComponent(dubEpId)}&server=vidstreaming`;
-      const res = await fetch(dubUrl, {
-        headers: { 'User-Agent': 'AniWorld/1.0 (+https://aniworld.app)' },
-        signal: AbortSignal.timeout(8000),
+      const dubUrl = `/anime/zoro/watch?episodeId=${encodeURIComponent(dubEpId)}&server=vidstreaming`;
+      const res = await fetchUpstream(dubUrl, {
+        method: 'GET',
       });
       if (res.ok) {
         dubData = await res.json();

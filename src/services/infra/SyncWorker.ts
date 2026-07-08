@@ -130,7 +130,7 @@ if (env.FLAG_ENABLE_OUTBOX) {
       logger.info(`SyncWorker: Successfully synchronized anime metadata for ${animeId}.`);
 
     }, {
-      connection: { url: env.REDIS_URL },
+      connection: { url: env.REDIS_URL! },
       concurrency: 10 // Set concurrency limit to 10 to prevent database starvation
     });
 

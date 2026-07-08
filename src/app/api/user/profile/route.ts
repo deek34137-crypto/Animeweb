@@ -4,6 +4,15 @@ import { db } from '@/lib/db';
 import { ProfileVisibility } from '@prisma/client';
 
 
+import { z } from 'zod';
+
+const postSchema = z.object({
+  displayName: z.string().max(50).optional(),
+  bio: z.string().max(500).optional(),
+  avatar: z.string().url().max(255).optional(),
+  banner: z.string().url().max(255).optional(),
+});
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -12,7 +21,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { displayName, bio, avatar, banner } = await req.json();
+    let payload;
+    try {
+      payload = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    const result = postSchema.safeParse(payload);
+    if (!result.success) {
+      return NextResponse.json({ error: 'Invalid input', details: result.error.format() }, { status: 400 });
+    }
+
+    const { displayName, bio, avatar, banner } = result.data;
 
     const updated = await db.user.update({
       where: { id: userId },
@@ -37,6 +58,25 @@ export async function POST(req: Request) {
   }
 }
 
+const patchSchema = z.object({
+  displayName: z.string().max(50).optional(),
+  bio: z.string().max(500).optional(),
+  favoriteQuote: z.string().max(200).optional(),
+  location: z.string().max(100).optional(),
+  profileAccentColor: z.string().max(20).optional(),
+  profileVisibility: z.enum(['PUBLIC', 'FRIENDS', 'PRIVATE']).optional(),
+  hideStats: z.boolean().optional(),
+  hideLibrary: z.boolean().optional(),
+  hideActivity: z.boolean().optional(),
+  hideFavorites: z.boolean().optional(),
+  hideAchievements: z.boolean().optional(),
+  selectedTitleId: z.string().max(100).optional(),
+  showcaseAnimeId: z.string().max(100).optional(),
+  showcaseCharacterId: z.string().max(100).optional(),
+  showcaseStudioId: z.string().max(100).optional(),
+  showcaseGenreId: z.string().max(100).optional(),
+});
+
 export async function PATCH(req: Request) {
   try {
     const session = await auth();
@@ -45,7 +85,18 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
+    let payload;
+    try {
+      payload = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    const result = patchSchema.safeParse(payload);
+    if (!result.success) {
+      return NextResponse.json({ error: 'Invalid input', details: result.error.format() }, { status: 400 });
+    }
+
     const {
       displayName,
       bio,
@@ -63,17 +114,7 @@ export async function PATCH(req: Request) {
       showcaseCharacterId,
       showcaseStudioId,
       showcaseGenreId,
-    } = body;
-
-    // Validate visibility if provided
-    let finalVisibility: ProfileVisibility | undefined;
-    if (profileVisibility) {
-      if (['PUBLIC', 'FRIENDS', 'PRIVATE'].includes(profileVisibility)) {
-        finalVisibility = profileVisibility as ProfileVisibility;
-      } else {
-        return NextResponse.json({ error: 'Invalid profile visibility value' }, { status: 400 });
-      }
-    }
+    } = result.data;
 
     const updated = await db.user.update({
       where: { id: userId },
@@ -83,7 +124,7 @@ export async function PATCH(req: Request) {
         favoriteQuote: favoriteQuote !== undefined ? (favoriteQuote || null) : undefined,
         location: location !== undefined ? (location || null) : undefined,
         profileAccentColor: profileAccentColor !== undefined ? (profileAccentColor || '#7c3aed') : undefined,
-        profileVisibility: finalVisibility,
+        profileVisibility: profileVisibility,
         hideStats: hideStats !== undefined ? Boolean(hideStats) : undefined,
         hideLibrary: hideLibrary !== undefined ? Boolean(hideLibrary) : undefined,
         hideActivity: hideActivity !== undefined ? Boolean(hideActivity) : undefined,

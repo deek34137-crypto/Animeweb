@@ -1,4 +1,5 @@
 import React from 'react';
+import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { Link, redirect } from '@/navigation';
@@ -7,9 +8,21 @@ import { Sliders, Settings, Award, Flame, Quote, MapPin, Sparkles } from 'lucide
 import { getOrSeedChallenges } from '@/lib/gamification/challenges';
 import { getLevelFromXP, getXPForLevel } from '@/lib/gamification/xp';
 import { BADGES } from '@/lib/gamification/badges';
+import { getSeoMetadata } from '@/lib/seo';
 
 interface ProfilePageProps {
   params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
+  const { locale } = await params;
+  return getSeoMetadata({
+    title: 'My Library Dashboard - AnimeWorld RJ',
+    description: 'Manage your anime list, watchlist, collections, achievements, and account stats.',
+    path: '/profile',
+    locale,
+    preventIndexing: true,
+  });
 }
 
 const TITLE_MAP: Record<string, string> = {
@@ -32,50 +45,51 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     return null;
   }
 
-  // Get user details
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      displayName: true,
-      avatar: true,
-      banner: true,
-      createdAt: true,
-      favoriteQuote: true,
-      location: true,
-      profileAccentColor: true,
-      selectedTitleId: true,
-      showcaseAnimeId: true,
-      showcaseCharacterId: true,
-      showcaseStudioId: true,
-      showcaseGenreId: true,
-      xp: true,
-      streakCurrent: true,
-      streakLongest: true,
-      badges: {
-        orderBy: [
-          { pinOrder: 'asc' },
-          { awardedAt: 'desc' }
-        ]
+  // Get user details, list entries, and challenges in parallel
+  const [user, listEntries, challenges] = await Promise.all([
+    db.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        displayName: true,
+        avatar: true,
+        banner: true,
+        createdAt: true,
+        favoriteQuote: true,
+        location: true,
+        profileAccentColor: true,
+        selectedTitleId: true,
+        showcaseAnimeId: true,
+        showcaseCharacterId: true,
+        showcaseStudioId: true,
+        showcaseGenreId: true,
+        xp: true,
+        streakCurrent: true,
+        streakLongest: true,
+        badges: {
+          orderBy: [
+            { pinOrder: 'asc' },
+            { awardedAt: 'desc' }
+          ]
+        },
+        achievements: {
+          select: { achievementId: true }
+        }
       },
-      achievements: {
-        select: { achievementId: true }
-      }
-    },
-  });
+    }),
+    db.listEntry.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+    }),
+    getOrSeedChallenges(userId),
+  ]);
 
   if (!user) {
     redirect({ href: '/login', locale });
     return null;
   }
-
-  // Get list entries
-  const listEntries = await db.listEntry.findMany({
-    where: { userId },
-    orderBy: { updatedAt: 'desc' },
-  });
 
   // Calculate statistics
   const totalAnime = listEntries.length;
@@ -98,9 +112,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     totalEpisodesWatched,
     totalHours,
   };
-
-  // Seed and fetch challenges
-  const challenges = await getOrSeedChallenges(userId);
 
   // Unlocked title text
   const userTitle = user.selectedTitleId ? TITLE_MAP[user.selectedTitleId] : null;
@@ -132,7 +143,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   } as React.CSSProperties;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-fade-up" style={customAccentStyle}>
+    <div className="max-w-6xl mx-auto space-y-8 animate-fade-up" style={customAccentStyle}>
       {/* Profile Header Card */}
       <div className="relative rounded-3xl overflow-hidden border border-border-default bg-surface-2 shadow-lg">
         {/* Banner Area */}

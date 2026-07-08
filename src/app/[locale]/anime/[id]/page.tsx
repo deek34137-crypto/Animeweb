@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { env } from '@/lib/config/env';
 import { Metadata } from 'next';
 import { connection } from 'next/server';
 import { AnimeApi, UnifiedAnimeDetail } from '@/lib/api';
@@ -13,6 +14,8 @@ import Badge from '@/components/ui/Badge';
 import Progress from '@/components/ui/Progress';
 import AnimeDetailTabs from '@/components/AnimeDetailTabs';
 import { FranchiseEngine } from '@/lib/franchise';
+import { getSeoMetadata } from '@/lib/seo';
+import { getCachedAnime } from '@/lib/db-cache';
 import { db } from '@/lib/db';
 import { getEpisodeDisplay } from '@/lib/episode';
 import WatchActions from '@/components/video/WatchActions';
@@ -45,7 +48,8 @@ async function fetchAnimeInfo(id: string): Promise<UnifiedAnimeDetail | null> {
       };
       const res = await fetch(`https://animesalt.streamindia.co.in/api/info?id=${id}`, {
         headers: TOONPLAY_HEADERS,
-        next: { revalidate: 1800 }
+        next: { revalidate: 1800 },
+        signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -115,53 +119,28 @@ async function loadDetailData(animeId: number) {
 export async function generateMetadata({ params }: DetailPageProps): Promise<Metadata> {
   await connection(); // This page fetches from Jikan + DB cache — must opt into dynamic rendering
   const { id, locale } = await params;
-  const anime = await fetchAnimeInfo(id);
+  const anime = await getCachedAnime(id);
   
   if (!anime) {
     return {
-      title: 'Anime Not Found - AnimeWorld RJ',
+      title: 'Anime Not Found',
       description: 'The requested anime details could not be loaded.',
     };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aniworld.rj';
+  const siteUrl = process.env.SITE_URL || 'https://aniworld.rj';
   const mainTitle = anime.title_english || anime.title;
   const synopsis = anime.synopsis || 'Premium anime streaming and discovery platform';
   const imageUrl = anime.images.webp.large_image_url || anime.images.jpg.large_image_url || `${siteUrl}/app-icon.jpg`;
 
-  return {
-    title: `${mainTitle} - Watch Free Sub & Dub - AnimeWorld RJ`,
+  return getSeoMetadata({
+    title: `${mainTitle} - Watch Free Sub & Dub`,
     description: synopsis.slice(0, 160),
-    alternates: {
-      canonical: `${siteUrl}/${locale}/anime/${id}`,
-      languages: {
-        en: `${siteUrl}/en/anime/${id}`,
-        es: `${siteUrl}/es/anime/${id}`,
-        ja: `${siteUrl}/ja/anime/${id}`,
-      },
-    },
-    openGraph: {
-      title: `${mainTitle} - Watch Free Sub & Dub - AnimeWorld RJ`,
-      description: synopsis.slice(0, 160),
-      url: `${siteUrl}/${locale}/anime/${id}`,
-      siteName: 'AnimeWorld RJ',
-      images: [
-        {
-          url: imageUrl,
-          width: 1200,
-          height: 630,
-          alt: mainTitle,
-        },
-      ],
-      type: 'video.tv_show',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: `${mainTitle} - Watch Free Sub & Dub - AnimeWorld RJ`,
-      description: synopsis.slice(0, 160),
-      images: [imageUrl],
-    },
-  };
+    path: `/anime/${id}`,
+    locale,
+    ogImage: imageUrl,
+    ogType: 'video.tv_show',
+  });
 }
 
 // ─── Component Skeletons ─────────────────────────────────────────────────────
@@ -187,7 +166,7 @@ const TabsSkeleton = () => (
 export default async function AnimeDetailPage({ params }: DetailPageProps) {
   await connection(); // Opt into dynamic rendering — this page uses live Jikan data
   const { id, locale } = await params;
-  const anime = await fetchAnimeInfo(id);
+  const anime = await getCachedAnime(id);
 
   if (!anime) {
     return (
@@ -204,61 +183,6 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
     );
   }
 
-  const isMalId = !id.startsWith('series-') && !id.startsWith('movies-');
-
-  let characters: CharacterRoster[] = [];
-  let recommendations: RecommendationItem[] = [];
-  let episodes: EpisodeData[] = [];
-  let staff: any[] = [];
-  let reviews: any[] = [];
-
-  if (isMalId) {
-    const detailData = await loadDetailData(parseInt(id, 10));
-    characters = detailData.characters;
-    recommendations = detailData.recommendations;
-    episodes = detailData.episodes;
-    staff = detailData.staff;
-    reviews = detailData.reviews;
-  } else {
-    // Custom series pagination/episodes resolve
-    const seasonsList = (anime as any).seasonsList || [];
-    let count = 1;
-    seasonsList.forEach((season: any) => {
-      if (season.episodes && Array.isArray(season.episodes)) {
-        season.episodes.forEach((ep: any) => {
-          episodes.push({
-            mal_id: count,
-            url: '',
-            title: ep.title || `Episode ${ep.number}`,
-            title_japanese: null,
-            title_romanji: null,
-            aired: null,
-            score: null,
-            filler: false,
-            recap: false,
-            forum_url: null,
-          });
-          count++;
-        });
-      }
-    });
-
-    if (episodes.length === 0 && anime.type === 'Movie') {
-      episodes.push({
-        mal_id: 1,
-        url: '',
-        title: 'Full Feature Film',
-        title_japanese: null,
-        title_romanji: null,
-        aired: null,
-        score: null,
-        filler: false,
-        recap: false,
-        forum_url: null,
-      });
-    }
-  }
-
   const mainTitle = anime.title_english || anime.title;
   const jpTitle = anime.title_japanese;
   const score = anime.score;
@@ -268,7 +192,7 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
   const studios = anime.studios || [];
 
   // ─── JSON-LD Structured Data ───────────────────────────────────────────────
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aniworld.rj';
+  const siteUrl = env.APP_URL;
   
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -312,7 +236,17 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
     ],
   };
 
-  const franchise = FranchiseEngine.build(anime.mal_id, anime.title_english || anime.title, (anime as any).relations || []);
+  const trailerVideoJsonLd = anime.trailer?.url ? {
+    '@context': 'https://schema.org',
+    '@type': 'VideoObject',
+    'name': `${mainTitle} - Official Trailer`,
+    'description': anime.synopsis || `Official trailer for ${mainTitle}.`,
+    'thumbnailUrl': [
+      anime.images.webp.large_image_url || anime.images.jpg.large_image_url || `${siteUrl}/app-icon.jpg`
+    ],
+    'uploadDate': anime.aired?.from ? new Date(anime.aired.from).toISOString() : new Date().toISOString(),
+    'embedUrl': anime.trailer.embed_url || anime.trailer.url,
+  } : null;
 
   return (
     <div className="pb-20 -mt-6">
@@ -340,6 +274,14 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
           __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, '\\u003c'),
         }}
       />
+      {trailerVideoJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(trailerVideoJsonLd).replace(/</g, '\\u003c'),
+          }}
+        />
+      )}
 
       {/* ─── Cinematic Hero Header ─────────────────────────────────────────── */}
       <section className="relative w-full min-h-[520px] md:min-h-[580px] overflow-hidden">
@@ -351,6 +293,8 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
             alt={mainTitle}
             className="w-full h-full object-cover scale-[1.04]"
             referrerPolicy="no-referrer"
+            fetchPriority="high"
+            loading="eager"
           />
           {/* Dark cinematic overlay */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#05050A] via-[#05050A]/85 to-[#05050A]/50" />
@@ -368,6 +312,8 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
                 alt={mainTitle}
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
+                fetchPriority="high"
+                loading="eager"
               />
             </div>
           </div>
@@ -462,12 +408,6 @@ export default async function AnimeDetailPage({ params }: DetailPageProps) {
           <UserTabsSection
             id={id}
             anime={anime}
-            characters={characters}
-            staff={staff}
-            episodes={episodes}
-            recommendations={recommendations}
-            reviews={reviews}
-            franchise={franchise}
           />
         </Suspense>
       </div>
@@ -584,22 +524,70 @@ async function UserAnimeTrackingSection({
 async function UserTabsSection({
   id,
   anime,
-  characters,
-  staff,
-  episodes,
-  recommendations,
-  reviews,
-  franchise
 }: {
   id: string;
   anime: UnifiedAnimeDetail;
-  characters: any[];
-  staff: any[];
-  episodes: any[];
-  recommendations: any[];
-  reviews: any[];
-  franchise: any;
 }) {
+  const isMalId = !id.startsWith('series-') && !id.startsWith('movies-');
+
+  let characters: any[] = [];
+  let recommendations: any[] = [];
+  let episodes: any[] = [];
+  let staff: any[] = [];
+  let reviews: any[] = [];
+
+  try {
+    if (isMalId) {
+      const detailData = await loadDetailData(parseInt(id, 10));
+      characters = detailData.characters;
+      recommendations = detailData.recommendations;
+      episodes = detailData.episodes;
+      staff = detailData.staff;
+      reviews = detailData.reviews;
+    } else {
+      const seasonsList = (anime as any).seasonsList || [];
+      let count = 1;
+      seasonsList.forEach((season: any) => {
+        if (season.episodes && Array.isArray(season.episodes)) {
+          season.episodes.forEach((ep: any) => {
+            episodes.push({
+              mal_id: count,
+              url: '',
+              title: ep.title || `Episode ${ep.number}`,
+              title_japanese: null,
+              title_romanji: null,
+              aired: null,
+              score: null,
+              filler: false,
+              recap: false,
+              forum_url: null,
+            });
+            count++;
+          });
+        }
+      });
+
+      if (episodes.length === 0 && anime.type === 'Movie') {
+        episodes.push({
+          mal_id: 1,
+          url: '',
+          title: 'Full Feature Film',
+          title_japanese: null,
+          title_romanji: null,
+          aired: null,
+          score: null,
+          filler: false,
+          recap: false,
+          forum_url: null,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load UserTabsSection detail data:', error);
+  }
+
+  const franchise = FranchiseEngine.build(anime.mal_id, anime.title_english || anime.title, (anime as any).relations || []);
+
   const session = await auth();
   const userId = session?.user?.id;
 
@@ -609,29 +597,33 @@ async function UserTabsSection({
   const tracking = anime.userTracking;
 
   if (userId) {
-    const [progresses, history] = await Promise.all([
-      db.watchProgress.findMany({
-        where: {
-          userId,
-          animeId: String(id),
-        },
-      }),
-      db.watchHistory.findMany({
-        where: {
-          userId,
-          animeId: String(id),
-        },
-        select: {
-          episode: true,
-        },
-      }),
-    ]);
-    progressList = progresses;
-    watchedEpisodes = history.map((h) => h.episode);
-    if (progresses.length > 0) {
-      latestProgress = progresses.reduce((latest, current) => {
-        return new Date(current.lastWatchedAt) > new Date(latest.lastWatchedAt) ? current : latest;
-      }, progresses[0]);
+    try {
+      const [progresses, history] = await Promise.all([
+        db.watchProgress.findMany({
+          where: {
+            userId,
+            animeId: String(id),
+          },
+        }),
+        db.watchHistory.findMany({
+          where: {
+            userId,
+            animeId: String(id),
+          },
+          select: {
+            episode: true,
+          },
+        }),
+      ]);
+      progressList = progresses;
+      watchedEpisodes = history.map((h) => h.episode);
+      if (progresses.length > 0) {
+        latestProgress = progresses.reduce((latest, current) => {
+          return new Date(current.lastWatchedAt) > new Date(latest.lastWatchedAt) ? current : latest;
+        }, progresses[0]);
+      }
+    } catch (dbError) {
+      console.error('Database query failed in UserTabsSection:', dbError);
     }
   }
 

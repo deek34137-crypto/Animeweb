@@ -40,7 +40,7 @@ class SimpleLRU<K, V> {
 }
 
 // L1 memory cache (1000 items)
-const l1Cache = new SimpleLRU<string, { value: any; expiresAt: number }>(1000);
+export const l1Cache = new SimpleLRU<string, { value: any; expiresAt: number }>(1000);
 const activeQueries = new Map<string, Promise<any>>(); // Singleflight coalescing
 
 let redis: Redis | null = null;
@@ -48,12 +48,12 @@ let pubSub: Redis | null = null;
 
 if (env.FLAG_USE_NEW_CACHE) {
   try {
-    redis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+    redis = new Redis(env.REDIS_URL!, { maxRetriesPerRequest: null });
     redis.on('error', (err: any) => {
       logger.error('Redis client error:', err);
     });
 
-    pubSub = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+    pubSub = new Redis(env.REDIS_URL!, { maxRetriesPerRequest: null });
     pubSub.on('error', (err: any) => {
       logger.error('Redis Pub/Sub error:', err);
     });

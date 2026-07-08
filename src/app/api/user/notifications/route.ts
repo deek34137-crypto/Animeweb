@@ -31,7 +31,7 @@ export async function GET() {
     return NextResponse.json({ notifications });
   } catch (error: any) {
     console.error('[Notifications GET Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to retrieve notifications' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to retrieve notifications' }, { status: 500 });
   }
 }
 
@@ -62,6 +62,6 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[Notifications PATCH Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to update notifications' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to update notifications' }, { status: 400 });
   }
 }

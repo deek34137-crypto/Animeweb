@@ -1,17 +1,49 @@
 import React, { Suspense } from 'react';
-import { JikanAPI } from '@/services/jikan';
+import { Metadata } from 'next';
+import { AnimeData } from '@/services/jikan';
 import { AnimeApi } from '@/lib/api';
 import SeasonalDashboard from '@/components/seasonal/SeasonalDashboard';
 import { Calendar, Compass } from 'lucide-react';
 import { Link } from '@/navigation';
 import { connection } from 'next/server';
 import { rewriteImages } from '@/lib/image';
+import { SectionSkeleton } from '@/components/ui/Skeleton';
+import { getSeoMetadata, getBreadcrumbSchema } from '@/lib/seo';
 
 export const unstable_instant = false;
 
-export default function SeasonalPage() {
+interface Props {
+  params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  return getSeoMetadata({
+    title: locale === 'ja' ? 'シーズンアニメセンター - 今期アニメと来期プレビュー' : locale === 'es' ? 'Centro de Anime de Temporada - Estrenos y Próximos' : 'Seasonal Anime Center - Active Releases & Previews',
+    description: locale === 'ja' ? '今期および来期の新作アニメ情報を確認しましょう。あらすじ、キャスト、スタッフ、放映開始日の情報をお届けします。' : locale === 'es' ? 'Explore los lanzamientos activos de la temporada actual y los avances de los próximos títulos.' : 'Browse the seasonal anime lineup. Check summaries, studios, characters, genres, and release schedules for current and upcoming seasons.',
+    path: '/seasonal',
+    locale,
+  });
+}
+
+export default async function SeasonalPage({ params }: Props) {
+  const { locale } = await params;
+
+  const breadcrumbJson = getBreadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Discover', path: '/discover' },
+    { name: 'Seasonal', path: '/seasonal' },
+  ], locale);
+
   return (
-    <Suspense fallback={
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJson).replace(/</g, '\\u003c'),
+        }}
+      />
+      <Suspense fallback={
       <div className="space-y-8 py-6 px-4 md:px-8 max-w-7xl mx-auto text-text-primary">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
           <div className="space-y-1">
@@ -26,15 +58,14 @@ export default function SeasonalPage() {
             </p>
           </div>
         </div>
-        <div className="p-16 text-center rounded-xl bg-bg-secondary/40 border border-border-subtle max-w-md mx-auto animate-pulse">
-          <Calendar size={32} className="mx-auto text-text-muted mb-3" />
-          <h4 className="font-bold text-sm mb-1 text-text-primary">Loading Seasonal Catalog...</h4>
-          <p className="text-xs text-text-muted">Fetching latest seasonal anime databases...</p>
+        <div className="space-y-8">
+          <SectionSkeleton count={6} />
         </div>
       </div>
     }>
       <SeasonalContent />
     </Suspense>
+    </>
   );
 }
 
@@ -71,8 +102,8 @@ function SeasonalContent() {
 
 async function SeasonalLoader() {
   await connection();
-  let currentSeason: any[] = [];
-  let upcomingSeason: any[] = [];
+  let currentSeason: AnimeData[] = [];
+  let upcomingSeason: AnimeData[] = [];
   let seasonName = 'Current';
   let seasonYear = new Date().getFullYear();
 

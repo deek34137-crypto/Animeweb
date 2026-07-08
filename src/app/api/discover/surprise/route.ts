@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 import { JikanAPI } from '@/services/jikan';
-
 
 export async function GET() {
   try {
@@ -9,32 +7,12 @@ export async function GET() {
     let selectedAnime: any = null;
 
     if (rand < 0.40) {
-      // 40% High Rated
-      const highRated = await db.animeCache.findMany({
-        where: { score: { gte: 8.2 } },
-        take: 20,
-      });
-      if (highRated.length > 0) {
-        selectedAnime = highRated[Math.floor(Math.random() * highRated.length)];
-      }
-    } else if (rand < 0.70) {
-      // 30% Underwatched / Hidden Gem
-      const hiddenGems = await db.animeCache.findMany({
-        where: {
-          score: { gte: 8.0 },
-          popularity: { gte: 500 },
-        },
-        take: 20,
-      });
-      if (hiddenGems.length > 0) {
-        selectedAnime = hiddenGems[Math.floor(Math.random() * hiddenGems.length)];
-      }
-    } else if (rand < 0.90) {
-      // 20% Seasonal Airing
+      // 40% High Rated (pages 1 to 5)
       try {
-        const seasonal = await JikanAPI.getSeasonalAnime(1);
-        if (seasonal?.data?.length > 0) {
-          const picked = seasonal.data[Math.floor(Math.random() * seasonal.data.length)];
+        const randomPage = Math.floor(Math.random() * 5) + 1;
+        const res = await JikanAPI.getTopRatedAnime(randomPage);
+        if (res?.data?.length > 0) {
+          const picked = res.data[Math.floor(Math.random() * res.data.length)];
           selectedAnime = {
             animeId: String(picked.mal_id),
             title: picked.title,
@@ -43,22 +21,63 @@ export async function GET() {
           };
         }
       } catch (e) {
-        console.error('Failed to select seasonal anime for surprise, falling back:', e);
+        console.error('Failed to select high rated anime for surprise:', e);
+      }
+    } else if (rand < 0.70) {
+      // 30% Underwatched / Hidden Gems (pages 5 to 15)
+      try {
+        const randomPage = Math.floor(Math.random() * 11) + 5;
+        const res = await JikanAPI.getTopRatedAnime(randomPage);
+        if (res?.data?.length > 0) {
+          const picked = res.data[Math.floor(Math.random() * res.data.length)];
+          selectedAnime = {
+            animeId: String(picked.mal_id),
+            title: picked.title,
+            poster: picked.images?.jpg?.large_image_url || picked.images?.jpg?.image_url || '',
+            score: picked.score || 0.0,
+          };
+        }
+      } catch (e) {
+        console.error('Failed to select hidden gems for surprise:', e);
+      }
+    } else if (rand < 0.90) {
+      // 20% Seasonal Airing
+      try {
+        const res = await JikanAPI.getSeasonalAnime(1);
+        if (res?.data?.length > 0) {
+          const picked = res.data[Math.floor(Math.random() * res.data.length)];
+          selectedAnime = {
+            animeId: String(picked.mal_id),
+            title: picked.title,
+            poster: picked.images?.jpg?.large_image_url || picked.images?.jpg?.image_url || '',
+            score: picked.score || 0.0,
+          };
+        }
+      } catch (e) {
+        console.error('Failed to select seasonal anime for surprise:', e);
       }
     }
 
-    // 10% Wildcard or Fallback (completely random popular anime from cached data)
+    // 10% Wildcard or Fallback (random popular page 1 to 20)
     if (!selectedAnime) {
-      const wildcard = await db.animeCache.findMany({
-        where: { popularity: { lte: 1000 } },
-        take: 50,
-      });
-      if (wildcard.length > 0) {
-        selectedAnime = wildcard[Math.floor(Math.random() * wildcard.length)];
+      try {
+        const randomPage = Math.floor(Math.random() * 20) + 1;
+        const res = await JikanAPI.getTrendingAnime(randomPage);
+        if (res?.data?.length > 0) {
+          const picked = res.data[Math.floor(Math.random() * res.data.length)];
+          selectedAnime = {
+            animeId: String(picked.mal_id),
+            title: picked.title,
+            poster: picked.images?.jpg?.large_image_url || picked.images?.jpg?.image_url || '',
+            score: picked.score || 0.0,
+          };
+        }
+      } catch (e) {
+        console.error('Failed to select wildcard for surprise:', e);
       }
     }
 
-    // Double fallback to standard FMAB if db is empty
+    // Double fallback to Fullmetal Alchemist if everything fails
     if (!selectedAnime) {
       selectedAnime = {
         animeId: '5114',
@@ -72,7 +91,7 @@ export async function GET() {
   } catch (error: any) {
     console.error('Surprise Me API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

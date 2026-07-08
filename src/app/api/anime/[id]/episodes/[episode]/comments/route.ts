@@ -35,7 +35,7 @@ export async function GET(
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('[Episode Comments GET Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to fetch comments' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch comments' }, { status: 500 });
   }
 }
 
@@ -70,6 +70,6 @@ export async function POST(
     return NextResponse.json({ success: true, comment }, { status: 201 });
   } catch (error: any) {
     console.error('[Episode Comments POST Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to create comment' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to create comment' }, { status: 400 });
   }
 }

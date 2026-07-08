@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Admin Flags GET API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Admin Flags POST API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }
@@ -326,7 +326,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error: any) {
     console.error('Admin Flags PATCH API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react';
 import { Play, Calendar, Trash2, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { Link, useRouter } from '@/navigation';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface HistoryItem {
   id: string;
@@ -140,23 +141,19 @@ export default function HistoryClient({ initialHistory }: HistoryClientProps) {
 
   if (byAnime.length === 0) {
     return (
-      <div className="glass-panel border border-border-default rounded-3xl p-12 text-center max-w-md mx-auto space-y-4">
-        <div className="w-16 h-16 rounded-full bg-surface-2 border border-border-subtle flex items-center justify-center mx-auto text-text-muted">
-          <Play size={28} />
-        </div>
-        <div>
-          <h3 className="text-base font-bold text-text-primary">No Watch History</h3>
-          <p className="text-xs text-text-muted mt-1">
-            You haven&apos;t completed any episodes yet. Start streaming to populate your history!
-          </p>
-        </div>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-accent-violet hover:bg-[#6b4ae6] text-white font-bold text-xs shadow-lg shadow-accent-violet/15 transition-all duration-200"
-        >
-          <Play size={12} fill="currentColor" className="ml-0.5" /> Browse Anime
-        </Link>
-      </div>
+      <EmptyState
+        icon={Play}
+        title="No Watch History"
+        description="You haven't completed any episodes yet. Start streaming to populate your history!"
+        action={
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-accent-violet hover:bg-[#6b4ae6] text-white font-bold text-xs shadow-lg shadow-accent-violet/15 transition-all duration-200"
+          >
+            <Play size={12} fill="currentColor" className="ml-0.5" /> Browse Anime
+          </Link>
+        }
+      />
     );
   }
 

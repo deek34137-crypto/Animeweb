@@ -23,7 +23,7 @@ export async function GET(
     return NextResponse.json({ thread });
   } catch (error: any) {
     console.error('[Thread Detail GET Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to fetch thread' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch thread' }, { status: 500 });
   }
 }
 
@@ -61,7 +61,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, thread: updated });
   } catch (error: any) {
     console.error('[Thread Detail PATCH Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to update thread' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to update thread' }, { status: 400 });
   }
 }
 
@@ -91,6 +91,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[Thread Detail DELETE Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to delete thread' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to delete thread' }, { status: 400 });
   }
 }

@@ -9,21 +9,57 @@ import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { CursorProvider } from '@/providers/CursorProvider';
 import AppShell from '@/components/AppShell';
-import CommandPalette from '@/components/ui/CommandPalette';
 import NavigationLoader from '@/components/ui/NavigationLoader';
-import QuickMenu from '@/components/dashboard/QuickMenu';
-import ShortcutHelper from '@/components/ui/ShortcutHelper';
-import XPToastManager from '@/components/gamification/XPToastManager';
 import PWAProvider from '@/providers/PWAProvider';
-import InstallAppPrompt from '@/components/ui/InstallAppPrompt';
 import { Analytics } from '@vercel/analytics/next';
 import { WebVitals } from '@/components/analytics/WebVitals';
+import { Inter, Outfit, JetBrains_Mono } from 'next/font/google';
+import { Metadata } from 'next';
 import '../globals.css';
 
-export const metadata = {
-  title: 'AnimeWorld RJ - Premium Anime Streaming & Discovery Platform',
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+});
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
+
+export const metadata: Metadata = {
+  metadataBase: new URL(process.env.SITE_URL || 'https://aniworld.rj'),
+  title: {
+    default: 'AnimeWorld RJ - Premium Anime Streaming & Discovery Platform',
+    template: '%s | AnimeWorld RJ',
+  },
   description: 'High-performance, premium anime discovery website showing trending, top-rated, and seasonal shows, search filters, and real-time streaming availability with subtitles and dubs.',
   keywords: 'anime, discovery, streaming, crunchyroll, netflix, dub, sub, jikan, mal, MyAnimeList, seasons, reviews',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Aniworld',
+  },
+  icons: {
+    icon: '/app-icon.jpg',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
+};
+
+export const viewport = {
+  themeColor: '#7c3aed',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export function generateStaticParams() {
@@ -49,15 +85,8 @@ export default async function LocaleLayout({
   const messages = locale === 'es' ? esMessages : locale === 'ja' ? jaMessages : enMessages;
 
   return (
-    <html lang={locale} suppressHydrationWarning className="h-full scroll-smooth">
+    <html lang={locale} suppressHydrationWarning className={`${inter.variable} ${outfit.variable} ${jetbrainsMono.variable} h-full scroll-smooth`}>
       <head>
-        <style dangerouslySetInnerHTML={{__html: `
-          :root {
-            --font-display: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          }
-        `}} />
         {/* Inline Theme Detection Script to prevent flash of theme on load */}
         <script
           dangerouslySetInnerHTML={{
@@ -99,11 +128,6 @@ export default async function LocaleLayout({
                           {children}
                         </Suspense>
                       </AppShell>
-                      <CommandPalette />
-                      <QuickMenu />
-                      <ShortcutHelper />
-                      <XPToastManager />
-                      <InstallAppPrompt />
                     </Suspense>
                   </CursorProvider>
                 </PWAProvider>

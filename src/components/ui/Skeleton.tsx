@@ -8,7 +8,7 @@ interface SkeletonProps {
   count?: number;
 }
 
-function SkeletonBlock({ className = '' }: { className?: string }) {
+export function SkeletonBlock({ className = '' }: { className?: string }) {
   return (
     <div
       className={`shimmer-loader rounded-lg ${className}`}
@@ -34,7 +34,7 @@ export function AnimeCardSkeleton() {
 
 export function HeroSkeleton() {
   return (
-    <div className="relative rounded-2xl overflow-hidden h-[460px] shimmer-loader" />
+    <div className="relative rounded-2xl overflow-hidden h-[310px] sm:h-[460px] shimmer-loader" />
   );
 }
 
@@ -68,6 +68,129 @@ export function SectionSkeleton({ count = 6 }: { count?: number }) {
           <AnimeCardSkeleton key={i} />
         ))}
       </div>
+    </div>
+  );
+}
+
+export function EpisodeListSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex gap-3 p-3 bg-surface-2/40 border border-border-subtle rounded-xl items-center animate-pulse">
+          <SkeletonBlock className="w-20 aspect-video rounded-lg flex-shrink-0" />
+          <div className="flex-grow space-y-2">
+            <SkeletonBlock className="h-4 w-3/4" />
+            <SkeletonBlock className="h-3 w-1/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function CharacterListSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="bg-surface-2/40 border border-border-subtle p-3 rounded-xl flex flex-col items-center text-center space-y-3 animate-pulse">
+          <SkeletonBlock className="w-16 h-16 rounded-full" />
+          <div className="space-y-1.5 w-full flex flex-col items-center">
+            <SkeletonBlock className="h-3.5 w-4/5" />
+            <SkeletonBlock className="h-2.5 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ReviewsSkeleton() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="p-5 bg-surface-2/40 border border-border-subtle rounded-2xl space-y-4 animate-pulse">
+          <div className="flex items-center gap-3">
+            <SkeletonBlock className="w-10 h-10 rounded-full" />
+            <div className="space-y-2 flex-grow">
+              <SkeletonBlock className="h-4 w-1/4" />
+              <SkeletonBlock className="h-3 w-12" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <SkeletonBlock className="h-3 w-full" />
+            <SkeletonBlock className="h-3 w-5/6" />
+            <SkeletonBlock className="h-3 w-4/5" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function CollectionsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="bg-surface-2 border border-border-subtle rounded-2xl overflow-hidden flex flex-col justify-between p-5 space-y-4">
+          <div className="flex gap-4 items-center">
+            <SkeletonBlock className="w-16 h-24 rounded-lg flex-shrink-0" />
+            <div className="space-y-2 flex-grow">
+              <SkeletonBlock className="h-4 w-3/4" />
+              <SkeletonBlock className="h-3.5 w-1/2" />
+              <SkeletonBlock className="h-3 w-1/3" />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <SkeletonBlock className="h-8 flex-1 rounded-xl" />
+            <SkeletonBlock className="h-8 flex-1 rounded-xl" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function InsightsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
+      <div className="bg-surface-2 border border-border-subtle rounded-3xl p-6 space-y-4 h-64 flex flex-col justify-between col-span-1">
+        <SkeletonBlock className="h-4 w-1/3" />
+        <div className="flex justify-center py-2">
+          <SkeletonBlock className="w-32 h-32 rounded-full" />
+        </div>
+        <SkeletonBlock className="h-4 w-2/3 mx-auto" />
+      </div>
+      <div className="bg-surface-2 border border-border-subtle rounded-3xl p-6 space-y-4 h-64 col-span-1 md:col-span-2">
+        <SkeletonBlock className="h-4 w-1/4" />
+        <div className="space-y-3.5 pt-4">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="flex items-center gap-4">
+              <SkeletonBlock className="h-4 w-16" />
+              <SkeletonBlock className="h-4 flex-grow rounded" />
+              <SkeletonBlock className="h-4 w-8" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ActivityLogSkeleton() {
+  return (
+    <div className="relative border-l-2 border-border-subtle ml-4 pl-6 space-y-6 animate-pulse">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="relative">
+          <span className="absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 border-surface-1 bg-surface-3 shadow-md" />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <SkeletonBlock className="h-4 w-24" />
+              <SkeletonBlock className="h-3 w-16" />
+            </div>
+            <SkeletonBlock className="h-3.5 w-1/2" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

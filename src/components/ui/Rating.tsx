@@ -42,20 +42,21 @@ export default function Rating({
       {Array.from({ length: starCount }).map((_, i) => {
         const fill = display >= i + 1 ? 1 : display > i ? display - i : 0;
 
+        // In read-only mode render as a single accessible image at the end
+        if (readOnly) return null;
+
         return (
           <button
             key={i}
             type="button"
-            disabled={readOnly}
             onClick={() => {
-              if (!readOnly && onChange) {
-                // Convert back to 0-10 scale
+              if (onChange) {
                 onChange(((i + 1) / starCount) * max);
               }
             }}
-            onMouseEnter={() => !readOnly && setHovered(i + 1)}
-            onMouseLeave={() => !readOnly && setHovered(null)}
-            className={`relative flex-shrink-0 ${readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110 transition-transform'}`}
+            onMouseEnter={() => setHovered(i + 1)}
+            onMouseLeave={() => setHovered(null)}
+            className="relative flex-shrink-0 cursor-pointer hover:scale-110 transition-transform"
             aria-label={`Rate ${i + 1} out of ${starCount}`}
           >
             {/* Background (empty) star */}
@@ -63,6 +64,7 @@ export default function Rating({
               size={starSize}
               className="text-surface-3"
               fill="currentColor"
+              aria-hidden="true"
             />
             {/* Overlay filled portion */}
             {fill > 0 && (
@@ -74,12 +76,37 @@ export default function Rating({
                   size={starSize}
                   className="text-accent-gold"
                   fill="currentColor"
+                  aria-hidden="true"
                 />
               </span>
             )}
           </button>
         );
       })}
+
+      {/* Read-only: single accessible image representation */}
+      {readOnly && (
+        <span
+          role="img"
+          aria-label={`Rating: ${value > 0 ? value.toFixed(1) : '0'} out of ${max}`}
+          className="inline-flex items-center gap-1"
+        >
+          {Array.from({ length: starCount }).map((_, i) => {
+            const fill = normalized >= i + 1 ? 1 : normalized > i ? normalized - i : 0;
+            return (
+              <span key={i} className="relative flex-shrink-0">
+                <Star size={starSize} className="text-surface-3" fill="currentColor" aria-hidden="true" />
+                {fill > 0 && (
+                  <span className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+                    <Star size={starSize} className="text-accent-gold" fill="currentColor" aria-hidden="true" />
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </span>
+      )}
+
       {showValue && (
         <span className="ml-1.5 text-sm font-semibold text-accent-gold tabular-nums">
           {value > 0 ? value.toFixed(1) : '—'}

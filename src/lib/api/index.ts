@@ -403,58 +403,74 @@ export const AnimeApi = {
       take: 12,
     });
 
-    const results = await Promise.all(
-      entries.map(async (entry) => {
-        const latestProgress = await db.watchProgress.findFirst({
-          where: {
-            userId,
-            animeId: entry.animeId,
-          },
-          orderBy: {
-            lastWatchedAt: 'desc',
-          },
-        });
+    const animeIds = entries.map((e) => e.animeId);
 
-        let resumeEpisode = entry.episodesWatched + 1;
-        let lastWatchedDate = entry.updatedAt;
-        let percentageComplete = 0;
-        let remainingMinutes = 0;
+    // Fetch all progress records for these anime IDs in one go
+    let progressList: any[] = [];
+    if (animeIds.length > 0) {
+      progressList = await db.watchProgress.findMany({
+        where: {
+          userId,
+          animeId: { in: animeIds },
+        },
+        orderBy: {
+          lastWatchedAt: 'desc',
+        },
+      });
+    }
 
-        if (latestProgress) {
-          const isCompleted = latestProgress.position / latestProgress.duration >= 0.90;
-          if (!isCompleted) {
-            resumeEpisode = latestProgress.episode;
-            percentageComplete = Math.round((latestProgress.position / latestProgress.duration) * 100);
-            remainingMinutes = Math.max(0, Math.ceil((latestProgress.duration - latestProgress.position) / 60));
-          } else {
-            resumeEpisode = latestProgress.episode + 1;
-          }
-          lastWatchedDate = latestProgress.lastWatchedAt;
+    // Group progress by animeId
+    // Since it's ordered by lastWatchedAt desc, the first progress record we find for each animeId
+    // is the latest one, which is exactly what we want.
+    const latestProgressMap = new Map<string, any>();
+    progressList.forEach((p) => {
+      if (!latestProgressMap.has(p.animeId)) {
+        latestProgressMap.set(p.animeId, p);
+      }
+    });
+
+    const results = entries.map((entry) => {
+      const latestProgress = latestProgressMap.get(entry.animeId);
+
+      let resumeEpisode = entry.episodesWatched + 1;
+      let lastWatchedDate = entry.updatedAt;
+      let percentageComplete = 0;
+      let remainingMinutes = 0;
+
+      if (latestProgress) {
+        const isCompleted = latestProgress.position / latestProgress.duration >= 0.90;
+        if (!isCompleted) {
+          resumeEpisode = latestProgress.episode;
+          percentageComplete = Math.round((latestProgress.position / latestProgress.duration) * 100);
+          remainingMinutes = Math.max(0, Math.ceil((latestProgress.duration - latestProgress.position) / 60));
+        } else {
+          resumeEpisode = latestProgress.episode + 1;
         }
+        lastWatchedDate = latestProgress.lastWatchedAt;
+      }
 
-        return {
-          id: entry.id,
-          userId: entry.userId,
-          animeId: entry.animeId,
-          animeTitle: entry.animeTitle,
-          animeImage: entry.animeImage,
-          animeEpisodes: entry.animeEpisodes,
-          status: entry.status,
-          score: entry.score,
-          episodesWatched: resumeEpisode,
-          rewatchCount: entry.rewatchCount,
-          startedAt: entry.startedAt,
-          completedAt: entry.completedAt,
-          notes: entry.notes,
-          isPrivate: entry.isPrivate,
-          createdAt: entry.createdAt,
-          updatedAt: entry.updatedAt,
-          lastWatchedAt: lastWatchedDate.toISOString(),
-          percentageComplete,
-          remainingMinutes,
-        };
-      })
-    );
+      return {
+        id: entry.id,
+        userId: entry.userId,
+        animeId: entry.animeId,
+        animeTitle: entry.animeTitle,
+        animeImage: entry.animeImage,
+        animeEpisodes: entry.animeEpisodes,
+        status: entry.status,
+        score: entry.score,
+        episodesWatched: resumeEpisode,
+        rewatchCount: entry.rewatchCount,
+        startedAt: entry.startedAt,
+        completedAt: entry.completedAt,
+        notes: entry.notes,
+        isPrivate: entry.isPrivate,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt,
+        lastWatchedAt: lastWatchedDate.toISOString(),
+        percentageComplete,
+        remainingMinutes,
+      };
+    });
 
     // In-memory filter out completed shows
     return rewriteImages(

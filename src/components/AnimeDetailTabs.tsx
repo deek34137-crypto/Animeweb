@@ -15,6 +15,7 @@ import WatchActions from '@/components/video/WatchActions';
 import type { AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
 import FranchiseTimeline from '@/components/FranchiseTimeline';
 import type { FranchiseGraph } from '@/lib/franchise';
+import AnimeCarousel from '@/components/dashboard/AnimeCarousel';
 
 interface TrackingData {
   status: string;
@@ -245,9 +246,9 @@ function OverviewTab({
   const streamingServers = [
     { name: 'ToonPlay', badges: ['HINDI DUB', 'ENG SUB/DUB'], active: true },
     { name: 'ToonWorld', badges: ['HINDI DUB', 'ENG SUB/DUB'], active: true },
-    { name: 'PirateX', badges: ['MULTI-AUDIO', 'ENG SUB'], active: true },
-    { name: 'TryEmbed', badges: ['ENG SUB/DUB'], active: true },
-    { name: 'AnimePlay', badges: ['ENG SUB/DUB'], active: true }
+    { name: 'VidNest', badges: ['HINDI DUB', 'ENG SUB'], active: true },
+    { name: 'Multilingual 1', badges: ['ENG SUB/DUB'], active: true },
+    { name: 'Multilingual 2', badges: ['ENG SUB/DUB'], active: true }
   ];
 
   return (
@@ -558,36 +559,32 @@ function OverviewTab({
 
         {/* Horizontal Recommendations Rail */}
         {recommendations.length > 0 && (
-          <section className="space-y-4">
-            <div className="flex items-center justify-between border-b border-border-subtle/50 pb-3">
-              <h2 className="flex items-center gap-2 text-xs font-black text-text-primary uppercase tracking-widest">
-                <Heart size={14} className="text-accent-sakura" /> Recommended Anime
-              </h2>
-            </div>
-            <div className="flex gap-3 overflow-x-auto rail-scroll pb-2">
-              {recommendations.slice(0, 10).map((r) => (
-                <Link
-                  key={r.entry.mal_id}
-                  href={`/anime/${r.entry.mal_id}` as '/'}
-                  className="flex-shrink-0 w-32 group"
-                >
-                  <div className="aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-colors">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={r.entry.images.webp.image_url || r.entry.images.jpg.image_url}
-                      alt={r.entry.title}
-                      className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <p className="mt-2 text-[11px] font-semibold text-text-secondary line-clamp-2 leading-tight group-hover:text-accent-violet transition-colors">
-                    {r.entry.title}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </section>
+          <AnimeCarousel title="Recommended Anime" icon={<Heart size={14} className="text-accent-sakura" />}>
+            {recommendations.slice(0, 10).map((r) => (
+              <div key={r.entry.mal_id} className="snap-start">
+                <div className="w-32 group">
+                  <Link
+                    href={`/anime/${r.entry.mal_id}` as '/'}
+                    className="block"
+                  >
+                    <div className="aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-colors">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={r.entry.images.webp.image_url || r.entry.images.jpg.image_url}
+                        alt={r.entry.title}
+                        className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <p className="mt-2 text-[11px] font-semibold text-text-secondary line-clamp-2 leading-tight group-hover:text-accent-violet transition-colors">
+                      {r.entry.title}
+                    </p>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </AnimeCarousel>
         )}
       </div>
 
@@ -818,28 +815,33 @@ function EpisodesTab({
   };
 
   // Dynamically Filter & Sort Episodes
-  const filtered = resolvedEpisodes
-    .filter((ep: any) => {
-      // 1. Search Query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const titleMatch = (ep.title || '').toLowerCase().includes(query);
-        const epNumMatch = String(ep.mal_id) === query;
-        if (!titleMatch && !epNumMatch) return false;
-      }
-      // 2. Tab Filter
-      if (filter === 'watched') return localWatched.includes(ep.mal_id);
-      if (filter === 'unwatched') return !localWatched.includes(ep.mal_id);
-      return true;
-    })
-    .sort((a: any, b: any) => {
-      return sortOrder === 'asc' ? a.mal_id - b.mal_id : b.mal_id - a.mal_id;
-    });
+  const filtered = useMemo(() => {
+    return resolvedEpisodes
+      .filter((ep: any) => {
+        // 1. Search Query
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase();
+          const titleMatch = (ep.title || '').toLowerCase().includes(query);
+          const epNumMatch = String(ep.mal_id) === query;
+          if (!titleMatch && !epNumMatch) return false;
+        }
+        // 2. Tab Filter
+        if (filter === 'watched') return localWatched.includes(ep.mal_id);
+        if (filter === 'unwatched') return !localWatched.includes(ep.mal_id);
+        return true;
+      })
+      .sort((a: any, b: any) => {
+        return sortOrder === 'asc' ? a.mal_id - b.mal_id : b.mal_id - a.mal_id;
+      });
+  }, [resolvedEpisodes, searchQuery, filter, localWatched, sortOrder]);
 
   // Dynamic grouping (specials / recaps / movies / main episodes)
-  const recaps = filtered.filter((ep: any) => ep.recap || (ep.title && ep.title.toLowerCase().includes('recap')));
-  const specials = filtered.filter((ep: any) => ep.filler && !recaps.includes(ep));
-  const mainEpisodes = filtered.filter((ep: any) => !recaps.includes(ep) && !specials.includes(ep));
+  const { recaps, specials, mainEpisodes } = useMemo(() => {
+    const recaps = filtered.filter((ep: any) => ep.recap || (ep.title && ep.title.toLowerCase().includes('recap')));
+    const specials = filtered.filter((ep: any) => ep.filler && !recaps.includes(ep));
+    const mainEpisodes = filtered.filter((ep: any) => !recaps.includes(ep) && !specials.includes(ep));
+    return { recaps, specials, mainEpisodes };
+  }, [filtered]);
 
   const totalEps = resolvedEpisodes.length;
   const pct = totalEps > 0 ? Math.round((localWatched.length / totalEps) * 100) : 0;
@@ -1142,12 +1144,23 @@ function ReviewsTab({
   });
 
   // Calculate review stats
-  const totalReviewsCount = activeReviews.length;
-  const averageReviewScore = activeReviews.reduce((sum, r) => sum + r.score, 0) / (totalReviewsCount || 1);
-  const excellentReviews = activeReviews.filter(r => r.score >= 9).length;
-  const goodReviews = activeReviews.filter(r => r.score >= 7 && r.score <= 8).length;
-  const avgReviews = activeReviews.filter(r => r.score >= 5 && r.score <= 6).length;
-  const poorReviews = activeReviews.filter(r => r.score < 5).length;
+  // Calculate review stats
+  const { totalReviewsCount, averageReviewScore, excellentReviews, goodReviews, avgReviews, poorReviews } = useMemo(() => {
+    const totalCount = activeReviews.length;
+    const avgScore = activeReviews.reduce((sum, r) => sum + r.score, 0) / (totalCount || 1);
+    const excellent = activeReviews.filter(r => r.score >= 9).length;
+    const good = activeReviews.filter(r => r.score >= 7 && r.score <= 8).length;
+    const avg = activeReviews.filter(r => r.score >= 5 && r.score <= 6).length;
+    const poor = activeReviews.filter(r => r.score < 5).length;
+    return {
+      totalReviewsCount: totalCount,
+      averageReviewScore: avgScore,
+      excellentReviews: excellent,
+      goodReviews: good,
+      avgReviews: avg,
+      poorReviews: poor
+    };
+  }, [activeReviews]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
@@ -1315,16 +1328,18 @@ function CastStaffTab({
   staff: any[];
   anime: AnimeData;
 }) {
-  const mainCharacters = characters.filter((c) => c.role === 'Main');
-  const supportingCharacters = characters.filter((c) => c.role === 'Supporting');
+  const mainCharacters = useMemo(() => characters.filter((c) => c.role === 'Main'), [characters]);
+  const supportingCharacters = useMemo(() => characters.filter((c) => c.role === 'Supporting'), [characters]);
 
   // Filter staff to include key roles
-  const keyStaffRoles = ['Director', 'Series Composition', 'Original Creator', 'Character Design', 'Music'];
-  const productionStaff = staff.filter((s) => {
-    return s.positions.some((pos: string) =>
-      keyStaffRoles.some((r) => pos.toLowerCase().includes(r.toLowerCase()))
-    );
-  });
+  const productionStaff = useMemo(() => {
+    const keyStaffRoles = ['Director', 'Series Composition', 'Original Creator', 'Character Design', 'Music'];
+    return staff.filter((s) => {
+      return s.positions.some((pos: string) =>
+        keyStaffRoles.some((r) => pos.toLowerCase().includes(r.toLowerCase()))
+      );
+    });
+  }, [staff]);
 
   return (
     <div className="space-y-8">

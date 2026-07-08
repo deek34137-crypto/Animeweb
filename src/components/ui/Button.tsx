@@ -64,7 +64,7 @@ export default function Button({
       disabled={isDisabled}
       className={`
         inline-flex items-center justify-center font-semibold
-        transition-all duration-200 ease-out
+        transition-[color,background-color,border-color,text-decoration-color,fill,stroke,box-shadow,transform] duration-200 ease-out
         ${variantStyles[variant]}
         ${sizeStyles[size]}
         ${fullWidth ? 'w-full' : ''}

@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Lock,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface CommentUser {
   id: string;
@@ -277,9 +278,13 @@ export default function EpisodeCommentsSection({
           <div className="h-16 bg-surface-2 rounded-xl" />
         </div>
       ) : comments.length === 0 ? (
-        <div className="text-center text-xs text-text-muted py-8">
-          No comments yet. Share your experience with other fans!
-        </div>
+        <EmptyState
+          icon={MessageSquare}
+          title="No comments yet"
+          description="Share your experience with other fans!"
+          size="sm"
+          className="py-8"
+        />
       ) : (
         <div className="space-y-4 divide-y divide-border-subtle/40">
           {comments.map((comment, index) => {

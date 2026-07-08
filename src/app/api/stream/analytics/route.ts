@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { auth } from '@/auth';
+import { StreamingHealth } from '@/lib/streaming/health';
 
 
 export async function POST(request: NextRequest) {
@@ -13,6 +14,7 @@ export async function POST(request: NextRequest) {
       provider,
       loadDurationMs,
       bufferingStalls,
+      stallDurationMs,
       failed,
       error,
       browser,
@@ -78,11 +80,29 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // 5. Update provider reputation — closes the client→server feedback loop
+    // Determine failure severity from error content and stall data
+    if (failed) {
+      let severity: 'minor' | 'medium' | 'high' | 'critical' = 'medium';
+      const errorStr = String(error || '').toLowerCase();
+      if (errorStr.includes('404') || errorStr.includes('not found')) {
+        severity = 'minor';
+      } else if (errorStr.includes('unreachable') || errorStr.includes('econnrefused') || errorStr.includes('network')) {
+        severity = 'critical';
+      } else if (stallDurationMs && typeof stallDurationMs === 'number' && stallDurationMs > 20000) {
+        severity = 'high';
+      }
+      StreamingHealth.recordFailure(provider, { severity });
+    } else {
+      const safeStallMs = typeof stallDurationMs === 'number' ? Math.max(0, stallDurationMs) : 0;
+      StreamingHealth.recordSuccess(provider, loadDurationMs, safeStallMs);
+    }
+
     return NextResponse.json({ success: true, logId: log.id });
   } catch (error: any) {
     console.error('Stream Analytics Logging Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

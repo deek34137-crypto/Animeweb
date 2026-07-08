@@ -95,11 +95,17 @@ export default function SeasonalDashboard({
         </div>
       ) : (
         <div className="p-16 text-center rounded-xl bg-bg-secondary border border-border-subtle max-w-md mx-auto">
-          <HelpCircle size={32} className="mx-auto text-text-muted mb-3" />
+          <HelpCircle size={32} className="mx-auto text-text-muted mb-3 animate-pulse" />
           <h4 className="font-bold text-sm mb-1 text-text-primary">No Releases Found</h4>
-          <p className="text-xs text-text-muted">
-            We couldn't load seasonal entries for this view.
+          <p className="text-xs text-text-muted mb-4">
+            We couldn't load seasonal entries for this view. This may be due to a temporary network issue.
           </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-xs font-semibold text-white bg-purple-600 hover:bg-purple-750 rounded-xl px-5 py-2.5 transition cursor-pointer"
+          >
+            Reload Page
+          </button>
         </div>
       )}
     </div>

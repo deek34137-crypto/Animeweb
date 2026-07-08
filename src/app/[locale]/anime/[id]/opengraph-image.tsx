@@ -20,7 +20,8 @@ async function fetchAnimeInfo(id: string) {
       };
       const res = await fetch(`https://animesalt.streamindia.co.in/api/info?id=${id}`, {
         headers: TOONPLAY_HEADERS,
-        next: { revalidate: 86400 }
+        next: { revalidate: 86400 },
+        signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
         const data = await res.json();

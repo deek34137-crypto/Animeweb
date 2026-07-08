@@ -36,7 +36,7 @@ const PLATFORMS_DETAILS = {
 
 export const StreamingService = {
   getStreamingInfo: async (malId: number, title: string): Promise<StreamingResult> => {
-    const apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY;
+    const apiKey = process.env.RAPIDAPI_KEY;
 
     if (apiKey) {
       try {

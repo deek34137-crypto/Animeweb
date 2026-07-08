@@ -62,6 +62,8 @@ import type {
 
 import { env } from '@/lib/config/env';
 import { MetadataService } from '@/services/metadata/MetadataService';
+import { mapAnilistMedia } from '@/services/metadata/providers/AniListProvider';
+import { RankingEngine } from '@/services/search/RankingEngine';
 
 // ---------------------------------------------------------------------------
 // Minimal in-memory cache (replaced by Redis in Phase 4)
@@ -104,104 +106,6 @@ async function anilistQuery<T>(
 }
 
 // ---------------------------------------------------------------------------
-// AniList → AnimeData mapper (Phase 3 will move this to mappers/)
-// ---------------------------------------------------------------------------
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapAnilistMedia(m: any): AnimeData {
-  const jpg = m.coverImage?.large ?? '';
-  const images = {
-    jpg: { image_url: jpg, small_image_url: m.coverImage?.medium ?? jpg, large_image_url: jpg },
-    webp: { image_url: jpg, small_image_url: m.coverImage?.medium ?? jpg, large_image_url: jpg },
-  };
-
-  const statusMap: Record<string, string> = {
-    FINISHED: 'Finished Airing',
-    RELEASING: 'Currently Airing',
-    NOT_YET_RELEASED: 'Not yet aired',
-    CANCELLED: 'Cancelled',
-    HIATUS: 'On Hiatus',
-  };
-
-  const seasonMap: Record<string, string> = {
-    WINTER: 'winter', SPRING: 'spring', SUMMER: 'summer', FALL: 'fall',
-  };
-
-  const startDate = m.startDate
-    ? `${m.startDate.year ?? ''}-${String(m.startDate.month ?? 1).padStart(2, '0')}-${String(m.startDate.day ?? 1).padStart(2, '0')}`
-    : null;
-
-  const endDate = m.endDate
-    ? `${m.endDate.year ?? ''}-${String(m.endDate.month ?? 1).padStart(2, '0')}-${String(m.endDate.day ?? 1).padStart(2, '0')}`
-    : null;
-
-  // Strip HTML from synopsis
-  const rawSynopsis: string = m.description ?? '';
-  const synopsis = rawSynopsis.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim() || null;
-
-  const genres: GenreTag[] = (m.genres ?? []).map((name: string, i: number) => ({
-    mal_id: i + 1,
-    type: 'anime',
-    name,
-    url: `https://anilist.co/genre/${encodeURIComponent(name)}`,
-  }));
-
-  const studios: { mal_id: number; type: string; name: string; url: string }[] =
-    (m.studios?.nodes ?? []).map((s: { id: number; name: string }) => ({
-      mal_id: s.id,
-      type: 'anime',
-      name: s.name,
-      url: `https://anilist.co/studio/${s.id}`,
-    }));
-
-  return {
-    mal_id: m.idMal ?? 0,
-    url: m.siteUrl ?? '',
-    images,
-    trailer: {
-      youtube_id: m.trailer?.id ?? null,
-      url: m.trailer?.id ? `https://youtu.be/${m.trailer.id}` : null,
-      embed_url: m.trailer?.id ? `https://www.youtube.com/embed/${m.trailer.id}` : null,
-    },
-    approved: true,
-    title: m.title?.romaji ?? m.title?.english ?? 'Unknown',
-    title_english: m.title?.english ?? null,
-    title_japanese: m.title?.native ?? null,
-    title_synonyms: m.synonyms ?? [],
-    type: m.format ?? null,
-    source: m.source ?? null,
-    episodes: m.episodes ?? null,
-    status: statusMap[m.status] ?? m.status ?? null,
-    airing: m.status === 'RELEASING',
-    aired: {
-      from: startDate,
-      to: endDate,
-      string: startDate ? (endDate ? `${startDate} to ${endDate}` : `${startDate} to ?`) : 'Not aired',
-    },
-    duration: m.duration ? `${m.duration} min per ep` : null,
-    rating: null,
-    score: m.averageScore ? m.averageScore / 10 : null,
-    scored_by: m.popularity ?? null,
-    rank: m.rankings?.[0]?.rank ?? null,
-    popularity: m.popularity ?? null,
-    members: m.popularity ?? null,
-    favorites: m.favourites ?? null,
-    synopsis,
-    background: m.bannerImage ?? null,
-    season: m.season ? (seasonMap[m.season] ?? m.season.toLowerCase()) : null,
-    year: m.seasonYear ?? m.startDate?.year ?? null,
-    broadcast: { day: null, time: null, timezone: null, string: null },
-    producers: [],
-    licensors: [],
-    studios,
-    genres,
-    explicit_genres: [],
-    themes: [],
-    demographics: [],
-    relations: [],
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Shared AniList fragments
 // ---------------------------------------------------------------------------
 const MEDIA_FIELDS = /* GraphQL */ `
@@ -229,7 +133,8 @@ const MEDIA_FIELDS = /* GraphQL */ `
   trailer { id site }
   rankings { rank type allTime season year context }
   studios(isMain: true) { nodes { id name } }
-  relations { edges { relationType node { id idMal title { romaji } format } } }
+  relations { edges { relationType node { id idMal title { romaji english native } format status coverImage { large } averageScore popularity } } }
+  recommendations(perPage: 6) { edges { node { mediaRecommendation { id idMal title { romaji english native } format status coverImage { large } averageScore popularity } } } }
 `;
 
 // ---------------------------------------------------------------------------
@@ -763,8 +668,15 @@ export const JikanAPI = {
         perPage: Math.min(limit, 50),
       });
 
+      const mapped = res.Page.media.map(mapAnilistMedia);
+      const scores = new Map<number, number>();
+      mapped.forEach((anime: any) => {
+        scores.set(anime.mal_id, RankingEngine.scoreCandidate(anime, query, { byTitle: true }));
+      });
+      mapped.sort((a: any, b: any) => (scores.get(b.mal_id) || 0) - (scores.get(a.mal_id) || 0));
+
       const result = {
-        data: res.Page.media.map(mapAnilistMedia),
+        data: mapped,
         pagination: {
           has_next_page: res.Page.pageInfo.hasNextPage,
           last_visible_page: res.Page.pageInfo.lastPage,

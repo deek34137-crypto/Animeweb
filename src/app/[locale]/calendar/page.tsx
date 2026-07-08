@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { Metadata } from 'next';
 import { db } from '@/lib/db';
 import { JikanAPI } from '@/services/jikan';
 import { getNextAiringTime } from '@/app/api/discover/schedule/route';
@@ -7,13 +8,44 @@ import { Calendar, Compass } from 'lucide-react';
 import { Link } from '@/navigation';
 import { connection } from 'next/server';
 import { rewriteImages } from '@/lib/image';
+import { SectionSkeleton } from '@/components/ui/Skeleton';
+import { getSeoMetadata, getBreadcrumbSchema } from '@/lib/seo';
 
 export const unstable_instant = false;
 
-export default function CalendarPage() {
+interface Props {
+  params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  return getSeoMetadata({
+    title: locale === 'ja' ? '毎週のアニメ放映スケジュール＆カウントダウン' : locale === 'es' ? 'Calendario de Estrenos y Cuenta Regresiva de Anime' : 'Weekly Anime Airing Schedule & Countdown Calendar',
+    description: locale === 'ja' ? '今週放映されるアニメのスケジュール、放映カウントダウン、リリース日をローカルタイムゾーンで確認しましょう。' : locale === 'es' ? 'Vea el calendario semanal de estrenos de anime, la cuenta regresiva de los episodios y las fechas de lanzamiento.' : 'Check the weekly anime release schedule, episode airing countdowns, and launch times adjusted to your local timezone.',
+    path: '/calendar',
+    locale,
+  });
+}
+
+export default async function CalendarPage({ params }: Props) {
+  const { locale } = await params;
+  
+  const breadcrumbJson = getBreadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Discover', path: '/discover' },
+    { name: 'Calendar', path: '/calendar' },
+  ], locale);
+
   return (
-    <Suspense fallback={
-      <div className="space-y-8 py-6 px-4 md:px-8 max-w-7xl mx-auto text-text-primary">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJson).replace(/</g, '\\u003c'),
+        }}
+      />
+      <Suspense fallback={
+      <div className="space-y-8 text-text-primary">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -27,21 +59,20 @@ export default function CalendarPage() {
             </p>
           </div>
         </div>
-        <div className="p-16 text-center rounded-xl bg-bg-secondary/40 border border-border-subtle max-w-md mx-auto animate-pulse">
-          <Calendar size={32} className="mx-auto text-text-muted mb-3" />
-          <h4 className="font-bold text-sm mb-1 text-text-primary">Loading Airing Schedule...</h4>
-          <p className="text-xs text-text-muted">Fetching latest simulcast release times...</p>
+        <div className="space-y-8">
+          <SectionSkeleton count={6} />
         </div>
       </div>
     }>
       <CalendarContent />
     </Suspense>
+    </>
   );
 }
 
 function CalendarContent() {
   return (
-    <div className="space-y-8 py-6 px-4 md:px-8 max-w-7xl mx-auto text-text-primary">
+    <div className="space-y-8 text-text-primary">
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
         <div className="space-y-1">

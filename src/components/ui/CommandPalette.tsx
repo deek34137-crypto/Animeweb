@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Search, X, Loader2, Home, Play, Heart, Clock, Flame, Calendar, Star, Settings, Laptop, Moon, Sun, Tv, Sliders } from 'lucide-react';
 import { useRouter } from '@/navigation';
 import { useLocale } from 'next-intl';
@@ -262,127 +263,138 @@ export default function CommandPalette() {
     close();
   };
 
-  if (!isOpen) return null;
+  const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[12vh] px-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 dark:bg-black/75 backdrop-blur-md transition-opacity duration-300"
-        onClick={close}
-        aria-hidden="true"
-      />
-
-      {/* Palette Panel */}
-      <div
-        className="relative w-full max-w-xl glass-panel border border-border-subtle bg-bg-secondary/95 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        style={{
-          animation: 'fadeIn 0.15s ease-out both',
-          maxHeight: '480px',
-        }}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command Palette"
-      >
-        {/* Input Bar */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border-subtle">
-          {isLoading ? (
-            <Loader2 size={18} className="text-text-muted animate-spin flex-shrink-0" />
-          ) : (
-            <Search size={18} className="text-text-muted flex-shrink-0" />
-          )}
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Search commands, anime, pages..."
-            className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted text-sm outline-none font-medium"
-            autoComplete="off"
-            spellCheck={false}
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[12vh] px-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.12 }}
+            className="absolute inset-0 bg-black/60 dark:bg-black/75 backdrop-blur-md"
+            onClick={close}
+            aria-hidden="true"
           />
-          {query && (
-            <button onClick={() => setQuery('')} className="text-text-muted hover:text-text-primary transition-colors">
-              <X size={16} />
-            </button>
-          )}
-          <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] text-text-disabled border border-border-subtle rounded px-1.5 py-0.5 font-mono">
-            ESC
-          </kbd>
-        </div>
 
-        {/* Dynamic List */}
-        <div className="flex-1 overflow-y-auto no-scrollbar py-2">
-          {results.length === 0 && query.length >= 2 && !isLoading && (
-            <div className="px-4 py-8 text-center text-text-muted text-xs">
-              No matching results found.
+          {/* Palette Panel */}
+          <motion.div
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: -8 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: [0.23, 1, 0.32, 1] }}
+            className="relative w-full max-w-xl glass-panel border border-border-subtle bg-bg-secondary/95 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            style={{
+              maxHeight: '480px',
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command Palette"
+          >
+            {/* Input Bar */}
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border-subtle">
+              {isLoading ? (
+                <Loader2 size={18} className="text-text-muted animate-spin flex-shrink-0" />
+              ) : (
+                <Search size={18} className="text-text-muted flex-shrink-0" />
+              )}
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Search commands, anime, pages..."
+                className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted text-sm outline-none font-medium"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {query && (
+                <button onClick={() => setQuery('')} className="text-text-muted hover:text-text-primary transition-colors">
+                  <X size={16} />
+                </button>
+              )}
+              <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] text-text-disabled border border-border-subtle rounded px-1.5 py-0.5 font-mono">
+                ESC
+              </kbd>
             </div>
-          )}
 
-          {results.length > 0 && (
-            <ul role="listbox">
-              {/* Actions Section Header */}
-              {results.some(r => r.type === 'action') && (
-                <li className="px-4 py-1.5 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-text-muted">
-                  System Controls & Navigation
-                </li>
+            {/* Dynamic List */}
+            <div className="flex-1 overflow-y-auto no-scrollbar py-2">
+              {results.length === 0 && query.length >= 2 && !isLoading && (
+                <div className="px-4 py-8 text-center text-text-muted text-xs">
+                  No matching results found.
+                </div>
               )}
 
-              {/* Anime Section Header */}
-              {query.length >= 2 && results.some(r => r.type === 'anime') && (
-                <li className="px-4 py-1.5 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-text-muted">
-                  <Tv size={10} /> Anime Shows
-                </li>
-              )}
+              {results.length > 0 && (
+                <ul role="listbox">
+                  {/* Actions Section Header */}
+                  {results.some(r => r.type === 'action') && (
+                    <li className="px-4 py-1.5 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-text-muted">
+                      System Controls & Navigation
+                    </li>
+                  )}
 
-              {results.map((result, idx) => {
-                const isSelected = idx === selectedIndex;
-                return (
-                  <li key={result.id} role="option" aria-selected={isSelected}>
-                    <button
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-100 ${
-                        isSelected
-                          ? 'bg-accent-violet/10 text-accent-primary border-l-2 border-accent-violet pl-3.5'
-                          : 'hover:bg-bg-elevated/40 text-text-secondary pl-4'
-                      }`}
-                      onClick={() => executeSelection(result)}
-                      onMouseEnter={() => setSelectedIndex(idx)}
-                    >
-                      {/* Icon or Thumbnail */}
-                      {result.type === 'action' && result.icon && (
-                        <div className="w-6 h-6 rounded-lg bg-bg-elevated flex items-center justify-center flex-shrink-0">
-                          {result.icon}
-                        </div>
-                      )}
-                      
-                      {result.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={result.imageUrl}
-                          alt={result.title}
-                          className={`object-cover bg-surface-3 flex-shrink-0 ${
-                            result.type === 'character' ? 'w-6 h-6 rounded-full' : 'w-7 h-9 rounded-md'
+                  {/* Anime Section Header */}
+                  {query.length >= 2 && results.some(r => r.type === 'anime') && (
+                    <li className="px-4 py-1.5 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-text-muted">
+                      <Tv size={10} /> Anime Shows
+                    </li>
+                  )}
+
+                  {results.map((result, idx) => {
+                    const isSelected = idx === selectedIndex;
+                    return (
+                      <li key={result.id} role="option" aria-selected={isSelected}>
+                        <button
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-100 ${
+                            isSelected
+                              ? 'bg-accent-violet/10 text-accent-primary border-l-2 border-accent-violet pl-3.5'
+                              : 'hover:bg-bg-elevated/40 text-text-secondary pl-4'
                           }`}
-                          referrerPolicy="no-referrer"
-                        />
-                      )}
+                          onClick={() => executeSelection(result)}
+                          onMouseEnter={() => setSelectedIndex(idx)}
+                        >
+                          {/* Icon or Thumbnail */}
+                          {result.type === 'action' && result.icon && (
+                            <div className="w-6 h-6 rounded-lg bg-bg-elevated flex items-center justify-center flex-shrink-0">
+                              {result.icon}
+                            </div>
+                          )}
+                          
+                          {result.imageUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={result.imageUrl}
+                              alt={result.title}
+                              className={`object-cover bg-surface-3 flex-shrink-0 ${
+                                result.type === 'character' ? 'w-6 h-6 rounded-full' : 'w-7 h-9 rounded-md'
+                              }`}
+                              referrerPolicy="no-referrer"
+                            />
+                          )}
 
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-xs font-bold truncate ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
-                          {result.title}
-                        </p>
-                        {result.subtitle && (
-                          <p className="text-[10px] text-text-muted mt-0.5 truncate">{result.subtitle}</p>
-                        )}
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-xs font-bold truncate ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
+                              {result.title}
+                            </p>
+                            {result.subtitle && (
+                              <p className="text-[10px] text-text-muted mt-0.5 truncate">{result.subtitle}</p>
+                            )}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

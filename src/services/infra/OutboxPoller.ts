@@ -10,7 +10,7 @@ let syncQueue: Queue | null = null;
 if (env.FLAG_ENABLE_OUTBOX) {
   try {
     syncQueue = new Queue('sync-priority-queue', {
-      connection: { url: env.REDIS_URL }
+      connection: { url: env.REDIS_URL! }
     });
   } catch (err) {
     logger.error('Failed to initialize sync-priority-queue in OutboxPoller:', err);

@@ -143,6 +143,9 @@ export interface AnimeData {
 
   // Relations (present only on "full" endpoints)
   relations?: RelationItem[];
+  searchGroup?: 'best' | 'relation' | 'recommendation' | 'general';
+  searchRelationType?: string;
+  recommendations?: any[];
   theme?: {
     openings: string[];
     endings: string[];

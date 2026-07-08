@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('[Threads GET API Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to fetch threads' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch threads' }, { status: 500 });
   }
 }
 
@@ -49,6 +49,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, thread }, { status: 201 });
   } catch (error: any) {
     console.error('[Threads POST API Error]', error);
-    return NextResponse.json({ error: error.message || 'Failed to create thread' }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to create thread' }, { status: 400 });
   }
 }

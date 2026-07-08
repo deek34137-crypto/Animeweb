@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { AnimeApi } from '@/lib/api';
@@ -20,6 +21,10 @@ import RecentlyUpdated from '@/components/dashboard/RecentlyUpdated';
 import RecommendedForYou from '@/components/dashboard/RecommendedForYou';
 import Genres from '@/components/dashboard/Genres';
 
+import { HeroSkeleton, SectionSkeleton } from '@/components/ui/Skeleton';
+import SectionErrorFallback from '@/components/ui/SectionErrorFallback';
+import { getSeoMetadata, getOrganizationSchema, getWebsiteSchema } from '@/lib/seo';
+
 // Helper: Calculate watch streak
 async function calculateCurrentStreak(userId: string): Promise<number> {
   try {
@@ -27,6 +32,7 @@ async function calculateCurrentStreak(userId: string): Promise<number> {
       where: { userId },
       select: { completedAt: true },
       orderBy: { completedAt: 'desc' },
+      take: 365,
     });
     
     if (history.length === 0) return 0;
@@ -85,84 +91,49 @@ function formatRelativeTime(date: Date): string {
   return `${diffDays}d ago`;
 }
 
+interface HomePageProps {
+  params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: HomePageProps): Promise<Metadata> {
+  const { locale } = await params;
+  return getSeoMetadata({
+    title: locale === 'ja' ? 'AnimeWorld RJ - 無料アニメ追跡、レビュー、ディスカッションプラットフォーム' : locale === 'es' ? 'AnimeWorld RJ - Plataforma Gratuita para Seguir, Reseñar y Discutir Anime' : 'AnimeWorld RJ - Watch, Track, Review & Share Anime Online',
+    description: locale === 'ja' ? 'AnimeWorld RJはアニメファンのための究極のソーシャルプラットフォームです。ウォッチリストを作成し、視聴履歴を記録し、他のオタクたちとコミュニティで語り合いましょう。' : locale === 'es' ? 'AnimeWorld RJ es la plataforma social definitiva para fans de anime. Crea listas de reproducción, haz un seguimiento de tu historial y conéctate con otros otakus.' : 'AnimeWorld RJ is the ultimate social platform for anime lovers. Track your watch progress, curated custom collections, earn achievements, and discuss characters in community.',
+    path: '',
+    locale,
+  });
+}
+
 // ─── Main Landing Page (Compiles Static Shell Instantly) ──────────────────────
-export default async function HomePage() {
-  // ─── Jikan API Feeds Loading (Parallelized, Aggressively Cached via AnimeApi) ───
-  let trending: AnimeData[] = [];
-  let seasonal: AnimeData[] = [];
-  let topRated: AnimeData[] = [];
-  let recommendations: AnimeData[] = [];
-  let schedules: AnimeData[] = [];
-  let jikanDown = false;
-
-  try {
-    const [
-      trendingRes,
-      seasonalRes,
-      topRatedRes,
-      recsRes,
-      schedulesRes,
-    ] = await Promise.all([
-      AnimeApi.getTrendingAnime(1).catch(() => ({ data: [] as AnimeData[] })),
-      AnimeApi.getSeasonalAnime(1).catch(() => ({ data: [] as AnimeData[] })),
-      AnimeApi.getTopRatedAnime(1).catch(() => ({ data: [] as AnimeData[] })),
-      AnimeApi.getRecentAnimeRecommendations(1).catch(() => ({ data: [] as AnimeData[] })),
-      AnimeApi.getAiringSchedule(1).catch(() => ({ data: [] as AnimeData[] })),
-    ]);
-
-    trending = trendingRes.data || [];
-    seasonal = seasonalRes.data || [];
-    topRated = topRatedRes.data || [];
-    recommendations = ((recsRes.data || []) as any[]).map((item) => ({
-      mal_id: item.entry.mal_id,
-      title: item.entry.title,
-      images: item.entry.images,
-      url: item.entry.url,
-      score: null,
-      type: 'TV',
-      episodes: null,
-    })) as unknown as AnimeData[];
-    schedules = (schedulesRes.data as unknown as AnimeData[]) || [];
-
-    // If every feed came back empty simultaneously, the API is likely down
-    jikanDown = [
-      trending, seasonal, topRated, recommendations, schedules,
-    ].every((feed) => feed.length === 0);
-  } catch (error) {
-    console.error('Failed to fetch dashboard content feeds:', error);
-    jikanDown = true;
-  }
+export default async function HomePage({ params }: HomePageProps) {
+  const { locale } = await params;
+  const orgSchema = getOrganizationSchema();
+  const websiteSchema = getWebsiteSchema();
 
   return (
     <div className="space-y-10 pb-16 animate-fade-in">
-
-      {/* Jikan API outage banner */}
-      {jikanDown && (
-        <div className="mx-4 md:mx-0 flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-          <span className="mt-0.5 text-yellow-400">⚠️</span>
-          <div>
-            <p className="font-semibold">Anime catalog temporarily unavailable</p>
-            <p className="text-yellow-300/70 text-xs mt-0.5">
-              MyAnimeList / Jikan API is experiencing downtime. Trending, seasonal, and top-rated
-              sections will reappear automatically once the service recovers. Streaming still works normally.
-            </p>
-          </div>
-        </div>
-      )}
+      {/* JSON-LD Schemas */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(orgSchema).replace(/</g, '\\u003c'),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(websiteSchema).replace(/</g, '\\u003c'),
+        }}
+      />
 
       {/* 1. Hero Spotlight Carousel Rotation (Suspended) */}
-      <Suspense fallback={<div className="h-[480px] shimmer-loader rounded-2xl animate-pulse" />}>
-        <HeroSection
-          trending={trending}
-          seasonal={seasonal}
-          schedules={schedules}
-          topRated={topRated}
-          recommendations={recommendations}
-        />
+      <Suspense fallback={<HeroSkeleton />}>
+        <HeroSection />
       </Suspense>
 
       {/* 2. Quick Actions Row (Suspended) */}
-      <Suspense fallback={<div className="h-16 shimmer-loader rounded-xl animate-pulse" />}>
+      <Suspense fallback={<div className="h-16 shimmer-loader rounded-xl" />}>
         <QuickActionsSection />
       </Suspense>
 
@@ -170,27 +141,35 @@ export default async function HomePage() {
       <RecentHistory />
 
       {/* 3. Continue Watching & User Dashboard Stats (Suspended) */}
-      <Suspense fallback={<div className="h-64 shimmer-loader rounded-2xl animate-pulse" />}>
+      <Suspense fallback={<div className="h-64 shimmer-loader rounded-2xl" />}>
         <UserDashboardSection />
       </Suspense>
 
       {/* ─── Content Feed Carousels ─── */}
       <div className="space-y-12">
         {/* Trending Now */}
-        <TrendingNow items={trending} />
+        <Suspense fallback={<SectionSkeleton count={6} />}>
+          <TrendingSection />
+        </Suspense>
 
         {/* Popular This Season */}
-        <SeasonalAnime items={seasonal} />
+        <Suspense fallback={<SectionSkeleton count={6} />}>
+          <SeasonalSection />
+        </Suspense>
 
         {/* Top Rated */}
-        <TopRated items={topRated} />
+        <Suspense fallback={<SectionSkeleton count={6} />}>
+          <TopRatedSection />
+        </Suspense>
 
         {/* New Episodes Today */}
-        <RecentlyUpdated items={seasonal.slice(6, 18)} />
+        <Suspense fallback={<SectionSkeleton count={6} />}>
+          <RecentlyUpdatedSection />
+        </Suspense>
 
         {/* Recommended For You (logged-in only; Suspended) */}
         <Suspense fallback={null}>
-          <UserRecommendationsSection recommendations={recommendations} />
+          <UserRecommendationsSection />
         </Suspense>
 
         {/* Genres */}
@@ -201,25 +180,60 @@ export default async function HomePage() {
 }
 
 // ─── Suspenseful Server Component: Hero Section ──────────────────────────────
-async function HeroSection({
-  trending,
-  seasonal,
-  schedules,
-  topRated,
-  recommendations,
-}: {
-  trending: AnimeData[];
-  seasonal: AnimeData[];
-  schedules: AnimeData[];
-  topRated: AnimeData[];
-  recommendations: AnimeData[];
-}) {
+async function HeroSection() {
   const session = await auth();
   const userId = session?.user?.id;
 
+  let trending: AnimeData[] = [];
+  let seasonal: AnimeData[] = [];
+  let topRated: AnimeData[] = [];
+  let recommendations: AnimeData[] = [];
+  let schedules: AnimeData[] = [];
   let continueWatching: any[] = [];
-  if (userId) {
-    continueWatching = await AnimeApi.getContinueWatching(userId).catch(() => []);
+
+  try {
+    const promises: Promise<any>[] = [
+      AnimeApi.getTrendingAnime(1).catch(() => ({ data: [] })),
+      AnimeApi.getSeasonalAnime(1).catch(() => ({ data: [] })),
+      AnimeApi.getTopRatedAnime(1).catch(() => ({ data: [] })),
+      AnimeApi.getRecentAnimeRecommendations(1).catch(() => ({ data: [] })),
+      AnimeApi.getAiringSchedule(1).catch(() => ({ data: [] })),
+    ];
+    
+    if (userId) {
+      promises.push(AnimeApi.getContinueWatching(userId).catch(() => []));
+    }
+
+    const [
+      trendingRes,
+      seasonalRes,
+      topRatedRes,
+      recsRes,
+      schedulesRes,
+      continueWatchingRes,
+    ] = await Promise.all(promises);
+
+    trending = trendingRes.data || [];
+    seasonal = seasonalRes.data || [];
+    topRated = topRatedRes.data || [];
+    const rawRecs = recsRes.data || [];
+    recommendations = rawRecs.map((item: any) => ({
+      mal_id: item.entry.mal_id,
+      title: item.entry.title,
+      images: item.entry.images,
+      url: item.entry.url,
+      score: null,
+      type: 'TV',
+      episodes: null,
+    })) as unknown as AnimeData[];
+    schedules = schedulesRes.data || [];
+    continueWatching = continueWatchingRes || [];
+  } catch (error) {
+    console.error('Failed to load HeroSection feeds:', error);
+  }
+
+  if (trending.length === 0 && seasonal.length === 0) {
+    return <SectionErrorFallback title="Spotlight Hero Spotlight" />;
   }
 
   return (
@@ -350,16 +364,112 @@ async function UserDashboardSection() {
   );
 }
 
+// ─── Sibling Async component: Trending Now ────────────────────────────────────
+async function TrendingSection() {
+  let trending: AnimeData[] = [];
+  let hasError = false;
+
+  try {
+    const res = await AnimeApi.getTrendingAnime(1);
+    trending = res.data || [];
+    if (trending.length === 0) throw new Error("Empty trending catalog");
+  } catch (error) {
+    console.error('TrendingSection failed to load:', error);
+    hasError = true;
+  }
+
+  if (hasError) {
+    return <SectionErrorFallback title="Trending Now" />;
+  }
+  return <TrendingNow items={trending} />;
+}
+
+// ─── Sibling Async component: Seasonal highlights ─────────────────────────────
+async function SeasonalSection() {
+  let seasonal: AnimeData[] = [];
+  let hasError = false;
+
+  try {
+    const res = await AnimeApi.getSeasonalAnime(1);
+    seasonal = res.data || [];
+    if (seasonal.length === 0) throw new Error("Empty seasonal catalog");
+  } catch (error) {
+    console.error('SeasonalSection failed to load:', error);
+    hasError = true;
+  }
+
+  if (hasError) {
+    return <SectionErrorFallback title="Popular This Season" />;
+  }
+  return <SeasonalAnime items={seasonal} />;
+}
+
+// ─── Sibling Async component: Top Rated ───────────────────────────────────────
+async function TopRatedSection() {
+  let topRated: AnimeData[] = [];
+  let hasError = false;
+
+  try {
+    const res = await AnimeApi.getTopRatedAnime(1);
+    topRated = res.data || [];
+    if (topRated.length === 0) throw new Error("Empty top rated catalog");
+  } catch (error) {
+    console.error('TopRatedSection failed to load:', error);
+    hasError = true;
+  }
+
+  if (hasError) {
+    return <SectionErrorFallback title="Top Rated Anime" />;
+  }
+  return <TopRated items={topRated} />;
+}
+
+// ─── Sibling Async component: Recently Updated ────────────────────────────────
+async function RecentlyUpdatedSection() {
+  let seasonal: AnimeData[] = [];
+  let hasError = false;
+
+  try {
+    const res = await AnimeApi.getSeasonalAnime(1);
+    seasonal = res.data || [];
+    if (seasonal.length === 0) throw new Error("Empty seasonal catalog for updates");
+  } catch (error) {
+    console.error('RecentlyUpdatedSection failed to load:', error);
+    hasError = true;
+  }
+
+  if (hasError) {
+    return <SectionErrorFallback title="New Episodes Today" />;
+  }
+  return <RecentlyUpdated items={seasonal.slice(6, 18)} />;
+}
+
 // ─── Suspenseful Server Component: User Recommendations ─────────────────────
-async function UserRecommendationsSection({
-  recommendations,
-}: {
-  recommendations: AnimeData[];
-}) {
+async function UserRecommendationsSection() {
   const session = await auth();
   const userId = session?.user?.id;
 
   if (!userId) return null;
 
+  let recommendations: AnimeData[] = [];
+  let hasError = false;
+
+  try {
+    const recsRes = await AnimeApi.getRecentAnimeRecommendations(1);
+    recommendations = ((recsRes.data || []) as any[]).map((item) => ({
+      mal_id: item.entry.mal_id,
+      title: item.entry.title,
+      images: item.entry.images,
+      url: item.entry.url,
+      score: null,
+      type: 'TV',
+      episodes: null,
+    })) as unknown as AnimeData[];
+  } catch (error) {
+    console.error('UserRecommendationsSection failed to load:', error);
+    hasError = true;
+  }
+
+  if (hasError || recommendations.length === 0) return null;
   return <RecommendedForYou items={recommendations} />;
 }

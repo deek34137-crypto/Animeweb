@@ -2,26 +2,33 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePWA } from '@/providers/PWAProvider';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Download, Share2, Plus, X, Smartphone } from 'lucide-react';
+import { Motion } from '@/config/motion';
+
+import Button from '@/components/ui/Button';
 
 export default function InstallAppPrompt() {
   const { isInstallable, installApp } = usePWA();
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
-
+  const shouldReduceMotion = useReducedMotion();
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     // Detect iOS
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    setIsIOS(ios);
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
 
     // Detect standalone mode (already installed)
     const standalone = window.matchMedia('(display-mode: standalone)').matches || 
-                       (navigator as any).standalone === true;
-    setIsStandalone(standalone);
+                       ('standalone' in navigator && (navigator as Navigator & { standalone?: boolean }).standalone === true);
+
+    // Defer state updates to avoid synchronous setState inside useEffect
+    Promise.resolve().then(() => {
+      setIsIOS(ios);
+      setIsStandalone(standalone);
+    });
 
     // Show custom prompt if not already running in standalone mode AND (installable on desktop/android OR is iOS)
     // Check local storage so we don't annoy the user if they closed the prompt previously
@@ -56,10 +63,14 @@ export default function InstallAppPrompt() {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 100 }}
+        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 100 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 100 }}
-        className="fixed bottom-6 left-6 z-[9990] w-[calc(100%-48px)] sm:w-[380px] p-5 rounded-2xl bg-bg-secondary/95 border border-border-glow shadow-2xl backdrop-blur-md"
+        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 100 }}
+        transition={{
+          duration: shouldReduceMotion ? Motion.duration.instant : Motion.duration.normal,
+          ease: Motion.easing.out,
+        }}
+        className="fixed bottom-6 left-6 z-[9990] w-[calc(100%-48px)] sm:w-[380px] p-5 rounded-3xl bg-surface-2 border border-border-subtle shadow-xl backdrop-blur-md"
       >
         {/* Close Button */}
         <button
@@ -70,11 +81,11 @@ export default function InstallAppPrompt() {
         </button>
 
         <div className="flex gap-4">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-accent-primary/10 border border-accent-primary/20 shrink-0">
-            <Smartphone className="w-6 h-6 text-accent-glow" />
+          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-surface-3 border border-border-subtle shrink-0">
+            <Smartphone className="w-6 h-6 text-accent-violet" />
           </div>
           <div className="flex flex-col gap-1 pr-6">
-            <h4 className="font-bold text-sm text-text-primary">Install AnimeWorld</h4>
+            <h4 className="font-bold text-sm text-text-primary font-display">Install AnimeWorld</h4>
             <p className="text-xs text-text-secondary leading-relaxed">
               Add Aniworld to your home screen for quick offline catalogs, watch progress logs, and release notifications.
             </p>
@@ -82,29 +93,28 @@ export default function InstallAppPrompt() {
         </div>
 
         <div className="mt-4 pt-4 border-t border-border-subtle flex items-center justify-end gap-2">
-          <button
+          <Button
+            variant="ghost"
+            size="xs"
             onClick={handleDismiss}
-            className="px-4 py-2 hover:bg-white/5 text-text-secondary hover:text-text-primary text-xs font-semibold rounded-lg transition"
           >
             Later
-          </button>
+          </Button>
 
           {isIOS ? (
             <div className="relative group">
-              <button
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-accent text-white text-xs font-semibold rounded-lg shadow-lg"
-              >
+              <Button variant="secondary" size="xs">
                 How to Install
-              </button>
+              </Button>
               
               {/* Tooltip containing instructions for iOS Safari */}
-              <div className="absolute bottom-full right-0 mb-3 w-64 p-4 rounded-xl bg-bg-elevated border border-border-glow shadow-2xl hidden group-hover:block z-[9999] text-xs text-text-secondary leading-relaxed animate-fade-in">
-                <div className="font-bold text-text-primary mb-2 flex items-center gap-1">
+              <div className="absolute bottom-full right-0 mb-3 w-64 p-4 rounded-2xl bg-surface-3 border border-border-subtle shadow-2xl hidden group-hover:block z-[9999] text-xs text-text-secondary leading-relaxed animate-fade-in">
+                <div className="font-bold text-text-primary mb-2 flex items-center gap-1 font-display">
                   <span>Instructions for iOS:</span>
                 </div>
                 <ol className="list-decimal list-inside flex flex-col gap-1.5">
                   <li>
-                    Tap Safari's share button{' '}
+                    Tap Safari&apos;s share button{' '}
                     <span className="inline-flex items-center p-0.5 bg-white/10 rounded">
                       <Share2 className="w-3.5 h-3.5 text-cyan-400" />
                     </span>
@@ -125,18 +135,19 @@ export default function InstallAppPrompt() {
                     </span>
                   </li>
                 </ol>
-                <div className="absolute top-full right-6 w-3 h-3 bg-bg-elevated border-r border-b border-border-glow transform rotate-45 -translate-y-1.5"></div>
+                <div className="absolute top-full right-6 w-3 h-3 bg-surface-3 border-r border-b border-border-subtle transform rotate-45 -translate-y-1.5"></div>
               </div>
             </div>
           ) : (
             isInstallable && (
-              <button
+              <Button
+                variant="secondary"
+                size="xs"
                 onClick={handleInstallClick}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-accent text-white text-xs font-semibold rounded-lg shadow-lg hover:shadow-accent-glow/30 transition duration-200"
+                leftIcon={<Download className="w-3 h-3" />}
               >
-                <Download className="w-3.5 h-3.5" />
                 Install
-              </button>
+              </Button>
             )
           )}
         </div>

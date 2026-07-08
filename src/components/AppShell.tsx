@@ -8,6 +8,14 @@ import Footer from '@/components/Footer';
 import SearchModal from '@/components/search/SearchModal';
 import { useSession } from 'next-auth/react';
 import { useWatchlistStore } from '@/store/useWatchlistStore';
+import PageTransition from '@/components/PageTransition';
+import dynamic from 'next/dynamic';
+
+const CommandPalette = dynamic(() => import('@/components/ui/CommandPalette'), { ssr: false });
+const ShortcutHelper = dynamic(() => import('@/components/ui/ShortcutHelper'), { ssr: false });
+const XPToastManager = dynamic(() => import('@/components/gamification/XPToastManager'), { ssr: false });
+const InstallAppPrompt = dynamic(() => import('@/components/ui/InstallAppPrompt'), { ssr: false });
+const QuickMenu = dynamic(() => import('@/components/dashboard/QuickMenu'), { ssr: false });
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -46,19 +54,41 @@ export default function AppShell({
   if (isWatchPage) {
     return (
       <div className="min-h-screen flex flex-col bg-bg-primary text-text-primary transition-colors duration-200">
+        {/* Skip navigation */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-accent-violet focus:text-white focus:rounded-xl focus:font-bold focus:text-sm focus:shadow-lg"
+        >
+          Skip to main content
+        </a>
         <Navbar onToggleSidebar={() => setSidebarOpen(true)} />
-        <main className="flex-grow w-full">
-          {children}
+        <main id="main-content" className="flex-grow w-full">
+          <PageTransition>
+            {children}
+          </PageTransition>
         </main>
         
         {/* Global Search Modal */}
         <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+        {/* Global Client Overlays */}
+        <CommandPalette />
+        <ShortcutHelper />
+        <XPToastManager />
+        <InstallAppPrompt />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen flex bg-bg-primary text-text-primary transition-colors duration-200">
+      {/* Skip navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-accent-violet focus:text-white focus:rounded-xl focus:font-bold focus:text-sm focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       {/* Persistent Left Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -72,8 +102,10 @@ export default function AppShell({
         <Navbar onToggleSidebar={() => setSidebarOpen(true)} />
 
         {/* Dynamic page content container */}
-        <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          {children}
+        <main id="main-content" className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <PageTransition>
+            {children}
+          </PageTransition>
         </main>
 
         <Footer />
@@ -81,6 +113,13 @@ export default function AppShell({
 
       {/* Global Search Modal */}
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Global Client Overlays */}
+      <CommandPalette />
+      <ShortcutHelper />
+      <XPToastManager />
+      <InstallAppPrompt />
+      <QuickMenu />
     </div>
   );
 }

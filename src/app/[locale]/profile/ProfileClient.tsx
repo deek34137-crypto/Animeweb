@@ -10,9 +10,11 @@ import {
   Award, Flame
 } from 'lucide-react';
 import Progress from '@/components/ui/Progress';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ACHIEVEMENTS } from '@/lib/gamification/achievements-list';
 import { useWatchlistStore } from '@/store/useWatchlistStore';
 import { useSession } from 'next-auth/react';
+import { CollectionsSkeleton, InsightsSkeleton, ActivityLogSkeleton } from '@/components/ui/Skeleton';
 
 interface ListEntry {
   id: string;
@@ -28,6 +30,29 @@ interface ListEntry {
   updatedAt: Date;
 }
 
+interface BadgeItem {
+  id: string;
+  icon: string;
+  name: string;
+  description: string;
+}
+
+interface CollectionItem {
+  id: string;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  isPrivate: boolean;
+  visibility: string;
+  coverSelectionType: string;
+  coverAnimeId: string | null;
+  coverImage: string | null;
+  entries: {
+    animeId: string;
+    animeImage: string;
+  }[];
+}
+
 interface ProfileClientProps {
   listEntries: ListEntry[];
   stats: {
@@ -40,7 +65,7 @@ interface ProfileClientProps {
   };
   challenges?: any[];
   achievements?: string[];
-  pinnedBadges?: any[];
+  pinnedBadges?: BadgeItem[];
   showcaseAnime?: any;
   profile?: any;
   accentColor?: string;
@@ -84,7 +109,7 @@ export default function ProfileClient({
   const [showBulkCollectionDropdown, setShowBulkCollectionDropdown] = useState(false);
 
   // Collections, Insights, and Activity states
-  const [collections, setCollections] = useState<any[]>([]);
+  const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [deletedCollections, setDeletedCollections] = useState<any[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -113,6 +138,7 @@ export default function ProfileClient({
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (undoActive) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUndoCountdown(10);
       interval = setInterval(() => {
         setUndoCountdown(prev => {
@@ -127,17 +153,6 @@ export default function ProfileClient({
     }
     return () => clearInterval(interval);
   }, [undoActive, clearUndo]);
-
-  // Fetch specialized tab contents
-  useEffect(() => {
-    if (activeTab === 'collections' && isLoggedIn) {
-      fetchCollections();
-    } else if (activeTab === 'insights' && isLoggedIn) {
-      fetchInsights();
-    } else if (activeTab === 'activity' && isLoggedIn) {
-      fetchActivity();
-    }
-  }, [activeTab, isLoggedIn]);
 
   const fetchCollections = async () => {
     setCollectionsLoading(true);
@@ -183,6 +198,18 @@ export default function ProfileClient({
       setActivityLoading(false);
     }
   };
+
+  // Fetch specialized tab contents
+  useEffect(() => {
+    if (activeTab === 'collections' && isLoggedIn) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchCollections();
+    } else if (activeTab === 'insights' && isLoggedIn) {
+      fetchInsights();
+    } else if (activeTab === 'activity' && isLoggedIn) {
+      fetchActivity();
+    }
+  }, [activeTab, isLoggedIn]);
 
   const handleCreateCollection = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,7 +447,7 @@ export default function ProfileClient({
             <div className="bg-surface-2 border border-border-default rounded-3xl p-6 flex flex-col justify-between shadow-sm md:col-span-1 space-y-4">
               <h3 className="text-xs font-black uppercase tracking-widest text-text-muted">Pinned Badges</h3>
               <div className="flex flex-wrap gap-3">
-                {pinnedBadges.map((badge: any) => (
+                {pinnedBadges.map((badge) => (
                   <div
                     key={badge.id}
                     className="group relative flex items-center justify-center w-12 h-12 rounded-2xl bg-surface-3 border border-border-subtle hover:border-accent-violet/40 transition cursor-help shadow-sm text-2xl"
@@ -556,11 +583,12 @@ export default function ProfileClient({
           )}
 
           {filteredEntries.length === 0 ? (
-            <div className="glass-panel border border-border-default rounded-3xl p-16 text-center max-w-sm mx-auto space-y-3">
-              <Film size={36} className="text-text-disabled mx-auto animate-pulse" />
-              <h3 className="text-sm font-bold text-text-primary">No Anime Found</h3>
-              <p className="text-xs text-text-muted">No titles matched your current filters.</p>
-            </div>
+            <EmptyState
+              icon={Film}
+              title="No Anime Found"
+              description="No titles matched your current filters."
+              size="sm"
+            />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {filteredEntries.map((entry) => {
@@ -688,21 +716,20 @@ export default function ProfileClient({
           </div>
 
           {collectionsLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 size={32} className="animate-spin text-accent-violet" />
-            </div>
+            <CollectionsSkeleton />
           ) : collections.length === 0 ? (
-            <div className="glass-panel border border-border-default rounded-3xl p-16 text-center max-w-sm mx-auto space-y-3">
-              <FolderCheck size={36} className="text-text-disabled mx-auto" />
-              <h3 className="text-sm font-bold text-text-primary">No Collections Yet</h3>
-              <p className="text-xs text-text-muted">Create a custom list to group your favorite shows.</p>
-            </div>
+            <EmptyState
+              icon={FolderCheck}
+              title="No Collections Yet"
+              description="Create a custom list to group your favorite shows."
+              size="sm"
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {collections.map((col) => {
                 const count = col.entries.length;
                 const cover = col.coverSelectionType === 'ANIME' && col.coverAnimeId
-                  ? col.entries.find((e: any) => e.animeId === col.coverAnimeId)?.animeImage
+                  ? col.entries.find((e) => e.animeId === col.coverAnimeId)?.animeImage
                   : (col.coverSelectionType === 'CUSTOM' ? col.coverImage : col.entries[0]?.animeImage);
 
                 return (
@@ -798,9 +825,7 @@ export default function ProfileClient({
           </div>
 
           {insightsLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 size={32} className="animate-spin text-accent-violet" />
-            </div>
+            <InsightsSkeleton />
           ) : insights ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Left bento: Circular Progress stats */}
@@ -885,15 +910,14 @@ export default function ProfileClient({
           </div>
 
           {activityLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 size={32} className="animate-spin text-accent-violet" />
-            </div>
+            <ActivityLogSkeleton />
           ) : activity.length === 0 ? (
-            <div className="glass-panel border border-border-default rounded-3xl p-16 text-center space-y-3">
-              <Calendar size={36} className="text-text-disabled mx-auto" />
-              <h3 className="text-sm font-bold text-text-primary">No Activity Yet</h3>
-              <p className="text-xs text-text-muted">Your milestones will be displayed here as you watch.</p>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="No Activity Yet"
+              description="Your milestones will be displayed here as you watch."
+              size="md"
+            />
           ) : (
             <div className="relative border-l-2 border-border-subtle ml-4 pl-6 space-y-6">
               {activity.map((log) => (
@@ -998,6 +1022,7 @@ export default function ProfileClient({
               const pct = Math.min(100, Math.round((ch.progress / ch.target) * 100));
               const isCompleted = ch.completedAt !== null;
               
+              // eslint-disable-next-line react-hooks/purity
               const hrs = Math.max(0, Math.ceil((new Date(ch.resetAt).getTime() - Date.now()) / (1000 * 60 * 60)));
               
               return (

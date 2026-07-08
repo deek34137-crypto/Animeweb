@@ -1,8 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Wifi, WifiOff, RefreshCw, X, Download } from 'lucide-react';
+import { useWatchlistStore } from '@/store/useWatchlistStore';
+import { Motion } from '@/config/motion';
 
 // BeforeInstallPromptEvent is not yet in the standard TypeScript DOM lib.
 interface BeforeInstallPromptEvent extends Event {
@@ -38,6 +40,7 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -47,6 +50,8 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       setIsOnline(true);
       setToastType('online');
       setShowStatusToast(true);
+      // Sync watchlist on reconnect
+      useWatchlistStore.getState().fetchList().catch(() => {});
       // Automatically hide "back online" toast after 3 seconds
       setTimeout(() => setShowStatusToast(false), 3000);
     };
@@ -145,11 +150,14 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       <AnimatePresence>
         {showStatusToast && (
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 50, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border backdrop-blur-xl transition-all duration-300"
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.95 }}
+            transition={{
+              duration: shouldReduceMotion ? Motion.duration.instant : Motion.duration.normal,
+              ease: Motion.easing.out,
+            }}
+            className="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border backdrop-blur-xl"
             style={{
               background: toastType === 'online' ? 'rgba(6, 182, 212, 0.15)' : 'rgba(239, 68, 68, 0.15)',
               borderColor: toastType === 'online' ? 'rgba(6, 182, 212, 0.3)' : 'rgba(239, 68, 68, 0.3)',
@@ -191,9 +199,13 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       <AnimatePresence>
         {updateAvailable && (
           <motion.div
-            initial={{ opacity: 0, y: -50 }}
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -20 }}
+            transition={{
+              duration: shouldReduceMotion ? Motion.duration.instant : Motion.duration.normal,
+              ease: Motion.easing.out,
+            }}
             className="fixed top-24 left-1/2 -translate-x-1/2 z-[9998] flex items-center justify-between gap-4 w-[90%] max-w-lg p-4 rounded-xl bg-bg-secondary/95 border border-border-glow shadow-2xl backdrop-blur-md"
           >
             <div className="flex items-center gap-3">

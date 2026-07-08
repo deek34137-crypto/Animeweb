@@ -112,30 +112,56 @@ export async function GET(request: NextRequest) {
     });
 
     // 5. Enrich with relations or recommendations if requested
-    const enrichedResults = await Promise.all(
-      results.map(async (anime) => {
-        const item: any = {
-          ...anime,
-          genres: anime.genres.map((g) => g.genre),
-          studios: (anime as any).studios ? (anime as any).studios.map((s: any) => s.studio) : undefined,
-        };
+    const animeIds = results.map((r) => r.animeId);
 
-        if (includeRelations) {
-          item.relations = await db.animeRelations.findMany({
-            where: { animeId: anime.animeId },
-          });
-        }
+    let allRelations: any[] = [];
+    if (includeRelations && animeIds.length > 0) {
+      allRelations = await db.animeRelations.findMany({
+        where: { animeId: { in: animeIds } },
+      });
+    }
 
-        if (includeRecommendations) {
-          item.recommendations = await db.animeRecommendationCache.findMany({
-            where: { animeId: anime.animeId },
-            take: 5,
-          });
-        }
+    let allRecommendations: any[] = [];
+    if (includeRecommendations && animeIds.length > 0) {
+      allRecommendations = await db.animeRecommendationCache.findMany({
+        where: { animeId: { in: animeIds } },
+      });
+    }
 
-        return item;
-      })
-    );
+    // Map relations and recommendations by animeId for O(1) lookups
+    const relationsMap = new Map<string, any[]>();
+    allRelations.forEach((rel) => {
+      const list = relationsMap.get(rel.animeId) || [];
+      list.push(rel);
+      relationsMap.set(rel.animeId, list);
+    });
+
+    const recommendationsMap = new Map<string, any[]>();
+    allRecommendations.forEach((rec) => {
+      const list = recommendationsMap.get(rec.animeId) || [];
+      if (list.length < 5) { // Cap at 5 recommendations per item
+        list.push(rec);
+        recommendationsMap.set(rec.animeId, list);
+      }
+    });
+
+    const enrichedResults = results.map((anime) => {
+      const item: any = {
+        ...anime,
+        genres: anime.genres.map((g) => g.genre),
+        studios: (anime as any).studios ? (anime as any).studios.map((s: any) => s.studio) : undefined,
+      };
+
+      if (includeRelations) {
+        item.relations = relationsMap.get(anime.animeId) || [];
+      }
+
+      if (includeRecommendations) {
+        item.recommendations = recommendationsMap.get(anime.animeId) || [];
+      }
+
+      return item;
+    });
 
     return NextResponse.json({
       data: enrichedResults,
@@ -148,7 +174,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Browse API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

@@ -3,6 +3,8 @@
 // Use startTimer(name) to begin, timer.mark(label) to add intermediate markers,
 // and timer.finish() to output total duration.
 
+import { logger } from './logger';
+
 export type Timer = {
   mark: (label: string) => void;
   finish: () => void;
@@ -22,9 +24,8 @@ export function startTimer(name: string): Timer {
         name,
         totalMs: total,
         marks,
-        timestamp: new Date().toISOString(),
       };
-      console.log(JSON.stringify(payload));
+      logger.debug(`Profiling Completed: ${name} ran in ${total}ms`, payload);
     },
   };
 }

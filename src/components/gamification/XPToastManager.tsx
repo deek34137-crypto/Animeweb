@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Star, Sparkles, X } from 'lucide-react';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 
 interface XPToast {
   id: string;
@@ -13,6 +15,9 @@ interface XPToast {
 export default function XPToastManager() {
   const [toasts, setToasts] = useState<XPToast[]>([]);
   const [levelUpData, setLevelUpData] = useState<{ level: number } | null>(null);
+  const reduceMotion = useReducedMotion();
+  const awesomeBtnRef = useRef<HTMLButtonElement>(null);
+  const trapRef = useFocusTrap(!!levelUpData, () => setLevelUpData(null));
 
   useEffect(() => {
     const handleXPAwarded = (e: Event) => {
@@ -45,19 +50,24 @@ export default function XPToastManager() {
   return (
     <>
       {/* Floating XP Toasts */}
-      <div className="fixed bottom-6 left-6 z-50 flex flex-col gap-2 pointer-events-none select-none">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="false"
+        className="fixed bottom-6 left-6 z-50 flex flex-col gap-2 pointer-events-none select-none"
+      >
         <AnimatePresence>
           {toasts.map((toast) => (
             <motion.div
               key={toast.id}
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              initial={reduceMotion ? {} : { opacity: 0, y: 30, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, x: -50, scale: 0.9 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              exit={reduceMotion ? {} : { opacity: 0, x: -50, scale: 0.9 }}
+              transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 25 }}
               className="flex items-center gap-3 px-4 py-3 bg-[#0A0A10]/90 border border-accent-violet/30 rounded-2xl shadow-[0_8px_32px_rgba(124,58,237,0.15)] backdrop-blur-md"
             >
               <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-accent-violet/10 border border-accent-violet/30 text-accent-violet">
-                <Star size={16} className="fill-current" />
+                <Star size={16} className="fill-current" aria-hidden="true" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-black text-white">+{toast.xp} XP</span>
@@ -71,7 +81,13 @@ export default function XPToastManager() {
       {/* Level Up Confetti / Overlay Celebration */}
       <AnimatePresence>
         {levelUpData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm">
+          <div
+            ref={trapRef as React.RefCallback<HTMLDivElement>}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="levelup-heading"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+          >
             {/* Ambient glowing backdrops */}
             <div className="absolute w-[400px] h-[400px] rounded-full bg-accent-violet/20 blur-[120px] pointer-events-none" />
             <div className="absolute w-[300px] h-[300px] rounded-full bg-accent-gold/10 blur-[100px] pointer-events-none" />
@@ -82,37 +98,35 @@ export default function XPToastManager() {
               exit={{ opacity: 0, scale: 0.8 }}
               className="relative max-w-sm w-full mx-4 bg-surface-2 border border-border-default p-8 rounded-3xl text-center shadow-2xl overflow-hidden space-y-6"
             >
-              {/* Confetti particles effect (pure CSS / dynamic tags) */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                {Array.from({ length: 15 }).map((_, i) => {
-                  const delay = i * 0.1;
-                  const left = Math.random() * 100;
-                  const size = Math.random() * 8 + 4;
-                  const color = ['#7c3aed', '#ec4899', '#eab308', '#06b6d4'][i % 4];
-                  return (
-                    <motion.div
-                      key={i}
-                      initial={{ y: -20, x: `${left}%`, opacity: 1, rotate: 0 }}
-                      animate={{ y: 400, rotate: 360, opacity: 0 }}
-                      transition={{ duration: 2.5, delay, repeat: Infinity, ease: 'linear' }}
-                      className="absolute rounded-full"
-                      style={{
-                        width: size,
-                        height: size,
-                        backgroundColor: color,
-                        top: 0
-                      }}
-                    />
-                  );
-                })}
-              </div>
+              {/* Confetti particles — hidden when reduced motion is preferred */}
+              {!reduceMotion && (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+                  {Array.from({ length: 15 }).map((_, i) => {
+                    const delay = i * 0.1;
+                    const left = Math.random() * 100;
+                    const size = Math.random() * 8 + 4;
+                    const color = ['#7c3aed', '#ec4899', '#eab308', '#06b6d4'][i % 4];
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ y: -20, x: `${left}%`, opacity: 1, rotate: 0 }}
+                        animate={{ y: 400, rotate: 360, opacity: 0 }}
+                        transition={{ duration: 2.5, delay, repeat: Infinity, ease: 'linear' }}
+                        className="absolute rounded-full"
+                        style={{ width: size, height: size, backgroundColor: color, top: 0 }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Close Button */}
               <button
                 onClick={() => setLevelUpData(null)}
                 className="absolute top-4 right-4 text-text-muted hover:text-white transition p-1 hover:bg-white/5 rounded-xl border border-white/5"
+                aria-label="Close level up celebration"
               >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
               </button>
 
               <div className="relative inline-flex items-center justify-center">
@@ -128,7 +142,7 @@ export default function XPToastManager() {
 
               <div className="space-y-1">
                 <p className="text-[10px] text-accent-gold font-bold uppercase tracking-widest">Player Progression</p>
-                <h2 className="text-2xl font-black text-white font-display tracking-tight">LEVEL UP!</h2>
+                <h2 id="levelup-heading" className="text-2xl font-black text-white font-display tracking-tight">LEVEL UP!</h2>
               </div>
 
               <div className="flex items-center justify-center gap-4 bg-surface-3 p-4 rounded-2xl border border-border-subtle">
@@ -149,6 +163,7 @@ export default function XPToastManager() {
               </p>
 
               <button
+                ref={awesomeBtnRef}
                 onClick={() => setLevelUpData(null)}
                 className="w-full py-3 bg-gradient-to-r from-accent-violet to-accent-sakura text-white text-xs font-bold rounded-2xl shadow-lg hover:brightness-110 active:scale-[0.98] transition"
               >

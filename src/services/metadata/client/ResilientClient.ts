@@ -4,7 +4,7 @@ import { ProviderType } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
 const breakerOptions = {
-  timeout: 5000,                // 5s timeout budget
+  timeout: 10000,               // 10s timeout budget
   errorThresholdPercentage: 50, // open circuit if 50% fails
   resetTimeout: 30000           // wait 30s before going HALF-OPEN
 };
@@ -26,13 +26,9 @@ export class ResilientClient {
       breaker.on('halfOpen', () => logger.info(`Circuit Breaker HALF-OPEN for provider: ${provider}`));
       breaker.on('close', () => logger.info(`Circuit Breaker CLOSED (Healthy) for provider: ${provider}`));
 
-      breaker.fallback(async (fn: any, err: any) => {
+      breaker.fallback((fn: any, err: any) => {
         logger.error(`Circuit Breaker fallback active for ${provider}:`, err);
-        return {
-          statusCode: 503,
-          data: null,
-          message: `Provider ${provider} is quarantined/offline (circuit open)`
-        };
+        throw err || new Error(`Provider ${provider} is quarantined/offline (circuit open)`);
       });
 
       this.breakers.set(provider, breaker);

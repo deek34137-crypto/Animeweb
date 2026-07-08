@@ -105,6 +105,9 @@ model User {
   claimedFlags        FlaggedItem[]       @relation("claimant")
   resolvedFlags       FlaggedItem[]       @relation("resolver")
   pushSubscriptions   PushSubscription[]
+  episodeProgresses   EpisodeProgress[]
+  episodeSessions     EpisodeSession[]
+  playerPreferences   PlayerPreferences?
 }
 
 model Account {
@@ -1023,6 +1026,11 @@ model Episode {
   createdAt    DateTime @default(now())
   
   anime        Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  markers      EpisodeMarker[]
+  progresses   EpisodeProgress[]
+  sessions     EpisodeSession[]
+  metadataMain EpisodeMetadata?   @relation("EpisodeMetadataMain")
+  metadataNext EpisodeMetadata[]  @relation("EpisodeMetadataNext")
 
   @@unique([animeId, number])
 }
@@ -1111,4 +1119,134 @@ model DeadLetterQueue {
   errorStack     String
   resolved       Boolean   @default(false)
   createdAt      DateTime  @default(now())
+}
+
+enum MarkerSource {
+  EDITOR
+  COMMUNITY
+  AI
+  IMPORTED
+}
+
+enum ProgressSource {
+  WEB
+  MOBILE
+  WATCH_PARTY
+  SYNC
+}
+
+enum SessionEndReason {
+  COMPLETED
+  CLOSED
+  ERROR
+  NEXT_EPISODE
+  MANUAL_STOP
+  NETWORK_FAILURE
+}
+
+enum EpisodeMarkerType {
+  OP
+  ED
+  RECAP
+  PREVIEW
+  CREDITS
+  POST_CREDITS
+  FIGHT
+  FLASHBACK
+  STORY
+  CUSTOM
+}
+
+model PlayerPreferences {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  subtitleLanguage      String   @default("en")
+  defaultAudioLanguage  String   @default("ja")
+  autoSkipOP            Boolean  @default(false)
+  autoSkipED            Boolean  @default(false)
+  skipRecaps            Boolean  @default(false)
+  skipCredits           Boolean  @default(false)
+  alwaysResume          Boolean  @default(true)
+  playbackSpeed         Float    @default(1.0)
+  autoplay              Boolean  @default(true)
+  autoNext              Boolean  @default(true)
+  version               Int      @default(1)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model EpisodeMarker {
+  id          String            @id @default(uuid())
+  episodeId   String
+  episode     Episode           @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  type        EpisodeMarkerType
+  startTime   Float
+  endTime     Float
+  source      MarkerSource
+  confidence  Float             @default(0.5)
+  verified    Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([episodeId, type])
+  @@index([verified])
+  @@index([source])
+}
+
+model EpisodeProgress {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodeId       String
+  episode         Episode        @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  currentTime     Float          @default(0.0)
+  progressPercent Float          @default(0.0)
+  completed       Boolean        @default(false)
+  watchCount      Int            @default(1)
+  updatedFrom     ProgressSource?
+  lastWatched     DateTime       @updatedAt
+
+  @@unique([userId, episodeId])
+}
+
+model EpisodeSession {
+  id                 String            @id @default(uuid())
+  userId             String
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodeId          String
+  episode            Episode           @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  startedAt          DateTime          @default(now())
+  endedAt            DateTime?
+  durationWatched    Float             @default(0.0)
+  playbackSpeedUsed  Float             @default(1.0)
+  serverUsed         String?
+  qualityUsed        String?
+  subtitleLanguage   String?
+  skippedOpening     Boolean           @default(false)
+  skippedEnding      Boolean           @default(false)
+  errorsEncountered  Int               @default(0)
+  endedReason        SessionEndReason?
+}
+
+model EpisodeMetadata {
+  id              String         @id @default(uuid())
+  episodeId       String         @unique
+  episode         Episode        @relation("EpisodeMetadataMain", fields: [episodeId], references: [id], onDelete: Cascade)
+  runtime         Float
+  openingLength   Float?
+  endingLength    Float?
+  previewLength   Float?
+  hasCredits      Boolean        @default(true)
+  hasPostCredits  Boolean        @default(false)
+  nextEpisodeId   String?
+  nextEpisode     Episode?       @relation("EpisodeMetadataNext", fields: [nextEpisodeId], references: [id], onDelete: SetNull)
+
+  // Versioning and auditing
+  version         Int            @default(1)
+  generatedBy     String?
+  generatedAt     DateTime?      @default(now())
+  updatedBy       String?
 }

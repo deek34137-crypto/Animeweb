@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "cursors:build": "node scripts/generate-cursor-manifest.js",
-    "build": "npm run cursors:build && prisma generate && next build",
+    "build": "node scripts/update-pwa-version.js && npm run cursors:build && prisma generate && next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "postinstall": "prisma generate",
     "sync-user-stats": "npx tsx scripts/sync-user-stats.ts",
+    "smoke-test": "npx tsx scripts/smoke-test.ts",
     "analyze": "ANALYZE=true npm run build",
     "typecheck": "tsc --noEmit"
   },

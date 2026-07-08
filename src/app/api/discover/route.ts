@@ -163,7 +163,7 @@ export async function GET() {
   } catch (error: any) {
     console.error('Discover Hub API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

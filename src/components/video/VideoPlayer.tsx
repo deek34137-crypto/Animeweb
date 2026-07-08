@@ -1,43 +1,35 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw,
-  SkipForward, SkipBack, Settings, Subtitles, Loader2, PlayCircle, HelpCircle, Tv, Globe, Server,
-  Expand, Shrink, Bookmark
+  SkipForward, SkipBack, Settings, HelpCircle, Tv, Globe, Server,
+  Expand, Shrink, Bookmark, List
 } from 'lucide-react';
-import { progressService } from '@/lib/streaming/progress';
-import { LOCAL_SKIP_TIMES } from '@/lib/streaming/skiptimes';
 import PlayerError from './PlayerError';
 import PlayerSettings from './PlayerSettings';
 import ShortcutsOverlay from './ShortcutsOverlay';
 import StreamDebugPanel from './StreamDebugPanel';
 import BookmarksPanel from './BookmarksPanel';
+import SeekBar from './SeekBar';
+import ChaptersMenu from './ChaptersMenu';
+import NextEpisodeOverlay from './NextEpisodeOverlay';
 import { useRouter } from '@/navigation';
-import { savePlayerState, restorePlayerState } from '@/lib/usePlayerSession';
+import { PlayerProvider } from './PlayerContext';
+import { restorePlayerState } from '@/lib/usePlayerSession';
+import { usePlayerPreferences } from '@/hooks/usePlayerPreferences';
+import { useSkipMarkers } from '@/hooks/useSkipMarkers';
+import { useStoryboard } from '@/hooks/useStoryboard';
+import { usePlaybackControls } from '@/hooks/usePlaybackControls';
+import { useNextEpisode } from '@/hooks/useNextEpisode';
+import { useBufferDiagnostics } from '@/hooks/useBufferDiagnostics';
+import { useResumeProgress } from '@/hooks/useResumeProgress';
+import { useVideoSession } from '@/hooks/useVideoSession';
+import type { EpisodeSource, SubtitleTrack } from '@/lib/player/types';
+import type { UserSyncedPreferences } from '@/lib/player/preferences/preferences';
 
 // STRICT IFRAME SANDBOX TOGGLE
-// Set to false to disable strict iframe sandboxing and allow all popups/redirects
 export const ENABLE_IFRAME_SANDBOX = false;
-
-interface EpisodeSource {
-  url: string;
-  quality: '1080p' | '720p' | '480p' | '360p' | 'auto' | 'default';
-  isM3U8: boolean;
-  lang?: string;
-}
-
-interface SubtitleTrack {
-  label: string;
-  lang: string;
-  url: string;
-}
-
-interface SkipInterval {
-  startTime: number;
-  endTime: number;
-  type: 'op' | 'ed' | 'recap';
-}
 
 interface VideoPlayerProps {
   animeId: string;
@@ -81,10 +73,6 @@ const getProviderFriendlyName = (name: string): string => {
     case 'toonplay': return 'ToonPlay';
     case 'toonworld': return 'ToonWorld';
     case 'vidnest': return 'VidNest';
-    case 'desidubanime': return 'Hindi Dub';
-    case 'piratexplay': return 'PirateX';
-    case 'tryembed': return 'TryEmbed';
-    case 'animeplay': return 'AnimePlay';
     case 'consumet': return 'Multilingual 1';
     case 'animepahe': return 'Multilingual 2';
     default: return name.charAt(0).toUpperCase() + name.slice(1);
@@ -129,77 +117,54 @@ export default function VideoPlayer({
   const playerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const handlePrev = onPrevEpisode || (() => {
-    if (episodeNumber > 1) {
-      router.push(`/watch/${animeId}/${episodeNumber - 1}`);
-    }
-  });
+  // Unified preferences hook
+  const {
+    preferences,
+    loading: preferencesLoading,
+    setSyncedPreference,
+    debouncedSetDevice,
+  } = usePlayerPreferences();
 
-  const handleNext = onNextEpisode || (() => {
-    if (totalEpisodes && episodeNumber < totalEpisodes) {
-      router.push(`/watch/${animeId}/${episodeNumber + 1}`);
-    }
-  });
-
-  // Dynamic Provider & Audio Language States
-  const [subSourcesList, setSubSourcesList] = useState<EpisodeSource[]>(subSources.length > 0 ? subSources : sources);
-  const [dubSourcesList, setDubSourcesList] = useState<EpisodeSource[]>(dubSources);
-  const [hindiSourcesList, setHindiSourcesList] = useState<EpisodeSource[]>(hindiSources);
-  const [tamilSourcesList, setTamilSourcesList] = useState<EpisodeSource[]>(tamilSources);
-  const [teluguSourcesList, setTeluguSourcesList] = useState<EpisodeSource[]>(teluguSources);
-  const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>(subtitles);
-  const [providersList, setProvidersList] = useState<string[]>(providers.length > 0 ? providers : ['mock']);
-  const [currentProviderName, setCurrentProviderName] = useState<string>(currentProvider);
-  const [currentLanguage, setCurrentLanguage] = useState<'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu'>(() => {
-    // 1. Dynamic server-side/first render fallback
-    const hindiCount = (hindiSources && hindiSources.length) || 0;
-    const subCount = (subSources && subSources.length) || (sources && sources.length) || 0;
-    const dubCount = (dubSources && dubSources.length) || 0;
-    const tamilCount = (tamilSources && tamilSources.length) || 0;
-    const teluguCount = (teluguSources && teluguSources.length) || 0;
-
-    // 2. Default priorities: Hindi -> Japanese (SUB) -> English (DUB) -> Tamil -> Telugu
-    if (hindiCount > 0) return 'hindi';
-    if (subCount > 0) return 'sub';
-    if (dubCount > 0) return 'dub';
-    if (tamilCount > 0) return 'tamil';
-    if (teluguCount > 0) return 'telugu';
-    return 'sub';
-  });
-  const [isFallbackActive, setIsFallbackActive] = useState<boolean>(isFallback);
-  const [fallbackReasonText, setFallbackReasonText] = useState<string | undefined>(fallbackReason);
-  const [hasNativeHindi, setHasNativeHindi] = useState(false);
-
-  const [matchedTitle, setMatchedTitle] = useState<string | undefined>(initialMatchedTitle);
-  const [matchedSlug, setMatchedSlug] = useState<string | undefined>(initialMatchedSlug);
-  const [searchCount, setSearchCount] = useState<number | undefined>(initialSearchCount);
-  const [episodeCountFound, setEpisodeCountFound] = useState<number | undefined>(initialEpisodeCountFound);
-  const [providerSlug, setProviderSlug] = useState<string | undefined>(initialProviderSlug);
-
-  // Player States
+  // Core Playback State
   const [isPlaying, setIsPlaying] = useState(false);
-
-  // Sync media session playback state
-  useEffect(() => {
-    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-    }
-  }, [isPlaying]);
   const [currentTime, setCurrentTime] = useState(initialPosition);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
+  const [volume, setVolume] = useState(1.0);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [activeSourceIdx, setActiveSourceIdx] = useState(0);
-  const [activeSubtitleIdx, setActiveSubtitleIdx] = useState(-1); // -1 = off
-  const [isAutoplayNext, setIsAutoplayNext] = useState(true);
-  const [isAutoSkipGlobal, setIsAutoSkipGlobal] = useState(false);
-  const [isAutoSkipLocal, setIsAutoSkipLocal] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [activeSubtitleIdx, setActiveSubtitleIdx] = useState(-1);
 
+  // UI Panels
+  const [showSettings, setShowSettings] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
+  const [showChapters, setShowChapters] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  // Mobile gesture/swipe states
+  const [touchFeedback, setTouchFeedback] = useState<'back' | 'forward' | null>(null);
+  const [showVolumeIndicator, setShowVolumeIndicator] = useState(false);
+  const [gestureVolume, setGestureVolume] = useState(1.0);
+  const [isLongPressing2x, setIsLongPressing2x] = useState(false);
+
+  // Resume watched position
+  const [showResumePromptState, setShowResumePromptState] = useState(false);
+  const [resumeTime, setResumeTime] = useState(0);
+
+  // Caught up overlay
+  const [showCaughtUp, setShowCaughtUp] = useState(false);
+
+  // Client-Side Canvas Accent Color Extraction
+  const [accentColor, setAccentColor] = useState('hsl(250, 100%, 60%)');
+  const [accentH, setAccentH] = useState(250);
+  const [accentS, setAccentS] = useState('100%');
+  const [accentL, setAccentL] = useState('60%');
+
+  // Interactive toasts
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   useEffect(() => {
     if (toastMessage) {
       const timer = setTimeout(() => setToastMessage(null), 4000);
@@ -207,300 +172,244 @@ export default function VideoPlayer({
     }
   }, [toastMessage]);
 
-  // Settings & Overlays
-  const [showSettings, setShowSettings] = useState(false);
-  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const countdownIntervalRef = useRef<any>(null);
-  const hasPreloadedRef = useRef(false);
-
-  // Skip Intro / Ending Detection States
-  const [showSkipIntro, setShowSkipIntro] = useState(false);
-  const [showSkipEnding, setShowSkipEnding] = useState(false);
-  const [showSkipRecap, setShowSkipRecap] = useState(false);
-  const [autoSkipIntro, setAutoSkipIntro] = useState(false);
-  const [autoSkipOutro, setAutoSkipOutro] = useState(false);
-
-  // Autoplay countdown configuration state
-  const [autoplayCountdown, setAutoplayCountdown] = useState(5);
-  const [showCaughtUp, setShowCaughtUp] = useState(false);
-
-  // In-player resume states
-  const [showResumePromptState, setShowResumePromptState] = useState(false);
-  const [resumeTime, setResumeTime] = useState<number>(0);
-
-  // Bookmarks side panel state
-  const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  // Mobile Swipe / Gesture States
-  const [touchFeedback, setTouchFeedback] = useState<'back' | 'forward' | null>(null);
-  const [isLongPressing2x, setIsLongPressing2x] = useState(false);
-  const [showVolumeIndicator, setShowVolumeIndicator] = useState(false);
-  const [gestureVolume, setGestureVolume] = useState(1);
   const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
   const touchStartRef = useRef<{ x: number; y: number; time: number; volume: number }>({ x: 0, y: 0, time: 0, volume: 1 });
-  const longPressTimeoutRef = useRef<any>(null);
+  const longPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Phase 3 Premium States
-  const [showControls, setShowControls] = useState(true);
-  const [isTheaterMode, setIsTheaterMode] = useState(false);
-  const [skipIntervals, setSkipIntervals] = useState<SkipInterval[]>([]);
-  const [accentColor, setAccentColor] = useState('hsl(250, 100%, 60%)');
-  const [accentH, setAccentH] = useState(250);
-  const [accentS, setAccentS] = useState('100%');
-  const [accentL, setAccentL] = useState('60%');
+  // Navigation handlers
+  const handlePrev = useCallback(() => {
+    if (onPrevEpisode) {
+      onPrevEpisode();
+    } else if (episodeNumber > 1) {
+      router.push(`/watch/${animeId}/${episodeNumber - 1}`);
+    }
+  }, [onPrevEpisode, episodeNumber, animeId, router]);
+
+  const handleNext = useCallback(() => {
+    if (onNextEpisode) {
+      onNextEpisode();
+    } else if (totalEpisodes && episodeNumber < totalEpisodes) {
+      router.push(`/watch/${animeId}/${episodeNumber + 1}`);
+    }
+  }, [onNextEpisode, totalEpisodes, episodeNumber, animeId, router]);
+
+  // 1. Video Session Manager (HLS + Quality + Audio + Providers)
+  const {
+    subSourcesList,
+    dubSourcesList,
+    hindiSourcesList,
+    tamilSourcesList,
+    teluguSourcesList,
+    subtitleTracks,
+    providersList,
+    currentProviderName,
+    activeSource,
+    activeSources,
+    isIframeSource,
+    isLoading,
+    setIsLoading,
+    errorMessage,
+    setErrorMessage,
+    qualityLevels,
+    currentQuality,
+    selectQuality,
+    currentLanguage,
+    setCurrentLanguage,
+    selectProvider,
+    setActiveSourceIdx,
+    hasNativeHindi,
+  } = useVideoSession({
+    videoRef,
+    animeId,
+    episodeNumber,
+    animeTitle,
+    animeImage,
+    initialPosition,
+    sources,
+    subSources,
+    dubSources,
+    hindiSources,
+    tamilSources,
+    teluguSources,
+    subtitles,
+    providers,
+    currentProvider,
+    onToast: setToastMessage,
+    playbackSpeed,
+    volume,
+    isMuted,
+    activeSubtitleIdx,
+    isPlaying,
+    setIsPlaying,
+    setDuration,
+    setCurrentTime,
+  });
+
+  // 2. Skip Markers
+  const {
+    skipIntervals,
+    showSkipIntro,
+    showSkipEnding,
+    showSkipRecap,
+    skipIntro,
+    skipEnding,
+    skipRecap,
+  } = useSkipMarkers({
+    animeId,
+    episodeNumber,
+    videoRef,
+    autoSkipIntro: preferences.autoSkipOP,
+    autoSkipOutro: preferences.autoSkipED,
+    onToast: setToastMessage,
+  });
+
+  // 3. Storyboard (parsed WebVTT image strip with LRU cache)
+  const {
+    getCueAt: getStoryboardCueAt,
+  } = useStoryboard(animeId, episodeNumber);
+
+  // 4. Playback Controls (Shift-hold 2x speed, Right-click hold, hotkeys layout)
+  const {
+    handleMouseDown,
+    handleMouseUp,
+    handleContextMenu,
+  } = usePlaybackControls({
+    videoRef,
+    isPlaying,
+    isLoading,
+    playbackSpeed,
+    volume,
+    isMuted,
+    activeSubtitleIdx,
+    subtitleCount: subtitleTracks.length,
+    episodeNumber,
+    totalEpisodes,
+    showSkipIntro,
+    showSkipEnding,
+    onTogglePlay: () => togglePlay(),
+    onSeek: (time) => {
+      const video = videoRef.current;
+      if (video) {
+        video.currentTime = time;
+        setCurrentTime(time);
+      }
+    },
+    onVolumeChange: (vol) => {
+      const video = videoRef.current;
+      if (video) video.volume = vol;
+      setVolume(vol);
+      debouncedSetDevice('volume', vol);
+    },
+    onToggleMute: () => {
+      const video = videoRef.current;
+      if (video) video.muted = !isMuted;
+      setIsMuted(!isMuted);
+    },
+    onToggleFullscreen: () => {
+      toggleFullscreen();
+    },
+    onSpeedChange: (speed) => {
+      const video = videoRef.current;
+      if (video) video.playbackRate = speed;
+      setPlaybackSpeed(speed);
+      setSyncedPreference('playbackSpeed', speed);
+    },
+    onCycleSubtitle: () => {
+      const nextIdx = activeSubtitleIdx + 1 >= subtitleTracks.length ? -1 : activeSubtitleIdx + 1;
+      setActiveSubtitleIdx(nextIdx);
+    },
+    onSkipIntro: skipIntro,
+    onSkipEnding: skipEnding,
+    onNext: handleNext,
+    onPrev: handlePrev,
+    onLongPressChange: (active) => {
+      setIsLongPressing2x(active);
+    },
+  });
+
+  // 5. Next Episode Overlay (context-aware countdown overlay trigger)
+  const {
+    countdown,
+    dismiss: dismissNextEpisode,
+    accept: acceptNextEpisode,
+  } = useNextEpisode({
+    videoRef,
+    episodeNumber,
+    totalEpisodes,
+    skipIntervals,
+    isAutoplayNext: preferences.autoNext,
+    autoplayCountdown: 5,
+    onNext: handleNext,
+  });
+
+  // 6. Buffering Diagnostics Toast Warnings
+  useBufferDiagnostics({
+    videoRef,
+    analyticsContext: {
+      animeId,
+      episode: episodeNumber,
+      provider: currentProviderName,
+      quality: currentQuality,
+    },
+    onToast: setToastMessage,
+  });
+
+  // 7. Watch progress periodically database sync
+  useResumeProgress({
+    videoRef,
+    animeId,
+    animeTitle,
+    animeImage,
+    episodeNumber,
+    totalEpisodes,
+    analyticsContext: {
+      animeId,
+      episode: episodeNumber,
+      provider: currentProviderName,
+      quality: currentQuality,
+    },
+  });
+
+  // Toggles and settings mappings
+  const togglePlay = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || isLoading) return;
+
+    if (isPlaying) {
+      video.pause();
+      setIsPlaying(false);
+    } else {
+      video.play().catch(() => {});
+      setIsPlaying(true);
+    }
+  }, [isLoading, isPlaying]);
+
+  const toggleFullscreen = useCallback(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    if (!document.fullscreenElement) {
+      player.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  }, []);
+
   const [isPiPSupported, setIsPiPSupported] = useState(false);
-  const controlsTimeoutRef = useRef<any>(null);
-
-  // Theater mode toggle
-  const toggleTheaterMode = () => {
-    const next = !isTheaterMode;
-    setIsTheaterMode(next);
-    onTheaterModeChange?.(next);
-  };
-
-  // Inactivity Controls Fade Helper
-  const resetControlsTimeout = () => {
-    if (controlsTimeoutRef.current) {
-      clearTimeout(controlsTimeoutRef.current);
-    }
-    setShowControls(true);
-    if (isPlaying && !showSettings && !showShortcutsHelp) {
-      controlsTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
-      }, 2000);
-    }
-  };
-
-  useEffect(() => {
-    resetControlsTimeout();
-    return () => {
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    };
-  }, [isPlaying, showSettings, showShortcutsHelp]);
-
-  const handleMouseMove = () => {
-    resetControlsTimeout();
-  };
-
-  const handleMouseLeave = () => {
-    if (isPlaying && !showSettings && !showShortcutsHelp) {
-      setShowControls(false);
-    }
-  };
-
-  // Client-Side Canvas Accent Color Extraction
-  useEffect(() => {
-    if (!animeImage) return;
-
-    const extractColor = async () => {
-      try {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.src = animeImage;
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 10;
-            canvas.height = 10;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            ctx.drawImage(img, 0, 0, 10, 10);
-            const pixels = ctx.getImageData(0, 0, 10, 10).data;
-            
-            let rSum = 0, gSum = 0, bSum = 0, count = 0;
-            for (let i = 0; i < pixels.length; i += 4) {
-              const r = pixels[i];
-              const g = pixels[i+1];
-              const b = pixels[i+2];
-              const a = pixels[i+3];
-              if (a > 200) {
-                const maxVal = Math.max(r, g, b);
-                const minVal = Math.min(r, g, b);
-                if (maxVal - minVal > 20) { // filter colorful ones
-                  rSum += r;
-                  gSum += g;
-                  bSum += b;
-                  count++;
-                }
-              }
-            }
-
-            if (count === 0) {
-              for (let i = 0; i < pixels.length; i += 4) {
-                rSum += pixels[i];
-                gSum += pixels[i+1];
-                bSum += pixels[i+2];
-                count++;
-              }
-            }
-
-            const rAvg = Math.round(rSum / count);
-            const gAvg = Math.round(gSum / count);
-            const bAvg = Math.round(bSum / count);
-
-            const rNorm = rAvg / 255;
-            const gNorm = gAvg / 255;
-            const bNorm = bAvg / 255;
-            const max = Math.max(rNorm, gNorm, bNorm);
-            const min = Math.min(rNorm, gNorm, bNorm);
-            let h = 0, s = 0, l = (max + min) / 2;
-
-            if (max !== min) {
-              const d = max - min;
-              s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-              switch (max) {
-                case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
-                case gNorm: h = (bNorm - rNorm) / d + 2; break;
-                case bNorm: h = (rNorm - gNorm) / d + 4; break;
-              }
-              h /= 6;
-            }
-
-            // Keep it vibrant and sufficiently bright on dark background
-            const sFinal = Math.max(0.65, s) * 100;
-            const lFinal = Math.max(0.45, Math.min(0.65, l)) * 100;
-            const hFinal = h * 360;
-
-            const roundedH = Math.round(hFinal);
-            const roundedS = Math.round(sFinal);
-            const roundedL = Math.round(lFinal);
-
-            setAccentColor(`hsl(${roundedH}, ${roundedS}%, ${roundedL}%)`);
-            setAccentH(roundedH);
-            setAccentS(`${roundedS}%`);
-            setAccentL(`${roundedL}%`);
-          } catch {}
-        };
-      } catch {}
-    };
-
-    extractColor();
-  }, [animeImage]);
-
-  // Fetch skip time configurations from local overrides or AniSkip
-  useEffect(() => {
-    const fetchSkipTimes = async () => {
-      // 1. Check local overrides database first
-      const localOverride = LOCAL_SKIP_TIMES[animeId];
-      if (localOverride) {
-        const intervals: SkipInterval[] = [];
-        intervals.push({
-          startTime: localOverride.introStart,
-          endTime: localOverride.introEnd,
-          type: 'op',
-        });
-        if (localOverride.outroStart !== undefined && localOverride.outroEnd !== undefined) {
-          intervals.push({
-            startTime: localOverride.outroStart,
-            endTime: localOverride.outroEnd,
-            type: 'ed',
-          });
-        }
-        if (localOverride.recapStart !== undefined && localOverride.recapEnd !== undefined) {
-          intervals.push({
-            startTime: localOverride.recapStart,
-            endTime: localOverride.recapEnd,
-            type: 'recap',
-          });
-        }
-        setSkipIntervals(intervals);
-        return;
-      }
-
-      // 2. Fall back to AniSkip API only if animeId is a numeric MAL ID
-      const numericId = parseInt(animeId, 10);
-      if (isNaN(numericId)) {
-        setSkipIntervals([]);
-        return;
-      }
-
-      try {
-        const res = await fetch(`https://api.aniskip.com/v2/skip-times/${numericId}/${episodeNumber}?types[]=op&types[]=ed&types[]=recap`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.found && data.results) {
-          const intervals = data.results.map((r: any) => ({
-            startTime: r.interval?.startTime || 0,
-            endTime: r.interval?.endTime || 0,
-            type: r.skipType === 'recap' ? 'recap' : (r.skipType === 'op' ? 'op' : 'ed'),
-          }));
-          setSkipIntervals(intervals);
-        } else {
-          setSkipIntervals([]);
-        }
-      } catch {
-        setSkipIntervals([]);
-      }
-    };
-    fetchSkipTimes();
-  }, [animeId, episodeNumber]);
-
-  // Reset preloaded status on episode or anime change
-  useEffect(() => {
-    hasPreloadedRef.current = false;
-  }, [animeId, episodeNumber]);
-
-  // Check Picture-in-Picture support
   useEffect(() => {
     if (typeof document !== 'undefined') {
+      const video = videoRef.current;
       setIsPiPSupported(
-        document.pictureInPictureEnabled ||
-        (videoRef.current && (videoRef.current as any).webkitSupportsPresentationMode && typeof (videoRef.current as any).webkitSetPresentationMode === 'function')
+        !!(document as unknown as { pictureInPictureEnabled?: boolean }).pictureInPictureEnabled ||
+        !!(video && (video as unknown as { webkitSupportsPresentationMode?: boolean }).webkitSupportsPresentationMode)
       );
     }
   }, []);
 
-  // ─── Media Session API ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
-
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: `Episode ${episodeNumber}`,
-      artist: animeTitle,
-      album: animeTitle,
-      artwork: animeImage
-        ? [
-            { src: animeImage, sizes: '512x512', type: 'image/jpeg' },
-          ]
-        : [],
-    });
-
-    navigator.mediaSession.setActionHandler('play', () => {
-      videoRef.current?.play().catch(() => {});
-      setIsPlaying(true);
-    });
-    navigator.mediaSession.setActionHandler('pause', () => {
-      videoRef.current?.pause();
-      setIsPlaying(false);
-    });
-    navigator.mediaSession.setActionHandler('seekforward', () => {
-      if (videoRef.current) {
-        videoRef.current.currentTime = Math.min(videoRef.current.currentTime + 10, videoRef.current.duration);
-      }
-    });
-    navigator.mediaSession.setActionHandler('seekbackward', () => {
-      if (videoRef.current) {
-        videoRef.current.currentTime = Math.max(videoRef.current.currentTime - 10, 0);
-      }
-    });
-    navigator.mediaSession.setActionHandler('nexttrack', () => handleNext());
-    navigator.mediaSession.setActionHandler('previoustrack', () => handlePrev());
-
-    return () => {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.setActionHandler('play', null);
-        navigator.mediaSession.setActionHandler('pause', null);
-        navigator.mediaSession.setActionHandler('seekforward', null);
-        navigator.mediaSession.setActionHandler('seekbackward', null);
-        navigator.mediaSession.setActionHandler('nexttrack', null);
-        navigator.mediaSession.setActionHandler('previoustrack', null);
-      }
-    };
-  }, [animeTitle, animeImage, episodeNumber]);
-
-  const togglePiP = async () => {
+  const togglePiP = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
     try {
@@ -510,1444 +419,74 @@ export default function VideoPlayer({
         await video.requestPictureInPicture();
       }
     } catch {}
+  }, []);
+
+  const selectLanguage = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu') => {
+    setCurrentLanguage(lang);
+    setActiveSourceIdx(0);
   };
 
-  // Automatically enable subtitles on SUB audio and disable on DUB audio
-  useEffect(() => {
-    if (currentLanguage === 'sub') {
-      if (subtitleTracks.length > 0) {
-        const engIdx = subtitleTracks.findIndex(
-          (t) =>
-            t.lang.toLowerCase() === 'en' ||
-            t.label.toLowerCase().includes('eng')
-        );
-        if (engIdx > -1) {
-          setActiveSubtitleIdx(engIdx);
-        } else {
-          setActiveSubtitleIdx(0);
-        }
-      }
-    } else {
-      setActiveSubtitleIdx(-1);
-    }
-  }, [currentLanguage, subtitleTracks]);
-
-  // HLS level detection
-  const [qualityLevels, setQualityLevels] = useState<string[]>(['Auto']);
-  const [currentQuality, setCurrentQuality] = useState('Auto');
-  const hlsRef = useRef<any>(null);
-
-  // Refs to preserve fresh values inside HLS loadedmetadata callback (avoids stale closures)
-  const currentTimeRef = useRef(initialPosition);
-  const playbackSpeedRef = useRef(1);
-  const volumeRef = useRef(1);
-  const isMutedRef = useRef(false);
-  const activeSubtitleIdxRef = useRef(-1);
-  const isPlayingRef = useRef(false);
-
-  // Analytics telemetry refs
-  const loadStartRef = useRef<number>(0);
-  const loadDurationRef = useRef<number>(0);
-  const stallsRef = useRef<number>(0);
-  const failedRef = useRef<boolean>(false);
-  const errorRef = useRef<string | null>(null);
-  const eventIdRef = useRef<string>('');
-  const hasSentRef = useRef<boolean>(false);
-
-  // Tracks the latest provider/language/quality so save callbacks never go stale
-  const latestSessionRef = useRef({
-    provider: currentProviderName,
-    language: currentLanguage as string,
-    quality: currentQuality,
-  });
-
-  // Sync prop changes
-  useEffect(() => {
-    const isDifferentArray = (a: any[] | undefined, b: any[] | undefined) => {
-      if (!a && !b) return false;
-      if (!a || !b) return true;
-      if (a.length !== b.length) return true;
-      for (let i = 0; i < a.length; i++) {
-        if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) return true;
-      }
-      return false;
-    };
-
-    const nextSubs = subSources.length > 0 ? subSources : sources;
-    if (isDifferentArray(subSourcesList, nextSubs)) setSubSourcesList(nextSubs);
-    if (isDifferentArray(dubSourcesList, dubSources)) setDubSourcesList(dubSources);
-    if (isDifferentArray(hindiSourcesList, hindiSources)) setHindiSourcesList(hindiSources);
-    if (isDifferentArray(tamilSourcesList, tamilSources)) setTamilSourcesList(tamilSources);
-    if (isDifferentArray(teluguSourcesList, teluguSources)) setTeluguSourcesList(teluguSources);
-    if (isDifferentArray(subtitleTracks, subtitles)) setSubtitleTracks(subtitles);
-    
-    const nextProviders = providers.length > 0 ? providers : ['mock'];
-    if (isDifferentArray(providersList, nextProviders)) setProvidersList(nextProviders);
-    if (currentProviderName !== currentProvider) setCurrentProviderName(currentProvider);
-    if (matchedTitle !== initialMatchedTitle) setMatchedTitle(initialMatchedTitle);
-    if (matchedSlug !== initialMatchedSlug) setMatchedSlug(initialMatchedSlug);
-    if (searchCount !== initialSearchCount) setSearchCount(initialSearchCount);
-    if (episodeCountFound !== initialEpisodeCountFound) setEpisodeCountFound(initialEpisodeCountFound);
-    if (providerSlug !== initialProviderSlug) setProviderSlug(initialProviderSlug);
-  }, [
-    sources, subSources, dubSources, hindiSources, tamilSources, teluguSources, subtitles, providers, currentProvider,
-    initialMatchedTitle, initialMatchedSlug, initialSearchCount, initialEpisodeCountFound, initialProviderSlug,
-    subSourcesList, dubSourcesList, hindiSourcesList, tamilSourcesList, teluguSourcesList, subtitleTracks, providersList,
-    currentProviderName, matchedTitle, matchedSlug, searchCount, episodeCountFound, providerSlug
-  ]);
-
-  // Sync refs
-  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
-  useEffect(() => { playbackSpeedRef.current = playbackSpeed; }, [playbackSpeed]);
-  useEffect(() => { volumeRef.current = volume; }, [volume]);
-  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
-  useEffect(() => { activeSubtitleIdxRef.current = activeSubtitleIdx; }, [activeSubtitleIdx]);
-  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
-
-  // ─── Session Persistence ─────────────────────────────────────────────────
-
-  // Keep latestSessionRef up to date so interval and event callbacks are fresh
-  useEffect(() => {
-    latestSessionRef.current = {
-      provider: currentProviderName,
-      language: currentLanguage,
-      quality: currentQuality,
-    };
-  }, [currentProviderName, currentLanguage, currentQuality]);
-
-  // Immediate save whenever provider / language / quality changes
-  useEffect(() => {
-    savePlayerState({
-      animeId,
-      episode: episodeNumber,
-      provider: currentProviderName,
-      language: currentLanguage,
-      quality: currentQuality,
-      currentTime: currentTimeRef.current,
-    });
-  }, [currentProviderName, currentLanguage, currentQuality, animeId, episodeNumber]);
-
-  // Periodic save (every 5 s) + save on tab hide + flush on unmount
-  useEffect(() => {
-    const save = () => {
-      savePlayerState({
-        animeId,
-        episode: episodeNumber,
-        provider: latestSessionRef.current.provider,
-        language: latestSessionRef.current.language as 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu',
-        quality: latestSessionRef.current.quality,
-        currentTime: currentTimeRef.current,
-      });
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) save();
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    const interval = setInterval(save, 5000);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(interval);
-      save(); // Flush on unmount so the next mount restores a fresh snapshot
-    };
-  }, [animeId, episodeNumber]);
-
-  // Sync activeSubtitleIdx to video.textTracks mode
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const textTracks = video.textTracks;
-    
-    const syncTracks = () => {
-      for (let i = 0; i < textTracks.length; i++) {
-        textTracks[i].mode = i === activeSubtitleIdx ? 'showing' : 'disabled';
-      }
-    };
-
-    // Run sync immediately in case tracks are already there
-    syncTracks();
-
-    // Also listen for any new tracks added asynchronously
-    textTracks.onaddtrack = () => {
-      syncTracks();
-    };
-
-    return () => {
-      textTracks.onaddtrack = null;
-    };
-  }, [activeSubtitleIdx, subtitleTracks]);
-
-  // Load preferences from localStorage + DB on mount
-  useEffect(() => {
-    // 0. Restore from session (most recent tab state) — primes localStorage before
-    //    the existing restore logic runs, so the freshest values win.
-    const session = restorePlayerState(animeId, episodeNumber);
-    if (session) {
-      if (session.provider) {
-        localStorage.setItem('animeworld:provider', session.provider);
-      }
-      if (session.language && ['sub', 'dub', 'hindi', 'tamil', 'telugu'].includes(session.language)) {
-        localStorage.setItem('animeworld:preferredLanguage', session.language);
-      }
-      if (session.quality) {
-        localStorage.setItem('animeworld:preferredQuality', session.quality);
-      }
-      // Only override localStorage time when session has a meaningful position.
-      // The existing restore logic (initialPosition > localStorage > default) will
-      // then pick up this fresher value.
-      if (session.currentTime > 90) {
-        localStorage.setItem(
-          `animeworld:playbackTime:${animeId}:${episodeNumber}`,
-          String(session.currentTime),
-        );
-      }
-    }
-
-    // 1. First, load from localStorage as immediate synchronous fallback
-    const savedAutoplay = localStorage.getItem('animeworld:autoplay_next');
-    if (savedAutoplay !== null) {
-      setIsAutoplayNext(savedAutoplay === 'true');
-    }
-
-    const savedVolume = localStorage.getItem('animeworld:preferredVolume');
-    if (savedVolume !== null) {
-      const parsedVol = Number(savedVolume);
-      if (!isNaN(parsedVol)) {
-        setVolume(parsedVol);
-      }
-    }
-
-    const savedAutoSkipIntro = localStorage.getItem('animeworld:auto_skip_intro');
-    if (savedAutoSkipIntro !== null) {
-      setAutoSkipIntro(savedAutoSkipIntro === 'true');
-    } else {
-      const savedAutoSkipGlobal = localStorage.getItem('animeworld:auto_skip_global');
-      if (savedAutoSkipGlobal !== null) {
-        setAutoSkipIntro(savedAutoSkipGlobal === 'true');
-      }
-    }
-
-    const savedAutoSkipOutro = localStorage.getItem('animeworld:auto_skip_outro');
-    if (savedAutoSkipOutro !== null) {
-      setAutoSkipOutro(savedAutoSkipOutro === 'true');
-    }
-
-    const savedCountdown = localStorage.getItem('animeworld:autoplay_countdown');
-    if (savedCountdown !== null) {
-      const parsedCountdown = parseInt(savedCountdown, 10);
-      if (!isNaN(parsedCountdown)) setAutoplayCountdown(parsedCountdown);
-    }
-
-    const savedReduced = localStorage.getItem('animeworld:reduced_motion');
-    if (savedReduced !== null) {
-      setReducedMotion(savedReduced === 'true');
-    }
-
-    const savedAutoSkipLocal = localStorage.getItem(`animeworld:auto_skip:${animeId}`);
-    if (savedAutoSkipLocal !== null) {
-      setIsAutoSkipLocal(savedAutoSkipLocal === 'true' ? true : savedAutoSkipLocal === 'false' ? false : null);
-    } else {
-      setIsAutoSkipLocal(null);
-    }
-    
-    const savedLang = localStorage.getItem('animeworld:preferredLanguage') as any;
-    if (savedLang && ['sub', 'dub', 'hindi', 'tamil', 'telugu'].includes(savedLang)) {
-      setCurrentLanguage(savedLang);
-    }
-
-    const savedSpeed = localStorage.getItem('animeworld:preferredPlaybackSpeed');
-    if (savedSpeed !== null) {
-      const parsedSpeed = parseFloat(savedSpeed);
-      if (!isNaN(parsedSpeed)) setPlaybackSpeed(parsedSpeed);
-    }
-
-    const savedQuality = localStorage.getItem('animeworld:preferredQuality');
-    if (savedQuality !== null) {
-      setCurrentQuality(savedQuality);
-    }
-
-    // Restore provider and playback position sequentially
-    const savedProvider = localStorage.getItem('animeworld:provider');
-    if (savedProvider && savedProvider !== currentProviderName && providersList.includes(savedProvider)) {
-      selectProvider(savedProvider);
-    }
-
-    // 2. Fetch and overlay preferences from DB
-    const loadDbPreferences = async () => {
-      try {
-        const res = await fetch('/api/user/preferences');
-        if (res.ok) {
-          const prefs = await res.json();
-          if (prefs) {
-            setIsAutoplayNext(prefs.autoplayNext);
-            setAutoSkipIntro(prefs.autoSkipIntro);
-            setAutoSkipOutro(prefs.autoSkipOutro);
-            setAutoplayCountdown(prefs.autoplayCountdown);
-            if (prefs.preferredLanguage) setCurrentLanguage(prefs.preferredLanguage);
-            if (prefs.preferredQuality) setCurrentQuality(prefs.preferredQuality);
-            if (prefs.preferredSpeed) setPlaybackSpeed(prefs.preferredSpeed);
-            if (prefs.defaultVolume !== undefined) setVolume(prefs.defaultVolume);
-            if (prefs.reducedMotion !== undefined) setReducedMotion(prefs.reducedMotion);
-            
-            // Sync to local storage
-            localStorage.setItem('animeworld:autoplay_next', String(prefs.autoplayNext));
-            localStorage.setItem('animeworld:auto_skip_intro', String(prefs.autoSkipIntro));
-            localStorage.setItem('animeworld:auto_skip_outro', String(prefs.autoSkipOutro));
-            localStorage.setItem('animeworld:autoplay_countdown', String(prefs.autoplayCountdown));
-            localStorage.setItem('animeworld:preferredLanguage', prefs.preferredLanguage);
-            localStorage.setItem('animeworld:preferredQuality', prefs.preferredQuality);
-            localStorage.setItem('animeworld:preferredPlaybackSpeed', String(prefs.preferredSpeed));
-            localStorage.setItem('animeworld:preferredVolume', String(prefs.defaultVolume));
-            localStorage.setItem('animeworld:reduced_motion', String(prefs.reducedMotion));
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load DB preferences:', err);
-      }
-    };
-    loadDbPreferences();
-
-    // 3. Playback position handling with Resume Prompt
-    const savedTimeStr = localStorage.getItem(`animeworld:playbackTime:${animeId}:${episodeNumber}`);
-    let savedTime = 0;
-    
-    if (initialPosition > 90) {
-      savedTime = initialPosition;
-    } else if (savedTimeStr) {
-      const parsedTime = parseFloat(savedTimeStr);
-      if (!isNaN(parsedTime)) {
-        savedTime = parsedTime;
-      }
-    }
-
-    if (savedTime > 90) {
-      // Check if we should prompt
-      const savedShowPrompt = localStorage.getItem('animeworld:show_resume_prompt') !== 'false';
-      if (savedShowPrompt) {
-        setResumeTime(savedTime);
-        setShowResumePromptState(true);
-      } else {
-        // Resume silently
-        if (videoRef.current) {
-          videoRef.current.currentTime = savedTime;
-        }
-        setCurrentTime(savedTime);
-        currentTimeRef.current = savedTime;
-      }
-    }
-  }, [animeId, episodeNumber, initialPosition, providersList]);
-
-  const handleResumeConfirm = () => {
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime = resumeTime;
-      video.play().catch(() => {});
-      setIsPlaying(true);
-    }
-    setCurrentTime(resumeTime);
-    currentTimeRef.current = resumeTime;
-    setShowResumePromptState(false);
-  };
-
-  const handleResumeRestart = () => {
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime = 0;
-      video.play().catch(() => {});
-      setIsPlaying(true);
-    }
-    setCurrentTime(0);
-    currentTimeRef.current = 0;
-    setShowResumePromptState(false);
-  };
-
-  // Auto-dismiss resume prompt
-  useEffect(() => {
-    if (!showResumePromptState) return;
-    const timer = setTimeout(() => {
-      handleResumeConfirm();
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [showResumePromptState, resumeTime]);
-
-  // Sync state volume to the video element and persist in localStorage + DB
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.volume = volume;
-    }
-    localStorage.setItem('animeworld:preferredVolume', String(volume));
-    
-    const timer = setTimeout(() => {
-      fetch('/api/user/preferences', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultVolume: volume }),
-      }).catch((err) => console.error(err));
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, [volume, videoRef.current]);
-
-  // Auto-switch language if the currently selected language is not available on the active provider
-  useEffect(() => {
-    const isAvailable = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu'): boolean => {
-      if (lang === 'hindi') return hindiSourcesList.length > 0 || hasNativeHindi;
-      if (lang === 'sub') return subSourcesList.length > 0;
-      if (lang === 'dub') return dubSourcesList.length > 0;
-      if (lang === 'tamil') return tamilSourcesList.length > 0;
-      if (lang === 'telugu') return teluguSourcesList.length > 0;
-      return false;
-    };
-
-    if (!isAvailable(currentLanguage)) {
-      const priorities: ('hindi' | 'sub' | 'dub' | 'tamil' | 'telugu')[] = ['hindi', 'sub', 'dub', 'tamil', 'telugu'];
-      const fallback = priorities.find(lang => isAvailable(lang));
-      if (fallback) {
-        console.info(`[Language Auto-Switch] Swapping from unavailable language "${currentLanguage}" to "${fallback}"`);
-        setCurrentLanguage(fallback);
-      }
-    }
-  }, [hindiSourcesList, subSourcesList, dubSourcesList, tamilSourcesList, teluguSourcesList, hasNativeHindi, currentLanguage]);
-
-  // Priority language selection when sources change (if no manual preference is set)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const hasUserPref = localStorage.getItem('animeworld:userSetLanguagePreference') === 'true';
-    if (hasUserPref) return;
-
-    // Default priority order: Hindi -> Japanese (SUB) -> English (DUB) -> Tamil -> Telugu
-    if (hindiSourcesList.length > 0 || hasNativeHindi) {
-      if (currentLanguage !== 'hindi') setCurrentLanguage('hindi');
-    } else if (subSourcesList.length > 0) {
-      if (currentLanguage !== 'sub') setCurrentLanguage('sub');
-    } else if (dubSourcesList.length > 0) {
-      if (currentLanguage !== 'dub') setCurrentLanguage('dub');
-    } else if (tamilSourcesList.length > 0) {
-      if (currentLanguage !== 'tamil') setCurrentLanguage('tamil');
-    } else if (teluguSourcesList.length > 0) {
-      if (currentLanguage !== 'telugu') setCurrentLanguage('telugu');
-    }
-  }, [hindiSourcesList, subSourcesList, dubSourcesList, tamilSourcesList, teluguSourcesList, hasNativeHindi]);
-
-  const syncHlsAudioTrack = (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu', hlsInstance = hlsRef.current) => {
-    if (!hlsInstance) return;
-    const tracks = hlsInstance.audioTracks;
-    if (!tracks || tracks.length <= 1) return;
-
-    let targetIdx = -1;
-    if (lang === 'hindi') {
-      targetIdx = tracks.findIndex(
-        (t: any) =>
-          t.lang?.toLowerCase().startsWith('hi') ||
-          t.name?.toLowerCase().includes('hindi') ||
-          t.name?.toLowerCase().includes('hin')
-      );
-    } else if (lang === 'tamil') {
-      targetIdx = tracks.findIndex(
-        (t: any) =>
-          t.lang?.toLowerCase().startsWith('ta') ||
-          t.name?.toLowerCase().includes('tamil') ||
-          t.name?.toLowerCase().includes('tam')
-      );
-    } else if (lang === 'telugu') {
-      targetIdx = tracks.findIndex(
-        (t: any) =>
-          t.lang?.toLowerCase().startsWith('te') ||
-          t.name?.toLowerCase().includes('telugu') ||
-          t.name?.toLowerCase().includes('tel')
-      );
-    } else if (lang === 'dub') {
-      targetIdx = tracks.findIndex(
-        (t: any) =>
-          t.lang?.toLowerCase().startsWith('en') ||
-          t.name?.toLowerCase().includes('english') ||
-          t.name?.toLowerCase().includes('dub')
-      );
-    } else if (lang === 'sub') {
-      targetIdx = tracks.findIndex(
-        (t: any) =>
-          t.lang?.toLowerCase().startsWith('ja') ||
-          t.name?.toLowerCase().includes('japanese') ||
-          t.name?.toLowerCase().includes('sub')
-      );
-    }
-
-    if (targetIdx > -1) {
-      console.info(`[HLS Audio] Switching audio track to index ${targetIdx} (${tracks[targetIdx].name}) for language: ${lang}`);
-      hlsInstance.audioTrack = targetIdx;
-    } else {
-      console.info(`[HLS Audio] No matching audio track found in manifest for language: ${lang}`);
-    }
-  };
-
-  const activeSources = currentLanguage === 'hindi' && hindiSourcesList.length > 0
-    ? hindiSourcesList
-    : currentLanguage === 'tamil' && tamilSourcesList.length > 0
-      ? tamilSourcesList
-      : currentLanguage === 'telugu' && teluguSourcesList.length > 0
-        ? teluguSourcesList
-        : currentLanguage === 'dub' && dubSourcesList.length > 0
-          ? dubSourcesList
-          : subSourcesList;
-  const activeSource = activeSources[activeSourceIdx];
-
-  const isIframeSource = activeSource?.url
-    ? activeSource.url.includes('/stream/') ||
-      activeSource.url.includes('vidtube.site') ||
-      activeSource.url.includes('megaplay.buzz') ||
-      activeSource.url.includes('embed') ||
-      activeSource.url.includes('iframe') ||
-      activeSource.url.includes('desidubanime.me') ||
-      activeSource.url.includes('piratexplay.cc') ||
-      activeSource.url.includes('vidnest.fun')
-    : false;
-
-  // Trigger loading when iframe source changes
-  useEffect(() => {
-    if (isIframeSource) {
-      setIsLoading(true);
-    }
-  }, [activeSource?.url, isIframeSource]);
-
-  // Save progress immediately when playing inside an iframe source (as timeupdates do not fire for cross-origin iframes)
-  useEffect(() => {
-    if (isIframeSource && activeSource) {
-      console.info(`[VideoPlayer] Recording iframe watch progress for ep ${episodeNumber}`);
-      progressService.updateProgress({
-        animeId,
-        animeTitle,
-        animeImage,
-        episode: episodeNumber,
-        position: 1,
-        duration: 1200, // mock duration (20 minutes)
-        force: true,
-      });
-    }
-  }, [animeId, episodeNumber, activeSource, isIframeSource, animeTitle, animeImage]);
-
-  // Iframe Timeout Fallback
-  useEffect(() => {
-    if (!isLoading || !isIframeSource) return;
-
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        setIsLoading(false);
-        setToastMessage(`${getProviderFriendlyName(currentProviderName)} load timeout — try another server`);
-        
-        // Find next provider in list to suggest
-        const currentIndex = providersList.indexOf(currentProviderName);
-        const nextProvider = currentIndex !== -1 && currentIndex + 1 < providersList.length 
-          ? providersList[currentIndex + 1] 
-          : null;
-          
-        if (nextProvider) {
-          const btn = document.querySelector(`.server-btn[data-provider="${nextProvider}"]`);
-          if (btn) {
-            btn.classList.add('pulse-suggest');
-            setTimeout(() => btn.classList.remove('pulse-suggest'), 3000);
-          }
-        } else {
-          // Fallback to first inactive button if no next provider
-          const buttons = document.querySelectorAll('.server-btn:not(.active)');
-          if (buttons[0]) {
-            buttons[0].classList.add('pulse-suggest');
-            setTimeout(() => buttons[0].classList.remove('pulse-suggest'), 3000);
-          }
-        }
-      }
-    }, 10000);
-
-    return () => clearTimeout(timeout);
-  }, [isLoading, isIframeSource, currentProviderName, providersList]);
-
-  const sendTelemetry = () => {
-    if (hasSentRef.current || !eventIdRef.current || !activeSource) return;
-
-    hasSentRef.current = true;
-
-    // Detect browser and platform
-    let browser = 'Unknown';
-    let platform = 'Unknown';
-    if (typeof window !== 'undefined') {
-      const ua = window.navigator.userAgent;
-      if (ua.includes('Firefox')) browser = 'Firefox';
-      else if (ua.includes('Chrome')) browser = 'Chrome';
-      else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
-      else if (ua.includes('Edge')) browser = 'Edge';
-
-      if (ua.includes('Windows')) platform = 'Windows';
-      else if (ua.includes('Mac')) platform = 'macOS';
-      else if (ua.includes('Linux')) platform = 'Linux';
-      else if (ua.includes('iPhone') || ua.includes('iPad')) platform = 'iOS';
-      else if (ua.includes('Android')) platform = 'Android';
-    }
-
-    // Detect network type
-    let networkType = 'unknown';
-    const connection = typeof window !== 'undefined' && ((navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection);
-    if (connection) {
-      networkType = connection.type || connection.effectiveType || 'unknown';
-    }
-
-    const payload = {
-      eventId: eventIdRef.current,
-      animeId,
-      episodeId: episodeNumber.toString(),
-      provider: currentProvider || 'unknown',
-      loadDurationMs: Math.max(0, loadDurationRef.current),
-      bufferingStalls: stallsRef.current,
-      failed: failedRef.current,
-      error: errorRef.current,
-      browser,
-      platform,
-      playerVersion: '1.0.0',
-      networkType,
-    };
-
-    try {
-      if (typeof window !== 'undefined' && navigator.sendBeacon) {
-        navigator.sendBeacon('/api/stream/analytics', JSON.stringify(payload));
-      } else {
-        throw new Error('sendBeacon not supported');
-      }
-    } catch (e) {
-      fetch('/api/stream/analytics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch((err) => console.error('Failed to send stream analytics', err));
-    }
-  };
-
-  // ─── HLS Load & Failover ───────────────────────────────────────────────────
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !activeSource) return;
-
-    // Reset telemetry session for new active source
-    if (eventIdRef.current) {
-      sendTelemetry();
-    }
-    eventIdRef.current = typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2));
-    loadStartRef.current = Date.now();
-    loadDurationRef.current = 0;
-    stallsRef.current = 0;
-    failedRef.current = false;
-    errorRef.current = null;
-    hasSentRef.current = false;
-
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    const handleLoadedMetadata = () => {
-      setIsLoading(false);
-      setDuration(video.duration);
-      if (loadDurationRef.current === 0 && loadStartRef.current > 0) {
-        loadDurationRef.current = Date.now() - loadStartRef.current;
-      }
-      
-      // Seek to playback position sequentially with end buffer threshold check
-      const restoreTime = currentTimeRef.current;
-      if (restoreTime > 0) {
-        if (restoreTime < video.duration - 30) {
-          video.currentTime = restoreTime;
-        } else {
-          video.currentTime = 0;
-          setCurrentTime(0);
-        }
-      } else {
-        video.currentTime = 0;
-      }
-      video.playbackRate = playbackSpeedRef.current;
-      video.volume = volumeRef.current;
-      video.muted = isMutedRef.current;
-
-      // Re-apply subtitle index
-      const tracks = video.textTracks;
-      for (let i = 0; i < tracks.length; i++) {
-        tracks[i].mode = i === activeSubtitleIdxRef.current ? 'showing' : 'disabled';
-      }
-
-      if (isPlayingRef.current) {
-        video.play().catch(() => setIsPlaying(false));
-      }
-    };
-
-    let hls: any = null;
-
-    if (activeSource.isM3U8) {
-      if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = activeSource.url;
-        video.addEventListener('loadedmetadata', handleLoadedMetadata);
-      } else {
-        import('hls.js').then(({ default: Hls }) => {
-          if (!Hls.isSupported()) {
-            setErrorMessage('HLS playback is not supported in this browser.');
-            setIsLoading(false);
-            return;
-          }
-
-          hls = new Hls({
-            maxMaxBufferLength: 20,
-            enableWorker: true,
-          });
-
-          hlsRef.current = hls;
-          hls.loadSource(activeSource.url);
-          hls.attachMedia(video);
-
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            setIsLoading(false);
-            if (loadDurationRef.current === 0 && loadStartRef.current > 0) {
-              loadDurationRef.current = Date.now() - loadStartRef.current;
-            }
-
-            // Populate quality levels from HLS manifest — user-friendly labels only
-            const parsedLevels = hls.levels
-              .map((l: any) => l.height ? `${l.height}p` : null)
-              .filter((l: string | null): l is string => l !== null);
-            // Deduplicate and sort descending
-            const uniqueLevels = Array.from(new Set<string>(parsedLevels)).sort((a: string, b: string) => parseInt(b) - parseInt(a));
-            const levels: string[] = ['Auto', ...uniqueLevels];
-            setQualityLevels(levels);
-
-            // Restore previous quality choice
-            const preferredQ = localStorage.getItem('preferredQuality') || 'Auto';
-            if (preferredQ !== 'Auto') {
-              const height = parseInt(preferredQ, 10);
-              const idx = hls.levels.findIndex((lvl: any) => lvl.height === height);
-              if (idx > -1) {
-                hls.currentLevel = idx;
-                setCurrentQuality(preferredQ);
-              }
-            }
-
-            // Detect native multi-audio tracks (HLS AUDIO-GROUP)
-            const tracks = hls.audioTracks;
-            if (tracks && tracks.length > 1) {
-              console.info(`[HLS Audio] Found ${tracks.length} audio tracks in manifest.`);
-              const hasHiTrack = tracks.some(
-                (t: any) =>
-                  t.lang?.toLowerCase().startsWith('hi') ||
-                  t.name?.toLowerCase().includes('hindi') ||
-                  t.name?.toLowerCase().includes('hin')
-              );
-              if (hasHiTrack) {
-                setHasNativeHindi(true);
-              }
-            }
-
-            // Sync the active audio track immediately
-            syncHlsAudioTrack(currentLanguage, hls);
-
-            const restoreTime = currentTimeRef.current;
-            if (restoreTime > 0) {
-              if (restoreTime < video.duration - 30) {
-                video.currentTime = restoreTime;
-              } else {
-                video.currentTime = 0;
-                setCurrentTime(0);
-              }
-            } else {
-              video.currentTime = 0;
-            }
-            video.playbackRate = playbackSpeedRef.current;
-            video.volume = volumeRef.current;
-            video.muted = isMutedRef.current;
-
-            if (isPlayingRef.current) {
-              video.play().catch(() => setIsPlaying(false));
-            }
-          });
-
-          hls.on(Hls.Events.ERROR, (event: any, data: any) => {
-            if (data.fatal) {
-              console.warn(`HLS fatal error: ${data.type}`);
-              failedRef.current = true;
-              errorRef.current = `HLS Fatal Error: ${data.type} - details: ${data.details || 'unknown'}`;
-              sendTelemetry();
-              handleSourceError();
-            }
-          });
-        });
-      }
-    } else {
-      video.src = activeSource.url;
-      video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    }
-
-    return () => {
-      if (hls) {
-        hls.destroy();
-        hlsRef.current = null;
-      }
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-    };
-  }, [activeSourceIdx, activeSource?.url, currentLanguage]);
-
-  // ─── Mid-playback buffering / stall detection & Telemetry ──────────────────
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleWaiting = () => {
-      setIsLoading(true);
-      stallsRef.current += 1;
-    };
-    const handleStalled = () => {
-      setIsLoading(true);
-      stallsRef.current += 1;
-    };
-    const handlePlaying = () => {
-      setIsLoading(false);
-      if (loadDurationRef.current === 0 && loadStartRef.current > 0) {
-        loadDurationRef.current = Date.now() - loadStartRef.current;
-      }
-    };
-    const handleCanPlay = () => {
-      setIsLoading(false);
-      if (loadDurationRef.current === 0 && loadStartRef.current > 0) {
-        loadDurationRef.current = Date.now() - loadStartRef.current;
-      }
-    };
-
-    const handlePlay = () => {
-      if (hasSentRef.current) {
-        eventIdRef.current = typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2));
-        loadStartRef.current = Date.now();
-        loadDurationRef.current = 0;
-        stallsRef.current = 0;
-        failedRef.current = false;
-        errorRef.current = null;
-        hasSentRef.current = false;
-      }
-    };
-
-    const handlePause = () => {
-      sendTelemetry();
-    };
-
-    const handleEnded = () => {
-      sendTelemetry();
-    };
-
-    const handleError = () => {
-      if (video.error) {
-        failedRef.current = true;
-        errorRef.current = `HTML5 Video Error: code ${video.error.code} - message: ${video.error.message || 'unknown'}`;
-        sendTelemetry();
-      }
-    };
-
-    video.addEventListener('waiting', handleWaiting);
-    video.addEventListener('stalled', handleStalled);
-    video.addEventListener('playing', handlePlaying);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
-    video.addEventListener('ended', handleEnded);
-    video.addEventListener('error', handleError);
-
-    return () => {
-      sendTelemetry();
-      video.removeEventListener('waiting', handleWaiting);
-      video.removeEventListener('stalled', handleStalled);
-      video.removeEventListener('playing', handlePlaying);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
-      video.removeEventListener('ended', handleEnded);
-      video.removeEventListener('error', handleError);
-    };
-  }, [activeSourceIdx, activeSource?.url]);
-
-  // ─── Playback telemetry flushing (every 60 seconds) ────────────────────────
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    const interval = setInterval(() => {
-      sendTelemetry();
-      // Regenerate eventId for the next segment
-      eventIdRef.current = typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2));
-      loadStartRef.current = Date.now();
-      loadDurationRef.current = 0;
-      stallsRef.current = 0;
-      failedRef.current = false;
-      errorRef.current = null;
-      hasSentRef.current = false;
-    }, 60000); // 60 seconds
-
-    return () => clearInterval(interval);
-  }, [isPlaying]);
-
-  const handleSourceError = () => {
-    if (activeSourceIdx + 1 < activeSources.length) {
-      setActiveSourceIdx((prev) => prev + 1);
-    } else {
-      setErrorMessage('Failed to load all available stream sources.');
-      setIsLoading(false);
-    }
-  };
-
-  // ─── Time Updates, Preloading & Skips ─────────────────────────────────────
-  const handleTimeUpdate = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const t = video.currentTime;
-    const dur = video.duration;
-
-    setCurrentTime(t);
-
-    // Save playback position to namespaced localStorage periodically
-    if (t > 0) {
-      localStorage.setItem(`animeworld:playbackTime:${animeId}:${episodeNumber}`, String(t));
-    }
-
-    // Skip Intro / Ending / Recap Detection using exact intervals or defaults
-    const opInterval = skipIntervals.find(i => i.type === 'op');
-    const edInterval = skipIntervals.find(i => i.type === 'ed');
-    const recapInterval = skipIntervals.find(i => i.type === 'recap');
-
-    if (opInterval) {
-      setShowSkipIntro(t >= opInterval.startTime && t <= opInterval.endTime);
-    } else {
-      setShowSkipIntro(t >= 90 && t <= 180);
-    }
-
-    if (edInterval) {
-      setShowSkipEnding(t >= edInterval.startTime && t <= edInterval.endTime);
-    } else {
-      setShowSkipEnding(dur > 200 && t >= dur - 90 && t < dur - 10);
-    }
-
-    if (recapInterval) {
-      setShowSkipRecap(t >= recapInterval.startTime && t <= recapInterval.endTime);
-    } else {
-      setShowSkipRecap(false);
-    }
-
-    // Support Global + Per-Anime Auto Skip Preferences
-    const shouldAutoSkipIntro = () => {
-      const localPref = localStorage.getItem(`animeworld:auto_skip:${animeId}`);
-      if (localPref === 'true') return true;
-      if (localPref === 'false') return false;
-      return autoSkipIntro;
-    };
-
-    const shouldAutoSkipOutro = () => {
-      return autoSkipOutro;
-    };
-
-    const shouldAutoSkipRecap = () => {
-      return autoSkipIntro;
-    };
-
-    if (opInterval && t >= opInterval.startTime && t < opInterval.endTime - 0.5) {
-      if (shouldAutoSkipIntro()) {
-        video.currentTime = opInterval.endTime;
-        setToastMessage('Auto-skipped opening theme');
-      }
-    }
-    if (edInterval && t >= edInterval.startTime && t < edInterval.endTime - 0.5) {
-      if (shouldAutoSkipOutro()) {
-        video.currentTime = edInterval.endTime;
-        setToastMessage('Auto-skipped ending theme');
-      }
-    }
-    if (recapInterval && t >= recapInterval.startTime && t < recapInterval.endTime - 0.5) {
-      if (shouldAutoSkipRecap()) {
-        video.currentTime = recapInterval.endTime;
-        setToastMessage('Auto-skipped recap');
-      }
-    }
-
-    // Preload next episode when progress > 80% and remaining time < 5 min (300 seconds)
-    const nextEp = episodeNumber + 1;
-    if (totalEpisodes && nextEp <= totalEpisodes && dur > 0) {
-      const progressRatio = t / dur;
-      const remainingTime = dur - t;
-      if (progressRatio > 0.80 && remainingTime < 300 && !hasPreloadedRef.current) {
-        console.info(`[PRELOAD] Pre-fetching Episode ${nextEp} stream details...`);
-        hasPreloadedRef.current = true;
-        fetch(`/api/stream/source?animeId=${animeId}&episode=${nextEp}&title=${encodeURIComponent(animeTitle)}`)
-          .then((res) => res.json())
-          .then((data) => {
-            console.info(`[PRELOAD] Cache primed for Episode ${nextEp}`);
-          })
-          .catch((err) => {
-            console.warn(`[PRELOAD] Pre-fetch failed for Episode ${nextEp}:`, err);
-            hasPreloadedRef.current = false;
-          });
-      }
-    }
-
-    progressService.updateProgress({
-      animeId,
-      animeTitle,
-      animeImage,
-      episode: episodeNumber,
-      position: t,
-      duration: dur,
-      totalEpisodes,
-    });
-
-    // Sync Media Session playback position
-    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator && dur > 0) {
-      try {
-        navigator.mediaSession.setPositionState({
-          duration: dur,
-          playbackRate: videoRef.current?.playbackRate || 1,
-          position: t,
-        });
-      } catch {}
-    }
-  };
-
-
-
-  // Autoplay Countdown handling
-  const handleVideoEnded = () => {
-    setIsPlaying(false);
-    const video = videoRef.current;
-    if (video) {
-      progressService.updateProgress({
-        animeId,
-        animeTitle,
-        animeImage,
-        episode: episodeNumber,
-        position: video.duration,
-        duration: video.duration,
-        totalEpisodes,
-        force: true,
-      });
-    }
-
-    const isLastEpisode = totalEpisodes && episodeNumber === totalEpisodes;
-    if (isLastEpisode) {
-      setShowCaughtUp(true);
-    } else if (isAutoplayNext && totalEpisodes && episodeNumber < totalEpisodes) {
-      setCountdown(autoplayCountdown);
-    }
-  };
-
-  useEffect(() => {
-    if (countdown === null) {
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      return;
-    }
-
-    if (countdown === 0) {
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      setCountdown(null);
-      handleNext();
-      return;
-    }
-
-    countdownIntervalRef.current = setInterval(() => {
-      setCountdown((prev) => (prev !== null ? prev - 1 : null));
-    }, 1000);
-
-    return () => clearInterval(countdownIntervalRef.current);
-  }, [countdown]);
-
-  // ─── Actions & Swaps ───────────────────────────────────────────────────────
-  const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video || isLoading) return;
-
-    if (isPlaying) {
-      video.pause();
-      setIsPlaying(false);
-      progressService.updateProgress({
-        animeId,
-        animeTitle,
-        animeImage,
-        episode: episodeNumber,
-        position: video.currentTime,
-        duration: video.duration,
-        totalEpisodes,
-        force: true,
-      });
-    } else {
-      video.play().catch(() => {});
-      setIsPlaying(true);
-      setCountdown(null); // Cancel auto-next countdown if playing again
-    }
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const video = videoRef.current;
-    if (!video) return;
-    const newTime = Number(e.target.value);
-    video.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-
-  const toggleMute = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const nextMute = !isMuted;
-    video.muted = nextMute;
-    setIsMuted(nextMute);
+  const selectSubtitle = (idx: number) => {
+    setActiveSubtitleIdx(idx);
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const vol = Number(e.target.value);
     const video = videoRef.current;
-    if (!video) return;
-    const newVol = Number(e.target.value);
-    video.volume = newVol;
-    setVolume(newVol);
-    if (newVol > 0 && isMuted) {
-      video.muted = false;
+    if (video) video.volume = vol;
+    setVolume(vol);
+    debouncedSetDevice('volume', vol);
+    if (vol > 0 && isMuted) {
+      if (video) video.muted = false;
       setIsMuted(false);
     }
   };
 
-  const toggleFullscreen = () => {
-    const player = playerRef.current;
-    if (!player) return;
-
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    } else {
-      player.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    }
-  };
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
-  const changeSpeed = (speed: number) => {
+  const toggleMute = useCallback(() => {
     const video = videoRef.current;
-    if (!video) return;
-    video.playbackRate = speed;
+    if (video) {
+      video.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  }, [isMuted]);
+
+  const changeSpeed = useCallback((speed: number) => {
+    const video = videoRef.current;
+    if (video) video.playbackRate = speed;
     setPlaybackSpeed(speed);
-    localStorage.setItem('animeworld:preferredPlaybackSpeed', String(speed));
-    fetch('/api/user/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ preferredSpeed: speed }),
-    }).catch((err) => console.error(err));
-  };
+    setSyncedPreference('playbackSpeed', speed);
+  }, [setSyncedPreference]);
 
-  const selectQuality = (level: string) => {
-    setCurrentQuality(level);
-    localStorage.setItem('animeworld:preferredQuality', level);
-    fetch('/api/user/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ preferredQuality: level }),
-    }).catch((err) => console.error(err));
+  const toggleTheaterMode = useCallback(() => {
+    const next = !isTheaterMode;
+    setIsTheaterMode(next);
+    onTheaterModeChange?.(next);
+  }, [isTheaterMode, onTheaterModeChange]);
 
-    if (hlsRef.current) {
-      if (level === 'Auto') {
-        hlsRef.current.currentLevel = -1;
-      } else {
-        const height = parseInt(level, 10);
-        const idx = hlsRef.current.levels.findIndex((l: any) => l.height === height);
-        if (idx > -1) {
-          hlsRef.current.currentLevel = idx;
-        }
-      }
-    } else {
-      const idx = activeSources.findIndex((s) => s.quality === level);
-      if (idx > -1) setActiveSourceIdx(idx);
-    }
-  };
-
-  const selectLanguage = async (lang: 'sub' | 'dub' | 'hindi' | 'tamil' | 'telugu') => {
-    setCurrentLanguage(lang);
-    localStorage.setItem('animeworld:preferredLanguage', lang);
-    localStorage.setItem('animeworld:language', lang);
-    localStorage.setItem('animeworld:userSetLanguagePreference', 'true');
-    fetch('/api/user/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ preferredLanguage: lang }),
-    }).catch((err) => console.error(err));
-
-    if (lang === 'hindi') {
-      if (providersList.includes('desidubanime') && currentProviderName !== 'desidubanime') {
-        selectProvider('desidubanime');
-        setToastMessage('Switched to Hindi Dub server');
-        return;
-      }
-    }
-
-    if (lang === 'dub') {
-      const dubServers = ['tryembed', 'animeplay', 'toonplay', 'toonworld'];
-      const available = dubServers.find(s => providersList.includes(s));
-      if (available && available !== currentProviderName) {
-        selectProvider(available);
-        return;
-      }
-    }
-    
-    const targetSources = lang === 'hindi' 
-      ? hindiSourcesList 
-      : lang === 'tamil'
-        ? tamilSourcesList
-        : lang === 'telugu'
-          ? teluguSourcesList
-          : lang === 'dub' 
-            ? dubSourcesList 
-            : subSourcesList;
-
-    if (targetSources && targetSources.length > 0) {
-      console.info(`[Audio Swap] Switching stream sources for language: ${lang}`);
-      setActiveSourceIdx(0);
-    } else {
-      // Current provider doesn't have the selected language audio.
-      // Probing all other providers in parallel to resolve capability.
-      console.info(`[Audio Swap] Current provider doesn't support ${lang}. Probing alternative providers in parallel...`);
-      setIsLoading(true);
-
-      const fetchPromises = providersList
-        .filter(prov => prov !== currentProviderName)
-        .map(async (prov) => {
-          try {
-            const res = await fetch(`/api/stream/source?animeId=${animeId}&episode=${episodeNumber}&provider=${prov}&title=${encodeURIComponent(animeTitle)}&lang=${lang}`);
-            if (res.ok) {
-              const data = await res.json();
-              const alternateSources = lang === 'hindi'
-                ? data.hindi
-                : lang === 'tamil'
-                  ? data.tamil
-                  : lang === 'telugu'
-                    ? data.telugu
-                    : lang === 'dub'
-                      ? data.dub
-                      : data.sub || data.sources;
-              if (alternateSources && alternateSources.length > 0) {
-                return { provider: prov, data };
-              }
-            }
-          } catch (err) {
-            console.warn(`[Audio Swap] Parallel check failed for "${prov}":`, err);
-          }
-          return null;
-        });
-
-      try {
-        const results = await Promise.all(fetchPromises);
-        
-        // Deterministic Priority Selection
-        const priorityOrder = ['toonplay', 'toonworld', 'vidnest', 'desidubanime', 'piratexplay'];
-        let matchedResult = null;
-
-        for (const prov of priorityOrder) {
-          const found = results.find(r => r && r.provider === prov);
-          if (found) {
-            matchedResult = found;
-            break;
-          }
-        }
-
-        if (!matchedResult) {
-          matchedResult = results.find(r => r !== null) || null;
-        }
-
-        if (matchedResult) {
-          const { provider, data } = matchedResult;
-          console.info(`[Audio Swap] Found alternative provider "${provider}" supporting language: ${lang}`);
-          
-          setCurrentProviderName(data.currentProvider || provider);
-          localStorage.setItem('animeworld:provider', data.currentProvider || provider);
-          
-          setSubSourcesList(data.sub || []);
-          setDubSourcesList(data.dub || []);
-          setHindiSourcesList(data.hindi || []);
-          setTamilSourcesList(data.tamil || []);
-          setTeluguSourcesList(data.telugu || []);
-          setSubtitleTracks(data.subtitles || []);
-          setIsFallbackActive(data.isFallback || false);
-          setFallbackReasonText(data.fallbackReason);
-          setMatchedTitle(data.matchedTitle);
-          setMatchedSlug(data.matchedSlug);
-          setSearchCount(data.searchCount);
-          setEpisodeCountFound(data.episodeCountFound);
-          setProviderSlug(data.providerSlug);
-          setActiveSourceIdx(0);
-        } else {
-          console.info(`[Audio Swap] No alternative provider found. Toggling in-place HLS audio tracks for language: ${lang}`);
-          syncHlsAudioTrack(lang);
-        }
-      } catch (err) {
-        console.error(`[Audio Swap] Parallel capability check failed:`, err);
-        syncHlsAudioTrack(lang);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const selectSubtitle = (idx: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const tracks = video.textTracks;
-    for (let i = 0; i < tracks.length; i++) {
-      tracks[i].mode = i === idx ? 'showing' : 'disabled';
-    }
-    setActiveSubtitleIdx(idx);
-  };
-
-  // Provider Selection Loader (In-Place Reload)
-  const selectProvider = async (provider: string) => {
-    setIsLoading(true);
-    setShowSettings(false);
-    try {
-      const res = await fetch(`/api/stream/source?animeId=${animeId}&episode=${episodeNumber}&provider=${provider}&title=${encodeURIComponent(animeTitle)}`);
-      if (!res.ok) throw new Error('Provider resolved failed status.');
-      const data = await res.json();
-      
-      if (!data?.sources?.length && !data?.streams?.length && !data?.sub?.length && !data?.dub?.length && !data?.hindi?.length) {
-        throw new Error('No stream found');
-      }
-
-      setCurrentProviderName(data.currentProvider || provider);
-      localStorage.setItem('animeworld:provider', data.currentProvider || provider);
-      
-      setSubSourcesList(data.sub || []);
-      setDubSourcesList(data.dub || []);
-      setHindiSourcesList(data.hindi || []);
-      setTamilSourcesList(data.tamil || []);
-      setTeluguSourcesList(data.telugu || []);
-      setSubtitleTracks(data.subtitles || []);
-      setIsFallbackActive(data.isFallback || false);
-      setFallbackReasonText(data.fallbackReason);
-      setMatchedTitle(data.matchedTitle);
-      setMatchedSlug(data.matchedSlug);
-      setSearchCount(data.searchCount);
-      setEpisodeCountFound(data.episodeCountFound);
-      setProviderSlug(data.providerSlug);
-      setActiveSourceIdx(0);
-
-      // Auto-switch language if the current language has no sources in the new provider
-      const hasSub = data.sub && data.sub.length > 0;
-      const hasDub = data.dub && data.dub.length > 0;
-      const hasHindi = data.hindi && data.hindi.length > 0;
-      const hasTamil = data.tamil && data.tamil.length > 0;
-      const hasTelugu = data.telugu && data.telugu.length > 0;
-
-      let newLang = currentLanguage;
-      if (currentLanguage === 'sub' && !hasSub) {
-        if (hasHindi) newLang = 'hindi';
-        else if (hasDub) newLang = 'dub';
-        else if (hasTamil) newLang = 'tamil';
-        else if (hasTelugu) newLang = 'telugu';
-      } else if (currentLanguage === 'hindi' && !hasHindi) {
-        if (hasSub) newLang = 'sub';
-        else if (hasDub) newLang = 'dub';
-      } else if (currentLanguage === 'dub' && !hasDub) {
-        if (hasSub) newLang = 'sub';
-        else if (hasHindi) newLang = 'hindi';
-      }
-
-      if (newLang !== currentLanguage) {
-        setCurrentLanguage(newLang);
-        localStorage.setItem('animeworld:preferredLanguage', newLang);
-        localStorage.setItem('animeworld:language', newLang);
-      }
-    } catch (err) {
-      console.warn(`Failed to swap provider in place to ${provider}:`, err);
-      setToastMessage(`${getProviderFriendlyName(provider)} unavailable — try another server`);
-      setIsLoading(false);
-
-      // Find next provider in list to suggest
-      const currentIndex = providersList.indexOf(provider);
-      const nextProvider = currentIndex !== -1 && currentIndex + 1 < providersList.length 
-        ? providersList[currentIndex + 1] 
-        : null;
-
-      if (nextProvider) {
-        const btn = document.querySelector(`.server-btn[data-provider="${nextProvider}"]`);
-        if (btn) {
-          btn.classList.add('pulse-suggest');
-          setTimeout(() => btn.classList.remove('pulse-suggest'), 3000);
-        }
-      } else {
-        const buttons = document.querySelectorAll('.server-btn:not(.active)');
-        if (buttons[0]) {
-          buttons[0].classList.add('pulse-suggest');
-          setTimeout(() => buttons[0].classList.remove('pulse-suggest'), 3000);
-        }
-      }
-    }
-  };
-
-  // Manual Skip Skip Actions
-  const skipIntro = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const opInterval = skipIntervals.find(i => i.type === 'op');
-    const targetTime = opInterval ? opInterval.endTime : 181;
-    video.currentTime = targetTime;
-    setCurrentTime(targetTime);
-    setShowSkipIntro(false);
-  };
-
-  const skipEnding = () => {
-    setShowSkipEnding(false);
-    const hasNext = totalEpisodes && episodeNumber < totalEpisodes;
-    if (hasNext) {
-      handleNext();
-    } else {
-      const video = videoRef.current;
-      if (!video) return;
-      const edInterval = skipIntervals.find(i => i.type === 'ed');
-      const targetTime = edInterval ? edInterval.endTime : Math.max(0, video.duration - 1);
-      video.currentTime = targetTime;
-      setCurrentTime(targetTime);
-    }
-  };
-
-  const skipRecap = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const recapInterval = skipIntervals.find(i => i.type === 'recap');
-    const targetTime = recapInterval ? recapInterval.endTime : video.currentTime;
-    video.currentTime = targetTime;
-    setCurrentTime(targetTime);
-    setShowSkipRecap(false);
-  };
-
-  // ─── Touch Gesture Handlers ────────────────────────────────────────────────
+  // Touch Swipe Gesture Actions
   const showTouchFeedback = (dir: 'back' | 'forward') => {
     setTouchFeedback(dir);
-    setTimeout(() => setTouchFeedback(null), 500);
+    setTimeout(() => setTouchFeedback(null), 800);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
-    const video = videoRef.current;
-    if (!video) return;
-
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
     touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
+      x,
+      y,
       time: Date.now(),
-      volume: video.volume,
+      volume,
     };
 
-    // Long press 2x speed trigger (500ms hold)
     if (isPlaying) {
       longPressTimeoutRef.current = setTimeout(() => {
         setIsLongPressing2x(true);
-        video.playbackRate = 2.0;
+        const video = videoRef.current;
+        if (video) video.playbackRate = 2.0;
       }, 500);
     }
   };
@@ -1969,7 +508,6 @@ export default function VideoPlayer({
     const touchXFromLeft = touch.clientX - rect.left;
     const isRightSide = touchXFromLeft > rect.width / 2;
 
-    // Volume swipe gesture (Vertical swipe right side)
     if (Math.abs(deltaY) > 30 && Math.abs(deltaY) > Math.abs(deltaX) && isRightSide) {
       if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
       e.preventDefault();
@@ -1997,7 +535,6 @@ export default function VideoPlayer({
 
     setTimeout(() => setShowVolumeIndicator(false), 1000);
 
-    // Double Tap seek check
     const now = Date.now();
     const touch = e.changedTouches[0];
     const rect = e.currentTarget.getBoundingClientRect();
@@ -2021,97 +558,290 @@ export default function VideoPlayer({
     lastTapRef.current = { time: now, x };
   };
 
-  // ─── Keyboard Shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
-    const handleGlobalKeys = (e: KeyboardEvent) => {
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
-        return;
+    if (preferencesLoading) return;
+    if (preferences.volume !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setVolume(preferences.volume);
+    }
+    if (preferences.playbackSpeed !== undefined) {
+      setPlaybackSpeed(preferences.playbackSpeed);
+    }
+  }, [preferencesLoading, preferences.volume, preferences.playbackSpeed]);
+
+  // Mount-time resume prompts
+  useEffect(() => {
+    const session = restorePlayerState(animeId, episodeNumber);
+    if (session) {
+      if (session.provider) {
+        localStorage.setItem('animeworld:provider', session.provider);
       }
+      if (session.language && ['sub', 'dub', 'hindi', 'tamil', 'telugu'].includes(session.language)) {
+        localStorage.setItem('animeworld:preferredLanguage', session.language);
+      }
+      if (session.quality) {
+        localStorage.setItem('animeworld:preferredQuality', session.quality);
+      }
+      if (session.currentTime > 90) {
+        localStorage.setItem(
+          `animeworld:playbackTime:${animeId}:${episodeNumber}`,
+          String(session.currentTime),
+        );
+      }
+    }
 
-      const video = videoRef.current;
-      if (!video) return;
+    const savedVolume = localStorage.getItem('animeworld:preferredVolume');
+    if (savedVolume !== null) {
+      const parsedVol = Number(savedVolume);
+      if (!isNaN(parsedVol)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setVolume(parsedVol);
+      }
+    }
 
-      switch (e.key.toLowerCase()) {
-        case ' ':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'arrowright':
-          e.preventDefault();
-          video.currentTime = Math.min(video.currentTime + 10, video.duration);
-          break;
-        case 'arrowleft':
-          e.preventDefault();
-          video.currentTime = Math.max(video.currentTime - 10, 0);
-          break;
-        case 'arrowup':
-          e.preventDefault();
-          const volUp = Math.min(video.volume + 0.1, 1);
-          video.volume = volUp;
-          setVolume(volUp);
-          break;
-        case 'arrowdown':
-          e.preventDefault();
-          const volDown = Math.max(video.volume - 0.1, 0);
-          video.volume = volDown;
-          setVolume(volDown);
-          break;
-        case 'f':
-          e.preventDefault();
-          toggleFullscreen();
-          break;
-        case 't':
-          e.preventDefault();
-          toggleTheaterMode();
-          break;
-        case 'm':
-          e.preventDefault();
-          toggleMute();
-          break;
-        case 'n':
-          e.preventDefault();
-          handleNext();
-          break;
-        case 'p':
-          e.preventDefault();
-          handlePrev();
-          break;
-        case 'i':
-          e.preventDefault();
-          if (showSkipIntro) {
-            skipIntro();
-            setToastMessage('Skipped Intro');
+    const savedSpeed = localStorage.getItem('animeworld:preferredPlaybackSpeed');
+    if (savedSpeed !== null) {
+      const parsedSpeed = parseFloat(savedSpeed);
+      if (!isNaN(parsedSpeed)) setPlaybackSpeed(parsedSpeed);
+    }
+
+    const savedReduced = localStorage.getItem('animeworld:reduced_motion');
+    if (savedReduced !== null) {
+      setReducedMotion(savedReduced === 'true');
+    }
+
+    const loadDbPreferences = async () => {
+      try {
+        const res = await fetch('/api/user/preferences');
+        if (res.ok) {
+          const prefs = await res.json();
+          if (prefs && prefs.reducedMotion !== undefined) {
+            setReducedMotion(prefs.reducedMotion);
+            localStorage.setItem('animeworld:reduced_motion', String(prefs.reducedMotion));
           }
-          break;
-        case 'o':
-          e.preventDefault();
-          if (showSkipEnding) {
-            skipEnding();
-            setToastMessage('Skipped Ending');
-          }
-          break;
-        case 'b':
-          e.preventDefault();
-          const current = Math.floor(video.currentTime);
-          if (onAddBookmark) {
-            onAddBookmark(current, '').then(() => {
-              setToastMessage(`Bookmark added at ${formatTime(current)}`);
-            }).catch((err) => console.error(err));
-          }
-          break;
-        case '?':
-          e.preventDefault();
-          setShowShortcutsHelp((prev) => !prev);
-          break;
-        default:
-          break;
+        }
+      } catch {}
+    };
+    loadDbPreferences();
+
+    const savedTimeStr = localStorage.getItem(`animeworld:playbackTime:${animeId}:${episodeNumber}`);
+    let savedTime = 0;
+    
+    if (initialPosition > 90) {
+      savedTime = initialPosition;
+    } else if (savedTimeStr) {
+      const parsedTime = parseFloat(savedTimeStr);
+      if (!isNaN(parsedTime)) {
+        savedTime = parsedTime;
+      }
+    }
+
+    if (savedTime > 90) {
+      const savedShowPrompt = localStorage.getItem('animeworld:show_resume_prompt') !== 'false';
+      if (savedShowPrompt) {
+        setResumeTime(savedTime);
+        setShowResumePromptState(true);
+      } else {
+        if (videoRef.current) {
+          videoRef.current.currentTime = savedTime;
+        }
+        setCurrentTime(savedTime);
+      }
+    }
+  }, [animeId, episodeNumber, initialPosition]);
+
+  const handleResumeConfirm = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = resumeTime;
+      video.play().catch(() => {});
+      setIsPlaying(true);
+    }
+    setCurrentTime(resumeTime);
+    setShowResumePromptState(false);
+  }, [resumeTime, videoRef]);
+
+  const handleResumeRestart = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = 0;
+      video.play().catch(() => {});
+      setIsPlaying(true);
+    }
+    setCurrentTime(0);
+    setShowResumePromptState(false);
+  }, [videoRef]);
+
+  useEffect(() => {
+    if (!showResumePromptState) return;
+    const timer = setTimeout(() => {
+      handleResumeConfirm();
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [showResumePromptState, handleResumeConfirm]);
+
+  // Color extraction and auto subtitle sync
+  useEffect(() => {
+    if (!animeImage) return;
+
+    const extractColor = async () => {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.src = animeImage;
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 10;
+            canvas.height = 10;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0, 10, 10);
+            const pixels = ctx.getImageData(0, 0, 10, 10).data;
+            
+            let rSum = 0, gSum = 0, bSum = 0, count = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+              const r = pixels[i];
+              const g = pixels[i+1];
+              const b = pixels[i+2];
+              const a = pixels[i+3];
+              if (a > 200) {
+                const maxVal = Math.max(r, g, b);
+                const minVal = Math.min(r, g, b);
+                if (maxVal - minVal > 20) {
+                  rSum += r;
+                  gSum += g;
+                  bSum += b;
+                  count++;
+                }
+              }
+            }
+
+            if (count === 0) {
+              for (let i = 0; i < pixels.length; i += 4) {
+                rSum += pixels[i];
+                gSum += pixels[i+1];
+                bSum += pixels[i+2];
+                count++;
+              }
+            }
+
+            const rAvg = Math.round(rSum / count);
+            const gAvg = Math.round(gSum / count);
+            const bAvg = Math.round(bSum / count);
+
+            const rNorm = rAvg / 255;
+            const gNorm = gAvg / 255;
+            const bNorm = bAvg / 255;
+            const max = Math.max(rNorm, gNorm, bNorm);
+            const min = Math.min(rNorm, gNorm, bNorm);
+            let h = 0, s = 0;
+            const l = (max + min) / 2;
+
+            if (max !== min) {
+              const d = max - min;
+              s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+              switch (max) {
+                case rNorm: h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0); break;
+                case gNorm: h = (bNorm - rNorm) / d + 2; break;
+                case bNorm: h = (rNorm - gNorm) / d + 4; break;
+              }
+              h /= 6;
+            }
+
+            const sFinal = Math.max(0.65, s) * 100;
+            const lFinal = Math.max(0.45, Math.min(0.65, l)) * 100;
+            const hFinal = h * 360;
+
+            const roundedH = Math.round(hFinal);
+            const roundedS = Math.round(sFinal);
+            const roundedL = Math.round(lFinal);
+
+            setAccentColor(`hsl(${roundedH}, ${roundedS}%, ${roundedL}%)`);
+            setAccentH(roundedH);
+            setAccentS(`${roundedS}%`);
+            setAccentL(`${roundedL}%`);
+          } catch {}
+        };
+      } catch {}
+    };
+
+    extractColor();
+  }, [animeImage]);
+
+  useEffect(() => {
+    if (currentLanguage === 'sub') {
+      if (subtitleTracks.length > 0) {
+        const engIdx = subtitleTracks.findIndex(
+          (t) =>
+            t.lang.toLowerCase() === 'en' ||
+            t.label.toLowerCase().includes('eng')
+        );
+        if (engIdx > -1) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setActiveSubtitleIdx(engIdx);
+        } else {
+          setActiveSubtitleIdx(0);
+        }
+      }
+    } else {
+      setActiveSubtitleIdx(-1);
+    }
+  }, [currentLanguage, subtitleTracks]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const textTracks = video.textTracks;
+    const syncTracks = () => {
+      for (let i = 0; i < textTracks.length; i++) {
+        textTracks[i].mode = i === activeSubtitleIdx ? 'showing' : 'disabled';
       }
     };
 
-    window.addEventListener('keydown', handleGlobalKeys);
-    return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [isPlaying, isLoading, episodeNumber, totalEpisodes, showSkipIntro, showSkipEnding, onAddBookmark]);
+    syncTracks();
+    textTracks.onaddtrack = () => {
+      syncTracks();
+    };
 
+    return () => {
+      textTracks.onaddtrack = null;
+    };
+  }, [activeSubtitleIdx, subtitleTracks, videoRef]);
+
+  // Controls overlay timer fade logic
+  const resetControlsTimeout = useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    setShowControls(true);
+    if (isPlaying && !showSettings && !showShortcutsHelp) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 2000);
+    }
+  }, [isPlaying, showSettings, showShortcutsHelp]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    resetControlsTimeout();
+    return () => {
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, [resetControlsTimeout]);
+
+  const handleMouseMove = () => {
+    resetControlsTimeout();
+  };
+
+  const handleMouseLeave = () => {
+    if (isPlaying && !showSettings && !showShortcutsHelp) {
+      setShowControls(false);
+    }
+  };
+
+  // Helper formatting time strings
   const formatTime = (secs: number) => {
     if (isNaN(secs)) return '00:00';
     const h = Math.floor(secs / 3600);
@@ -2124,8 +854,159 @@ export default function VideoPlayer({
     return `${pad(m)}:${pad(s)}`;
   };
 
+  const playbackContextValue = useMemo(() => ({
+    videoRef,
+    isPlaying,
+    setIsPlaying,
+    playbackSpeed,
+    setPlaybackSpeed,
+    isMuted,
+    setIsMuted,
+    volume,
+    setVolume,
+    duration,
+    setDuration,
+    togglePlay,
+    toggleMute,
+    seek: (time: number) => {
+      const video = videoRef.current;
+      if (video) {
+        video.currentTime = time;
+        setCurrentTime(time);
+      }
+    },
+    changeSpeed,
+    isLongPressing2x,
+    episodeNumber,
+  }), [
+    isPlaying,
+    playbackSpeed,
+    isMuted,
+    volume,
+    duration,
+    isLongPressing2x,
+    episodeNumber,
+    changeSpeed,
+    toggleMute,
+    togglePlay,
+  ]);
+
+  const sessionContextValue = useMemo(() => ({
+    currentLanguage,
+    setCurrentLanguage,
+    currentQuality,
+    selectQuality,
+    currentProviderName,
+    selectProvider,
+    qualityLevels,
+    providersList,
+    subtitleTracks,
+    activeSubtitleIdx,
+    setActiveSubtitleIdx,
+    hasNativeHindi,
+    activeSource,
+    activeSources,
+    isIframeSource,
+  }), [
+    currentLanguage,
+    currentQuality,
+    currentProviderName,
+    qualityLevels,
+    providersList,
+    subtitleTracks,
+    activeSubtitleIdx,
+    hasNativeHindi,
+    activeSource,
+    activeSources,
+    isIframeSource,
+    selectProvider,
+    selectQuality,
+    setCurrentLanguage,
+  ]);
+
+  const preferencesContextValue = useMemo(() => ({
+    preferences,
+    preferencesLoading,
+    debouncedSetDevicePreference: debouncedSetDevice,
+    togglePreference: async (key: string) => {
+      const currentVal = preferences[key as keyof typeof preferences];
+      if (typeof currentVal === 'boolean') {
+        await setSyncedPreference(key as keyof UserSyncedPreferences, !currentVal);
+      }
+    },
+    skipIntervals,
+    showSkipIntro,
+    showSkipEnding,
+    skipIntro,
+    skipEnding,
+  }), [
+    preferences,
+    preferencesLoading,
+    skipIntervals,
+    showSkipIntro,
+    showSkipEnding,
+    debouncedSetDevice,
+    setSyncedPreference,
+    skipEnding,
+    skipIntro,
+  ]);
+
+  const uiContextValue = useMemo(() => ({
+    isFullscreen,
+    setIsFullscreen,
+    toggleFullscreen,
+    showControls,
+    setShowControls,
+    isPiPSupported,
+    togglePiP,
+    reducedMotion,
+    setReducedMotion,
+    accentColor,
+    accentH,
+    accentS,
+    accentL,
+    handleNext,
+    handlePrev,
+    formatTime: formatTime,
+    getCueAt: getStoryboardCueAt,
+    bookmarks,
+    nextEpisodeNumber: episodeNumber,
+    nextEpisodeTitle,
+    nextEpisodeThumbnail,
+    nextEpisodeCountdown: countdown,
+    nextEpisodeAccept: acceptNextEpisode,
+    nextEpisodeDismiss: dismissNextEpisode,
+  }), [
+    isFullscreen,
+    showControls,
+    isPiPSupported,
+    reducedMotion,
+    accentColor,
+    accentH,
+    accentS,
+    accentL,
+    handleNext,
+    handlePrev,
+    bookmarks,
+    episodeNumber,
+    nextEpisodeTitle,
+    nextEpisodeThumbnail,
+    countdown,
+    acceptNextEpisode,
+    dismissNextEpisode,
+    getStoryboardCueAt,
+    toggleFullscreen,
+    togglePiP,
+  ]);
+
   return (
-    <div className={`flex flex-col gap-4 w-full ${reducedMotion ? 'reduced-motion-active' : ''}`}>
+    <PlayerProvider
+      playback={playbackContextValue}
+      session={sessionContextValue}
+      preferences={preferencesContextValue}
+      ui={uiContextValue}
+    >
+      <div className={`flex flex-col gap-4 w-full ${reducedMotion ? 'reduced-motion-active' : ''}`}>
       {reducedMotion && (
         <style dangerouslySetInnerHTML={{ __html: `
           .reduced-motion-active *,
@@ -2145,17 +1026,33 @@ export default function VideoPlayer({
         onTouchEnd={handleTouchEnd}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onContextMenu={handleContextMenu}
         className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden group/player shadow-2xl border border-border-subtle ${
           isFullscreen ? 'rounded-none border-none' : ''
         }`}
         style={{
           cursor: showControls ? 'default' : 'none',
-          ['--player-accent' as any]: accentColor,
-          ['--player-accent-h' as any]: accentH,
-          ['--player-accent-s' as any]: accentS,
-          ['--player-accent-l' as any]: accentL,
+          ...({
+            '--player-accent': accentColor,
+            '--player-accent-h': accentH,
+            '--player-accent-s': accentS,
+            '--player-accent-l': accentL,
+          } as React.CSSProperties)
         }}
       >
+        {/* Error State Overlay */}
+        {errorMessage && (
+          <PlayerError
+            message={errorMessage}
+            onRetry={() => {
+              setErrorMessage(null);
+              setActiveSourceIdx(0);
+            }}
+          />
+        )}
+
         {/* Native HTML5 Video or embedded Iframe Player */}
         {isIframeSource ? (
           <iframe
@@ -2169,9 +1066,6 @@ export default function VideoPlayer({
         ) : (
           <video
             ref={videoRef}
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={handleVideoEnded}
-            onClick={togglePlay}
             className="w-full h-full object-contain cursor-pointer"
             playsInline
             crossOrigin="anonymous"
@@ -2189,8 +1083,16 @@ export default function VideoPlayer({
           </video>
         )}
 
-        {/* Manual Skip Intro / Ending / Recap Overlays */}
-        {showSkipIntro && (
+        {/* Playback speed 2x hold indicator overlay */}
+        {isLongPressing2x && (
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 bg-black/60 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full flex items-center gap-2 text-white text-xs font-black tracking-widest uppercase shadow-2xl animate-pulse select-none">
+            <span className="w-2 h-2 rounded-full bg-accent-violet animate-ping" />
+            <span>2.0x Speed</span>
+          </div>
+        )}
+
+        {/* Manual Skip Intro / Ending / Recap Overlays — only for native video */}
+        {!isIframeSource && showSkipIntro && (
           <button
             onClick={skipIntro}
             className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
@@ -2201,7 +1103,7 @@ export default function VideoPlayer({
             ⏩ Skip Intro
           </button>
         )}
-        {showSkipEnding && (
+        {!isIframeSource && showSkipEnding && (
           <button
             onClick={skipEnding}
             className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
@@ -2212,7 +1114,7 @@ export default function VideoPlayer({
             ⏩ Skip Ending
           </button>
         )}
-        {showSkipRecap && (
+        {!isIframeSource && showSkipRecap && (
           <button
             onClick={skipRecap}
             className={`absolute left-6 z-40 bg-[#0D0D14]/90 border border-accent-violet/30 hover:border-accent-violet/60 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all duration-300 shadow-lg select-none backdrop-blur-md ${
@@ -2224,8 +1126,8 @@ export default function VideoPlayer({
           </button>
         )}
 
-        {/* In-Player Resume Prompt Overlay */}
-        {showResumePromptState && (
+        {/* In-Player Resume Prompt Overlay — only for native video */}
+        {!isIframeSource && showResumePromptState && (
           <div
             className={`absolute left-6 z-40 bg-[#0D0D14]/95 border border-accent-violet/30 p-4 rounded-xl shadow-2xl backdrop-blur-md flex flex-col gap-2 max-w-xs transition-all duration-300 ${
               showControls ? 'bottom-32' : 'bottom-8'
@@ -2251,57 +1153,9 @@ export default function VideoPlayer({
           </div>
         )}
 
-        {/* Auto Next Countdown Overlay */}
+        {/* Auto Next Countdown Overlay (Floating bottom-right card) */}
         {countdown !== null && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md text-center p-6">
-            <div className="space-y-6 max-w-md w-full bg-[#0D0D14]/90 border border-white/10 rounded-2xl p-6 shadow-2xl animate-fade-up">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-accent-violet select-none mb-1">
-                  Up Next
-                </p>
-                <h3 className="text-base font-bold text-white leading-tight font-display select-none">
-                  Episode {episodeNumber + 1} {nextEpisodeTitle ? `– ${nextEpisodeTitle}` : ''}
-                </h3>
-              </div>
-
-              {nextEpisodeThumbnail ? (
-                <div className="relative aspect-video w-full max-w-xs mx-auto rounded-xl overflow-hidden border border-white/10 shadow-lg select-none">
-                  <img
-                    src={nextEpisodeThumbnail}
-                    alt={`Episode ${episodeNumber + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="text-white font-black text-3xl drop-shadow-md">
-                      {countdown}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-accent-violet/10 border border-accent-violet/30 flex items-center justify-center mx-auto text-white font-black text-2xl select-none">
-                  {countdown}
-                </div>
-              )}
-
-              <div className="flex items-center justify-center gap-3">
-                <button
-                  onClick={() => setCountdown(null)}
-                  className="px-5 py-2 rounded-xl border border-white/10 hover:bg-white/10 text-white font-bold text-xs transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setCountdown(null);
-                    handleNext();
-                  }}
-                  className="px-5 py-2 rounded-xl bg-accent-violet hover:bg-accent-violet/85 text-white font-bold text-xs transition-colors"
-                >
-                  Play Now
-                </button>
-              </div>
-            </div>
-          </div>
+          <NextEpisodeOverlay />
         )}
 
         {/* You're All Caught Up Overlay */}
@@ -2315,10 +1169,10 @@ export default function VideoPlayer({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white leading-tight font-display mb-1 select-none">
-                  You're all caught up!
+                  You&apos;re all caught up!
                 </h3>
                 <p className="text-xs text-text-secondary select-none">
-                  You've watched the final episode of {animeTitle}.
+                  You&apos;ve watched the final episode of {animeTitle}.
                 </p>
               </div>
               <div className="flex items-center justify-center gap-3">
@@ -2344,14 +1198,6 @@ export default function VideoPlayer({
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Long Press 2x Speed Indicator */}
-        {isLongPressing2x && (
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-3 py-1.5 rounded-full bg-black/60 border border-white/10 text-white font-bold text-[10px] tracking-widest uppercase flex items-center gap-1.5">
-            <Loader2 className="w-3.5 h-3.5 text-accent-violet animate-spin" />
-            <span>2X Speed Active</span>
           </div>
         )}
 
@@ -2383,38 +1229,8 @@ export default function VideoPlayer({
           </div>
         )}
 
-        {/* Loading overlay spinner */}
-        {isLoading && !errorMessage && (
-          <div className="absolute inset-0 z-40 flex flex-col gap-4 items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_30px_rgba(124,91,255,0.4)] animate-pulse">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/app-icon.jpg" alt="Loading..." className="w-full h-full object-cover" />
-            </div>
-            <Loader2 className="w-6 h-6 text-accent-violet animate-spin" />
-          </div>
-        )}
-
-        {/* Error fallback overlay */}
-        {errorMessage && (
-          <PlayerError message={errorMessage} onRetry={handleSourceError} />
-        )}
-
-        {/* Play/Pause Center Indicator */}
-        {!isLoading && !errorMessage && !isIframeSource && countdown === null && (
-          <div
-            onClick={togglePlay}
-            className="absolute inset-0 flex items-center justify-center bg-black/0 active:bg-black/10 transition-colors pointer-events-none"
-          >
-            {!isPlaying && (
-              <div className="w-16 h-16 rounded-full bg-accent-violet/70 backdrop-blur-xs flex items-center justify-center text-white scale-95 opacity-0 group-hover/player:scale-100 group-hover/player:opacity-100 transition-all duration-200 shadow-lg pointer-events-auto cursor-pointer">
-                <PlayCircle className="w-12 h-12 text-white fill-white/10" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ─── Control Bar Overlay ──────────────────────────────────────────────── */}
-        {!errorMessage && !isIframeSource && (
+        {/* Custom Controls Bar Container overlay — hidden for iframe sources (they have built-in controls) */}
+        {showControls && !isIframeSource && (
           <div
             className={`absolute bottom-4 left-4 right-4 z-40 bg-[#05050A]/70 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300 shadow-2xl ${
               showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
@@ -2425,67 +1241,8 @@ export default function VideoPlayer({
               <span className="text-xs font-mono text-text-secondary select-none">
                 {formatTime(currentTime)}
               </span>
-              <div className="flex-grow relative h-6 flex items-center group rounded-lg focus-within:ring-2 focus-within:ring-white/50">
-                {/* Base background bar */}
-                <div className="absolute left-0 right-0 h-1.5 rounded-lg bg-white/20 pointer-events-none" />
-
-                {/* Active played progress bar */}
-                <div 
-                  className="absolute left-0 h-1.5 rounded-lg pointer-events-none" 
-                  style={{
-                    backgroundColor: 'var(--player-accent)',
-                    width: `${duration ? (currentTime / duration) * 100 : 0}%`
-                  }}
-                />
-
-                {/* Chapter markers (op, ed, recap) */}
-                {duration > 0 && skipIntervals.map((interval, idx) => {
-                  const left = (interval.startTime / duration) * 100;
-                  const width = ((interval.endTime - interval.startTime) / duration) * 100;
-                  let bgColor = 'rgba(168, 85, 247, 0.4)'; // op color: light violet
-                  if (interval.type === 'ed') bgColor = 'rgba(236, 72, 153, 0.4)'; // ed color: pink
-                  if (interval.type === 'recap') bgColor = 'rgba(234, 179, 8, 0.4)'; // recap color: yellow
-                  return (
-                    <div
-                      key={`chapter-${idx}`}
-                      className="absolute h-1.5 pointer-events-none"
-                      style={{
-                        left: `${left}%`,
-                        width: `${width}%`,
-                        backgroundColor: bgColor,
-                      }}
-                    />
-                  );
-                })}
-
-                {/* Bookmark ticks */}
-                {duration > 0 && bookmarks.map((b) => {
-                  const left = (b.timestamp / duration) * 100;
-                  return (
-                    <div
-                      key={`bookmark-tick-${b.id || b.timestamp}`}
-                      className="absolute w-1 h-3 bg-emerald-400 z-10 pointer-events-none transform -translate-x-1/2"
-                      style={{ left: `${left}%` }}
-                    />
-                  );
-                })}
-
-                {/* The actual range input transparent or styled appropriately overlaying on top */}
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 0}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="absolute w-full h-full opacity-0 cursor-pointer z-20"
-                  aria-label={`Seek bar. Current time: ${formatTime(currentTime)} of ${formatTime(duration)}`}
-                />
-                
-                {/* Visual thumb helper visible on hover */}
-                <div 
-                  className="absolute w-3.5 h-3.5 rounded-full bg-white shadow-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10 transform -translate-x-1/2"
-                  style={{ left: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                />
+              <div className="flex-grow">
+                <SeekBar />
               </div>
               <span className="text-xs font-mono text-text-secondary select-none">
                 {formatTime(duration)}
@@ -2510,9 +1267,9 @@ export default function VideoPlayer({
                     if (video) video.currentTime = Math.max(video.currentTime - 10, 0);
                   }}
                   className="text-text-secondary hover:text-white transition-colors"
-                  title="Rewind 10s"
+                  aria-label="Rewind 10 seconds"
                 >
-                  <RotateCcw size={16} />
+                  <RotateCcw size={16} aria-hidden="true" />
                 </button>
 
                 {(onPrevEpisode || episodeNumber > 1) && (
@@ -2541,9 +1298,9 @@ export default function VideoPlayer({
                     if (video) video.currentTime = Math.min(video.currentTime + 10, video.duration);
                   }}
                   className="text-text-secondary hover:text-white transition-colors"
-                  title="Skip 10s"
+                  aria-label="Skip forward 10 seconds"
                 >
-                  <SkipForward size={16} />
+                  <SkipForward size={16} aria-hidden="true" />
                 </button>
 
                 <div className="hidden sm:flex flex-col gap-0 min-w-0">
@@ -2563,10 +1320,32 @@ export default function VideoPlayer({
                 <button
                   onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
                   className="text-text-secondary hover:text-white transition-colors"
-                  title="Keyboard Shortcuts"
+                  aria-label="Keyboard shortcuts"
                 >
-                  <HelpCircle size={17} />
+                  <HelpCircle size={17} aria-hidden="true" />
                 </button>
+
+                {/* Chapters Dropdown Button */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowChapters(!showChapters);
+                      setShowSettings(false);
+                      setShowBookmarksPanel(false);
+                    }}
+                    className={`text-text-secondary hover:text-white transition-colors ${showChapters ? 'text-accent-violet' : ''}`}
+                    title="Chapters"
+                    aria-label="Chapters"
+                  >
+                    <List size={18} />
+                  </button>
+
+                  {showChapters && (
+                    <ChaptersMenu
+                      onClose={() => setShowChapters(false)}
+                    />
+                  )}
+                </div>
 
                 {/* Bookmarks Toggle Button */}
                 <button
@@ -2606,49 +1385,14 @@ export default function VideoPlayer({
                       onSelectSubtitle={selectSubtitle}
                       playbackSpeed={playbackSpeed}
                       onChangeSpeed={changeSpeed}
-                      isAutoplayNext={isAutoplayNext}
-                      onToggleAutoplay={() => {
-                        const next = !isAutoplayNext;
-                        setIsAutoplayNext(next);
-                        localStorage.setItem('animeworld:autoplay_next', String(next));
-                        fetch('/api/user/preferences', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ autoplayNext: next }),
-                        }).catch(err => console.error(err));
-                      }}
-                      autoSkipIntro={autoSkipIntro}
-                      onToggleAutoSkipIntro={() => {
-                        const next = !autoSkipIntro;
-                        setAutoSkipIntro(next);
-                        localStorage.setItem('animeworld:auto_skip_intro', String(next));
-                        fetch('/api/user/preferences', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ autoSkipIntro: next }),
-                        }).catch(err => console.error(err));
-                      }}
-                      autoSkipOutro={autoSkipOutro}
-                      onToggleAutoSkipOutro={() => {
-                        const next = !autoSkipOutro;
-                        setAutoSkipOutro(next);
-                        localStorage.setItem('animeworld:auto_skip_outro', String(next));
-                        fetch('/api/user/preferences', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ autoSkipOutro: next }),
-                        }).catch(err => console.error(err));
-                      }}
-                      autoplayCountdown={autoplayCountdown}
-                      onSelectCountdown={(seconds) => {
-                        setAutoplayCountdown(seconds);
-                        localStorage.setItem('animeworld:autoplay_countdown', String(seconds));
-                        fetch('/api/user/preferences', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ autoplayCountdown: seconds }),
-                        }).catch(err => console.error(err));
-                      }}
+                      isAutoplayNext={preferences.autoNext}
+                      onToggleAutoplay={() => setSyncedPreference('autoNext', !preferences.autoNext)}
+                      autoSkipIntro={preferences.autoSkipOP}
+                      onToggleAutoSkipIntro={() => setSyncedPreference('autoSkipOP', !preferences.autoSkipOP)}
+                      autoSkipOutro={preferences.autoSkipED}
+                      onToggleAutoSkipOutro={() => setSyncedPreference('autoSkipED', !preferences.autoSkipED)}
+                      autoplayCountdown={5}
+                      onSelectCountdown={() => {}}
                       providers={providersList}
                       currentProvider={currentProviderName}
                       onSelectProvider={selectProvider}
@@ -2690,9 +1434,9 @@ export default function VideoPlayer({
                   <button
                     onClick={togglePiP}
                     className="text-text-secondary hover:text-white transition-colors"
-                    title="Picture-in-Picture"
+                    aria-label="Picture-in-Picture"
                   >
-                    <Tv size={17} />
+                    <Tv size={17} aria-hidden="true" />
                   </button>
                 )}
 
@@ -2720,7 +1464,7 @@ export default function VideoPlayer({
         )}
 
         {/* Fallback Test Stream Banner */}
-        {isFallbackActive && (
+        {isFallback && (
           <div className="absolute top-0 left-0 right-0 z-[55] bg-amber-600/90 backdrop-blur-sm text-white text-center py-1.5 px-4 text-xs font-bold tracking-wide">
             ⚠ Fallback Test Stream — Real anime sources could not be resolved
           </div>
@@ -2732,8 +1476,8 @@ export default function VideoPlayer({
             activeProvider: currentProviderName,
             streamUrl: activeSource?.url || '',
             sourceType: activeSource?.isM3U8 ? 'HLS' : 'MP4',
-            isFallback: isFallbackActive,
-            fallbackReason: fallbackReasonText,
+            isFallback,
+            fallbackReason,
             subtitleCount: subtitleTracks.length,
             subtitleLangs: subtitleTracks.map((t) => t.lang),
             qualityLevels,
@@ -2744,33 +1488,18 @@ export default function VideoPlayer({
             resolvedSourcesCount: activeSources.length,
             animeId,
             episodeNumber,
-            providerSlug,
-            matchedTitle,
-            matchedSlug,
-            searchCount,
-            episodeCountFound,
-            lastError: isFallbackActive ? fallbackReasonText : undefined,
+            providerSlug: initialProviderSlug,
+            matchedTitle: initialMatchedTitle,
+            matchedSlug: initialMatchedSlug,
+            searchCount: initialSearchCount,
+            episodeCountFound: initialEpisodeCountFound,
+            lastError: isFallback ? fallbackReason : undefined,
           }}
         />
 
         {/* Keyboard Shortcuts Overlay Modal */}
         {showShortcutsHelp && (
           <ShortcutsOverlay onClose={() => setShowShortcutsHelp(false)} />
-        )}
-
-        {toastMessage && (
-          <div className={`absolute top-4 right-4 z-50 backdrop-blur-md border text-white font-medium text-xs px-4 py-2.5 rounded-xl shadow-2xl animate-fade-in flex items-center gap-2 select-none ${
-            toastMessage.toLowerCase().includes('switched') || toastMessage.toLowerCase().includes('server')
-              ? 'bg-teal-900/90 border-teal-500/40'
-              : 'bg-[#0D0D14]/90 border-red-500/30'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${
-              toastMessage.toLowerCase().includes('switched') || toastMessage.toLowerCase().includes('server')
-                ? 'bg-teal-400'
-                : 'bg-red-500 animate-ping'
-            }`} />
-            <span>{toastMessage}</span>
-          </div>
         )}
 
         {/* Bookmarks Side Panel */}
@@ -2803,19 +1532,21 @@ export default function VideoPlayer({
               <span>Languages</span>
             </div>
             <div className="lang-toggle">
-              {[
-                { key: 'hindi', label: 'HINDI', available: hindiSourcesList.length > 0 || hasNativeHindi },
-                { key: 'sub', label: 'SUB', available: subSourcesList.length > 0 },
-                { key: 'dub', label: 'DUB', available: dubSourcesList.length > 0 },
-                { key: 'tamil', label: 'TAMIL', available: tamilSourcesList.length > 0 },
-                { key: 'telugu', label: 'TELUGU', available: teluguSourcesList.length > 0 },
-              ].map((lang) => {
+              {(
+                [
+                  { key: 'hindi', label: 'HINDI', available: hindiSourcesList.length > 0 || hasNativeHindi },
+                  { key: 'sub', label: 'SUB', available: subSourcesList.length > 0 },
+                  { key: 'dub', label: 'DUB', available: dubSourcesList.length > 0 },
+                  { key: 'tamil', label: 'TAMIL', available: tamilSourcesList.length > 0 },
+                  { key: 'telugu', label: 'TELUGU', available: teluguSourcesList.length > 0 },
+                ] as const
+              ).map((lang) => {
                 const isActive = currentLanguage === lang.key;
                 return (
                   <button
                     key={lang.key}
                     disabled={!lang.available}
-                    onClick={() => selectLanguage(lang.key as any)}
+                    onClick={() => selectLanguage(lang.key)}
                     className={`lang-toggle-btn ${isActive ? 'active' : ''} ${!lang.available ? 'opacity-40 cursor-not-allowed' : ''}`}
                     style={isActive ? { backgroundColor: 'var(--player-accent)' } : undefined}
                   >
@@ -2855,9 +1586,6 @@ export default function VideoPlayer({
                         <span className="server-lang-badge hindi">HINDI</span>
                       </>
                     )}
-                    {prov === 'piratexplay' && (
-                      <span className="server-lang-badge hindi">HINDI</span>
-                    )}
                   </button>
                 );
               })}
@@ -2866,5 +1594,6 @@ export default function VideoPlayer({
         </div>
       )}
     </div>
-  );
+  </PlayerProvider>
+);
 }

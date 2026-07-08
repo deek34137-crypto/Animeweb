@@ -120,7 +120,7 @@ export async function GET() {
   } catch (error: any) {
     console.error('Schedule API Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: 'Internal Server Error', details: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

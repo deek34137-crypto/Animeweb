@@ -1,4 +1,4 @@
-const CACHE_VERSION = '2026-06-24';
+const CACHE_VERSION = '338c18b';
 const STATIC_CACHE = `aniworld-static-${CACHE_VERSION}`;
 const IMAGE_CACHE = `aniworld-images-${CACHE_VERSION}`;
 const API_CACHE = `aniworld-api-${CACHE_VERSION}`;
@@ -12,13 +12,15 @@ const PRECACHE_ASSETS = [
 
 // Helper to limit cache size (LRU-like pruning)
 function limitCacheSize(cacheName, maxItems, pruneCount) {
-  caches.open(cacheName).then((cache) => {
-    cache.keys().then((keys) => {
+  return caches.open(cacheName).then((cache) => {
+    return cache.keys().then((keys) => {
       if (keys.length > maxItems) {
         const itemsToDelete = Math.min(pruneCount, keys.length);
+        const deletePromises = [];
         for (let i = 0; i < itemsToDelete; i++) {
-          cache.delete(keys[i]);
+          deletePromises.push(cache.delete(keys[i]));
         }
+        return Promise.all(deletePromises);
       }
     });
   });
@@ -29,8 +31,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS);
-    }).then(() => {
-      return self.skipWaiting();
     })
   );
 });
@@ -95,9 +95,9 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.status === 200) {
             const responseClone = response.clone();
-            caches.open(API_CACHE).then((cache) => {
-              cache.put(request, responseClone);
-            });
+            event.waitUntil(
+              caches.open(API_CACHE).then((cache) => cache.put(request, responseClone))
+            );
           }
           return response;
         })
@@ -126,11 +126,13 @@ self.addEventListener('fetch', (event) => {
         return fetch(request).then((response) => {
           if (response.status === 200) {
             const responseClone = response.clone();
-            caches.open(IMAGE_CACHE).then((cache) => {
-              cache.put(request, responseClone);
-              // LRU Pruning: if cache size exceeds 250 items, delete oldest 50
-              limitCacheSize(IMAGE_CACHE, 250, 50);
-            });
+            event.waitUntil(
+              caches.open(IMAGE_CACHE).then((cache) => {
+                return cache.put(request, responseClone).then(() => {
+                  return limitCacheSize(IMAGE_CACHE, 250, 50);
+                });
+              })
+            );
           }
           return response;
         }).catch(() => {
@@ -161,7 +163,11 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         }).catch(() => null);
 
-        return cachedResponse || fetchPromise;
+        if (cachedResponse) {
+          event.waitUntil(fetchPromise);
+          return cachedResponse;
+        }
+        return fetchPromise;
       })
     );
   }
