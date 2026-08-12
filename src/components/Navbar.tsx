@@ -52,12 +52,12 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-bg-primary/80 backdrop-blur-xl border-b border-border-subtle px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between transition-colors duration-200">
+    <header className="sticky top-0 z-30 w-full bg-bg-primary/80 backdrop-blur-xl border-b border-border-subtle px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between transition-colors duration-200">
       {/* Left: Mobile Toggle & Logo */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={onToggleSidebar}
-          className="lg:hidden p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
+          className="lg:hidden p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
           aria-label="Toggle Sidebar Menu"
         >
           <Menu size={20} />
@@ -73,7 +73,7 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
       </div>
 
       {/* Right: Search, Notifications, Theme, Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         {/* Cmd+K Search trigger */}
         <button
           onClick={() => {
@@ -84,10 +84,10 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
             });
             window.dispatchEvent(event);
           }}
-          className="flex items-center gap-2 bg-white/[0.04] dark:bg-white/[0.02] border border-border-subtle rounded-xl px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:border-[#7c3aed]/50 transition-all duration-200 group"
+          className="flex items-center gap-2 bg-white/[0.04] dark:bg-white/[0.02] border border-border-subtle rounded-xl p-2 sm:px-3 sm:py-1.5 text-xs text-text-secondary hover:text-text-primary hover:border-[#7c3aed]/50 transition-all duration-200 group min-w-[36px] min-h-[36px] justify-center"
           aria-label="Search Command Palette"
         >
-          <Search size={13} className="text-text-muted group-hover:text-text-primary transition-colors" />
+          <Search size={15} className="text-text-muted group-hover:text-text-primary transition-colors" />
           <span className="hidden sm:inline">{t('searchPlaceholder')}</span>
           <div className="hidden sm:flex items-center gap-0.5 text-[9px] text-text-disabled font-mono border border-border-subtle rounded px-1 py-0.2">
             <Command size={8} />

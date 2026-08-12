@@ -27,7 +27,7 @@ function MobileSidebarDrawer({ onClose, children }: { onClose?: () => void; chil
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
-        className="relative flex flex-col w-64 max-w-xs h-full bg-bg-secondary shadow-2xl transition-transform duration-300 ease-out"
+        className="relative flex flex-col w-[280px] max-w-[85vw] h-full bg-bg-secondary shadow-2xl transition-transform duration-300 ease-out"
         style={{ animation: 'slideInLeft 0.25s ease-out both' }}
       >
         {/* Close button */}
@@ -40,13 +40,13 @@ function MobileSidebarDrawer({ onClose, children }: { onClose?: () => void; chil
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
+            className="p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
             aria-label="Close navigation menu"
           >
-            <X size={16} aria-hidden="true" />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto no-scrollbar">
           {children}
         </div>
       </div>

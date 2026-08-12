@@ -1,7 +1,7 @@
 import React from 'react';
 import { HENTAI_SOURCES, fetchHStreamTrending } from '@/services/hentai';
-import HentaiSourceGrid from '@/components/hentai/HentaiSourceGrid';
-import { ShieldAlert, Zap, BookOpen } from 'lucide-react';
+import HentaiVideoGrid from '@/components/hentai/HentaiVideoGrid';
+import { ShieldAlert, Zap, Film } from 'lucide-react';
 
 export default async function HentaiPage() {
   let trending: Awaited<ReturnType<typeof fetchHStreamTrending>> = [];
@@ -16,7 +16,7 @@ export default async function HentaiPage() {
   const githubCount = HENTAI_SOURCES.filter((s) => s.status === 'github').length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10 animate-fade-in">
+    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10 animate-fade-in">
 
       {/* ── Hero Header ── */}
       <div className="relative rounded-3xl overflow-hidden border border-red-500/20 bg-gradient-to-br from-red-950/40 via-[#0a0a0f] to-[#0a0a0f] p-8">
@@ -43,24 +43,21 @@ export default async function HentaiPage() {
           </div>
 
           <p className="text-sm text-white/40 max-w-lg mb-6 leading-relaxed">
-            Stream from {HENTAI_SOURCES.filter((s) => s.embedSupport === 'iframe').length} sources directly in the player.
-            Click any card or trending video to open the built-in streaming modal — no external redirects.
+            Browse our extensive catalog of animated adult content. Select any video to open the built-in streaming modal, featuring ad-free playback from {HENTAI_SOURCES.filter((s) => s.embedSupport === 'iframe').length} sandboxed sources.
           </p>
 
           {/* Stats row */}
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-1.5 text-xs text-emerald-400 font-semibold">
-              🟢 {workingCount} Working
-            </div>
-            <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-1.5 text-xs text-yellow-400 font-semibold">
-              🟡 {cfCount} CF Protected
-            </div>
-            <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-1.5 text-xs text-blue-400 font-semibold">
-              📦 {githubCount} GitHub
+              🟢 {workingCount} Working Sources
             </div>
             <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-1.5 text-xs text-red-400 font-semibold">
               <Zap size={11} />
               In-App Player
+            </div>
+            <div className="flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-1.5 text-xs text-purple-400 font-semibold">
+              <Film size={11} />
+              Popup Protection
             </div>
           </div>
         </div>
@@ -68,22 +65,11 @@ export default async function HentaiPage() {
 
       {/* ── Streaming Section ── */}
       <section>
-        <div className="flex items-center gap-3 mb-2">
-          <BookOpen size={18} className="text-red-400" />
-          <h2 className="text-lg font-bold text-text-primary">Source Directory</h2>
-          <span className="text-xs text-text-muted bg-white/5 border border-white/10 rounded-full px-2 py-0.5">
-            {HENTAI_SOURCES.length} sources
-          </span>
-        </div>
-        <p className="text-xs text-text-secondary mb-6">
-          All content streams inside our player. Popups and redirect hijacking are blocked via iframe sandbox policy.
-        </p>
-
-        <HentaiSourceGrid sources={HENTAI_SOURCES} trendingVideos={trending} />
+        <HentaiVideoGrid trendingVideos={trending} />
       </section>
 
       {/* ── Legal Disclaimer ── */}
-      <div className="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 space-y-2">
+      <div className="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 space-y-2 mt-20">
         <div className="flex items-center gap-2 text-red-400 mb-3">
           <ShieldAlert size={16} />
           <span className="text-sm font-bold">Legal Disclaimer</span>

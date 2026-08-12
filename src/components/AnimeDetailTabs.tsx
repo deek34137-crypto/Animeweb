@@ -142,7 +142,7 @@ export default function AnimeDetailTabs({
             : 'border-b border-border-subtle/50 mb-6'
         }`}
       >
-        <div className="flex gap-1 py-3 overflow-x-auto no-scrollbar scroll-smooth">
+        <div className="flex gap-1.5 py-2.5 sm:py-3 overflow-x-auto no-scrollbar scroll-smooth -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 touch-pan-x">
           {tabs.map((tab) => (
             <button
               key={tab.key}

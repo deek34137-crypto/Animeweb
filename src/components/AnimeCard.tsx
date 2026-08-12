@@ -93,17 +93,17 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
     ? Math.round((listEntry.episodesWatched / anime.episodes) * 100)
     : 0;
 
-  // 1. WIDE VARIANT: Landscape Bento Card (Spans 2 columns x 1 row)
+  // 1. WIDE VARIANT: Landscape Bento Card (Spans 2 columns x 1 row on sm+)
   if (variant === 'wide') {
     return (
-      <div className="group/card relative flex flex-col h-full transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] col-span-2 shadow-md hover:shadow-xl rounded-xl">
+      <div className="group/card relative flex flex-col h-full transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] col-span-1 sm:col-span-2 shadow-md hover:shadow-xl rounded-xl">
         <Link
           href={`/anime/${anime.mal_id}`}
           prefetch={prefetch}
           className="flex h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover"
         >
           {/* Left: Poster */}
-          <div className="relative w-[32%] sm:w-[30%] flex-shrink-0 overflow-hidden bg-surface-3 h-full">
+          <div className="relative w-[36%] sm:w-[30%] flex-shrink-0 overflow-hidden bg-surface-3 h-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}

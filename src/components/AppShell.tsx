@@ -53,7 +53,7 @@ export default function AppShell({
 
   if (isWatchPage) {
     return (
-      <div className="min-h-screen flex flex-col bg-bg-primary text-text-primary transition-colors duration-200">
+      <div className="min-h-screen flex flex-col bg-bg-primary text-text-primary transition-colors duration-200 overflow-x-clip">
         {/* Skip navigation */}
         <a
           href="#main-content"
@@ -81,7 +81,7 @@ export default function AppShell({
   }
 
   return (
-    <div className="min-h-screen flex bg-bg-primary text-text-primary transition-colors duration-200">
+    <div className="min-h-screen flex bg-bg-primary text-text-primary transition-colors duration-200 overflow-x-clip">
       {/* Skip navigation */}
       <a
         href="#main-content"
@@ -102,7 +102,7 @@ export default function AppShell({
         <Navbar onToggleSidebar={() => setSidebarOpen(true)} />
 
         {/* Dynamic page content container */}
-        <main id="main-content" className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <main id="main-content" className="flex-grow w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
           <PageTransition>
             {children}
           </PageTransition>

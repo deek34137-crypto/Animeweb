@@ -181,17 +181,18 @@ export default async function HomePage({ params }: HomePageProps) {
 
 // ─── Suspenseful Server Component: Hero Section ──────────────────────────────
 async function HeroSection() {
-  const session = await auth();
-  const userId = session?.user?.id;
-
   let trending: AnimeData[] = [];
   let seasonal: AnimeData[] = [];
   let topRated: AnimeData[] = [];
   let recommendations: AnimeData[] = [];
   let schedules: AnimeData[] = [];
   let continueWatching: any[] = [];
+  let userId: string | undefined = undefined;
 
   try {
+    const session = await auth().catch(() => null);
+    userId = session?.user?.id;
+
     const promises: Promise<any>[] = [
       AnimeApi.getTrendingAnime(1).catch(() => ({ data: [] })),
       AnimeApi.getSeasonalAnime(1).catch(() => ({ data: [] })),
@@ -257,7 +258,7 @@ async function HeroSection() {
 
 // ─── Suspenseful Server Component: Quick Actions ─────────────────────────────
 async function QuickActionsSection() {
-  const session = await auth();
+  const session = await auth().catch(() => null);
   const userId = session?.user?.id;
 
   let continueWatching: any[] = [];
@@ -274,7 +275,7 @@ async function QuickActionsSection() {
 
 // ─── Suspenseful Server Component: User Dashboard Stats & Continue Watching ───
 async function UserDashboardSection() {
-  const session = await auth();
+  const session = await auth().catch(() => null);
   const userId = session?.user?.id;
 
   if (!userId) {
@@ -452,7 +453,7 @@ async function RecentlyUpdatedSection() {
 
 // ─── Suspenseful Server Component: User Recommendations ─────────────────────
 async function UserRecommendationsSection() {
-  const session = await auth();
+  const session = await auth().catch(() => null);
   const userId = session?.user?.id;
 
   if (!userId) return null;
