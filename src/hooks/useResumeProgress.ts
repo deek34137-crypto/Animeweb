@@ -16,6 +16,9 @@ interface UseResumeProgressOptions {
   episodeNumber: number;
   totalEpisodes: number | undefined;
   analyticsContext: Omit<AnalyticsContext, 'playbackPosition' | 'timestamp'>;
+  activeSubtitleIdx?: number;
+  currentLanguage?: string;
+  currentQuality?: string;
 }
 
 /**
@@ -36,6 +39,9 @@ export function useResumeProgress({
   episodeNumber,
   totalEpisodes,
   analyticsContext,
+  activeSubtitleIdx,
+  currentLanguage,
+  currentQuality,
 }: UseResumeProgressOptions) {
   const lastSavedPositionRef = useRef<number>(-1);
 
@@ -45,8 +51,6 @@ export function useResumeProgress({
 
     const t = video.currentTime;
     const dur = video.duration;
-
-
 
     if (!force && Math.abs(t - lastSavedPositionRef.current) < MIN_PROGRESS_DELTA_S) return;
 
@@ -62,6 +66,19 @@ export function useResumeProgress({
       totalEpisodes,
       force,
     });
+
+    if (typeof window !== 'undefined' && dur > 0) {
+      try {
+        localStorage.setItem(`aniworld-resume:${animeId}:${episodeNumber}`, JSON.stringify({
+          resumeVersion: 1,
+          playbackRate: video.playbackRate || 1.0,
+          activeSubtitleIdx: activeSubtitleIdx !== undefined ? activeSubtitleIdx : -1,
+          currentLanguage: currentLanguage || 'sub',
+          currentQuality: currentQuality || 'auto',
+          position: t,
+        }));
+      } catch {}
+    }
 
     AnalyticsBus.dispatch({
       type: 'progress_save',
@@ -92,6 +109,20 @@ export function useResumeProgress({
         totalEpisodes,
         force: true,
       });
+
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`aniworld-resume:${animeId}:${episodeNumber}`, JSON.stringify({
+            resumeVersion: 1,
+            playbackRate: video.playbackRate || 1.0,
+            activeSubtitleIdx: activeSubtitleIdx !== undefined ? activeSubtitleIdx : -1,
+            currentLanguage: currentLanguage || 'sub',
+            currentQuality: currentQuality || 'auto',
+            position: video.duration,
+          }));
+        } catch {}
+      }
+
       AnalyticsBus.dispatch({
         type: 'episode_complete',
         context: { ...analyticsContext, playbackPosition: video.duration, timestamp: Date.now() },
@@ -117,5 +148,5 @@ export function useResumeProgress({
       window.removeEventListener('beforeunload', handleUnload);
       saveProgress(true); // flush on unmount
     };
-  }, [animeId, episodeNumber, animeTitle, animeImage, totalEpisodes]);
+  }, [animeId, episodeNumber, animeTitle, animeImage, totalEpisodes, activeSubtitleIdx, currentLanguage, currentQuality]);
 }

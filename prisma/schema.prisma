@@ -108,6 +108,12 @@ model User {
   episodeProgresses   EpisodeProgress[]
   episodeSessions     EpisodeSession[]
   playerPreferences   PlayerPreferences?
+
+  // YAR Rating Features
+  animePersona        AnimePersona?
+  ratingMatches       RatingMatch[]
+  topMoments          TopMoment[]
+  topMomentVotes      TopMomentVote[]
 }
 
 model Account {
@@ -153,7 +159,9 @@ model ListEntry {
   animeImage      String         // Cache the image for Continue Watching
   animeEpisodes   Int?           // Cache total episodes count
   status          String         // watching, completed, dropped, paused, planning, rewatching
-  score           Float?         // 1-10 with 0.5 steps
+  score           Float?         // 1.00–10.00 in 0.25 quarter-point steps
+  smartRateScore  Float?         // Elo-derived score from Smart Rate 1v1 matches
+  compareRatePosn Int?           // Ordinal position in user's Compare Rate stack
   episodesWatched Int            @default(0)
   rewatchCount    Int            @default(0)
   startedAt       DateTime?
@@ -172,6 +180,90 @@ model ListEntry {
 
   @@unique([userId, animeId])
   @@index([userId, status])
+}
+
+// ─── YAR: Smart Rate 1v1 Match History ───────────────────────────────────────
+
+model RatingMatch {
+  id              String   @id @default(cuid())
+  userId          String
+  winnerAnimeId   String
+  loserAnimeId    String
+  winnerTitle     String
+  loserTitle      String
+  sessionId       String?  // Groups matches in one Smart Rate session
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionId])
+}
+
+// ─── YAR: Anime Persona (MBTI-style cached result) ────────────────────────────
+
+model AnimePersona {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  personaCode   String   // 4-letter code e.g. "EAMH", "CASG"
+  personaName   String   // e.g. "The Cerebral Drifter"
+  personaDesc   String   // Short description of the persona
+  axisScores    Json     // { emotional: 72, cerebral: 28, action: 60, atmospheric: 40, mainstream: 30, hidden: 70, completionist: 80, selective: 20 }
+  ratingCount   Int      // Number of ratings used for calculation
+  calculatedAt  DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── YAR: Top Moments (Community Hall of Fame) ────────────────────────────────
+
+model TopMoment {
+  id            String   @id @default(cuid())
+  userId        String
+  animeId       String
+  animeTitle    String
+  episode       Int
+  timestamp     String?  // e.g. "14:32"
+  title         String   // e.g. "All Might's Last Fight"
+  description   String?
+  voteCount     Int      @default(0)
+  spoilerRisk   Boolean  @default(false)
+  isHidden      Boolean  @default(false) // Admin can hide inappropriate submissions
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  votes         TopMomentVote[]
+
+  @@index([animeId])
+  @@index([voteCount])
+  @@index([createdAt])
+}
+
+model TopMomentVote {
+  id        String    @id @default(cuid())
+  userId    String
+  momentId  String
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moment    TopMoment @relation(fields: [momentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, momentId])
+  @@index([momentId])
+}
+
+// ─── YAR: Community Distilled Score (per anime) ───────────────────────────────
+
+model CommunityScore {
+  animeId         String   @id  // MAL/Jikan ID stored as string
+  rawAvg          Float    // Simple arithmetic average of all user scores
+  distilledScore  Float    // Anti-brigading Winsorized weighted score
+  totalVotes      Int      @default(0)
+  scoreVariance   Float    @default(0)
+  updatedAt       DateTime @updatedAt
+  @@index([distilledScore])
 }
 
 model WatchSession {

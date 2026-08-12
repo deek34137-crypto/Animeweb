@@ -4,6 +4,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@/providers/ThemeProvider';
 import { Sun, Moon, Laptop, Check } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { Motion } from '@/config/design';
+
+const toggleOptions = [
+  { value: 'light' as const, label: 'Light', icon: Sun },
+  { value: 'dark' as const, label: 'Dark', icon: Moon },
+  { value: 'system' as const, label: 'System', icon: Laptop },
+];
 
 export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -16,7 +23,15 @@ export default function ThemeToggle() {
 
   // Ensure client-only rendering after mount to avoid hydration mismatch
   useEffect(() => {
-    setMounted(true);
+    let active = true;
+    setTimeout(() => {
+      if (active) {
+        setMounted(true);
+      }
+    }, 0);
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Close dropdown on outside click or Escape
@@ -49,13 +64,7 @@ export default function ThemeToggle() {
     };
   }, [isOpen]);
 
-  const toggleOptions = [
-    { value: 'light' as const, label: 'Light', icon: Sun },
-    { value: 'dark' as const, label: 'Dark', icon: Moon },
-    { value: 'system' as const, label: 'System', icon: Laptop },
-  ];
-
-  const ActiveIcon = () => {
+  const getActiveIcon = () => {
     // Render a placeholder until client mount to match server output
     if (!mounted) {
       return <Laptop size={15} className="text-text-secondary" />;
@@ -76,12 +85,12 @@ export default function ThemeToggle() {
       <button
         ref={triggerRef}
         onClick={() => { setIsOpen(!isOpen); setFocusedIdx(-1); }}
-        className="flex items-center justify-center w-9 h-9 rounded-full bg-white/[0.04] border border-[rgba(255,255,255,0.06)] hover:border-[#7c3aed]/50 text-text-secondary hover:text-text-primary hover:bg-white/[0.08] transition-all duration-200 shadow-sm"
+        className="flex items-center justify-center w-9 h-9 rounded-full bg-white/[0.04] border border-[rgba(255,255,255,0.06)] hover:border-[#7c3aed]/50 text-text-secondary hover:text-text-primary hover:bg-white/[0.08] transition-all duration-standard ease-feedback shadow-sm"
         aria-label={`Theme: ${mounted ? theme : 'system'}. Change theme`}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
-        <ActiveIcon />
+        {getActiveIcon()}
       </button>
 
       <AnimatePresence>
@@ -92,12 +101,12 @@ export default function ThemeToggle() {
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: [0.23, 1, 0.32, 1] }}
+            transition={Motion.resolve('feedback', !!shouldReduceMotion)}
             style={{
               transformOrigin: 'top right',
               boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
             }}
-            className="absolute right-0 mt-2 w-36 rounded-2xl glass-panel border border-border-subtle bg-bg-secondary/95 p-1.5 shadow-2xl overflow-hidden focus:outline-none list-none"
+            className="absolute right-0 mt-2 w-36 rounded-popover glass-panel border border-border-subtle bg-bg-secondary/95 p-1.5 shadow-2xl overflow-hidden focus:outline-none list-none"
           >
             {toggleOptions.map((opt, idx) => {
               const Icon = opt.icon;
@@ -122,7 +131,7 @@ export default function ThemeToggle() {
                       triggerRef.current?.focus();
                     }
                   }}
-                  className={`cursor-pointer w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-left transition-all duration-150 ${
+                  className={`cursor-pointer w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-popover text-left transition-all duration-hover ease-feedback ${
                     isSelected
                       ? 'bg-accent-violet/10 text-[#7c3aed]'
                       : isFocused

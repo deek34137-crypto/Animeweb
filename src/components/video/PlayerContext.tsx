@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useMemo, RefObject } from 'react';
-import type { SkipInterval, StoryboardCue, EpisodeSource } from '@/lib/player/types';
+import type { SkipInterval, StoryboardCue, EpisodeSource, CastState, CastCapabilities } from '@/lib/player/types';
 
 // Playback Context
 export interface PlaybackContextType {
@@ -43,6 +43,10 @@ export interface SessionContextType {
   activeSource: EpisodeSource | null;
   activeSources: EpisodeSource[];
   isIframeSource: boolean;
+  castState: CastState;
+  castCapabilities: CastCapabilities;
+  startCast: () => Promise<void>;
+  stopCast: () => Promise<void>;
 }
 
 export const SessionContext = createContext<SessionContextType | null>(null);
@@ -69,6 +73,8 @@ export interface PreferencesContextType {
   showSkipEnding: boolean;
   skipIntro: () => void;
   skipEnding: () => void;
+  skipIntroTime?: number;
+  skipEndingTime?: number;
 }
 
 export const PreferencesContext = createContext<PreferencesContextType | null>(null);
@@ -87,13 +93,17 @@ export interface UIContextType {
   accentColor: string;
   accentH: number;
   accentS: string;
-  accentL: string; // Wait, let's verify if accentL is also a string!
+  accentL: string;
   // Navigation
   handleNext: () => void;
   handlePrev: () => void;
   formatTime: (secs: number) => string;
   getCueAt: (time: number) => StoryboardCue | null;
   bookmarks: { id?: string; timestamp: number }[];
+  isFloating: boolean;
+  setIsFloating: (floating: boolean) => void;
+  floatingCorner: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  setFloatingCorner: (corner: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left') => void;
 }
 
 export const UIContext = createContext<UIContextType | null>(null);
@@ -114,7 +124,6 @@ export function PlayerProvider({
   ui,
   children,
 }: PlayerProviderProps) {
-  // Memoize stable arrays to prevent unnecessary renders in context updates
   const sessionMemo = useMemo(() => session, [
     session.currentLanguage,
     session.currentQuality,
@@ -127,6 +136,10 @@ export function PlayerProvider({
     session.activeSource,
     session.activeSources,
     session.isIframeSource,
+    session.castState,
+    session.castCapabilities,
+    session.startCast,
+    session.stopCast,
   ]);
 
   const preferencesMemo = useMemo(() => preferences, [
@@ -147,6 +160,8 @@ export function PlayerProvider({
     ui.accentS,
     ui.accentL,
     ui.bookmarks,
+    ui.isFloating,
+    ui.floatingCorner,
   ]);
 
   return (
@@ -185,6 +200,26 @@ export function usePlayerUI() {
   const context = useContext(UIContext);
   if (!context) throw new Error('usePlayerUI must be used within a PlayerProvider');
   return context;
+}
+
+export function useFloating() {
+  const ui = usePlayerUI();
+  return useMemo(() => ({
+    isFloating: ui.isFloating,
+    setIsFloating: ui.setIsFloating,
+    floatingCorner: ui.floatingCorner,
+    setFloatingCorner: ui.setFloatingCorner,
+  }), [ui.isFloating, ui.setIsFloating, ui.floatingCorner, ui.setFloatingCorner]);
+}
+
+export function useCast() {
+  const session = useSession();
+  return useMemo(() => ({
+    castState: session.castState,
+    castCapabilities: session.castCapabilities,
+    startCast: session.startCast,
+    stopCast: session.stopCast,
+  }), [session.castState, session.castCapabilities, session.startCast, session.stopCast]);
 }
 
 export function usePlayer() {

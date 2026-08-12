@@ -84,6 +84,11 @@ global.window = {
   },
 } as any;
 
+global.requestAnimationFrame = (cb: any) => setTimeout(cb, 16) as any;
+global.cancelAnimationFrame = (id: any) => clearTimeout(id);
+global.window.requestAnimationFrame = global.requestAnimationFrame;
+global.window.cancelAnimationFrame = global.cancelAnimationFrame;
+
 global.document = {
   addEventListener: (event: string, cb: any) => {
     eventListeners[event] = eventListeners[event] || [];
@@ -239,6 +244,8 @@ async function runAll() {
   await import('./skip-markers.test');
   await import('./resume-progress.test');
   await import('./next-episode.test');
+  await import('./subtitles.test');
+  await import('./premium-ux.test');
 
   // Execute collected suites and tests sequentially
   for (const suite of suites) {

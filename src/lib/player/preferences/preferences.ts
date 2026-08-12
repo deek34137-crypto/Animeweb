@@ -1,3 +1,5 @@
+import { KeyBinds } from '../types';
+
 export interface UserSyncedPreferences {
   subtitleLanguage: string;
   defaultAudioLanguage: string;
@@ -24,15 +26,18 @@ export interface DeviceLocalPreferences {
   preferredServer: string;
   preferredSubtitleProvider: string;
   subtitleStyle: {
-    fontSize: number;
+    fontSizeMultiplier: number;
     fontFamily: string;
     textColor: string;
-    backgroundColor: string;
-    backgroundOpacity: number;
-    textShadow: string;
+    backgroundMode: "none" | "shadow" | "semi-transparent" | "solid";
+    verticalPosition: number;
   };
+  subtitlesVisible: boolean;
   subtitleDelayOffset: number; // in ms
   audioDelayOffset: number;    // in ms
+  keybindVersion: number;
+  floatingCorner: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  keyBinds?: Partial<KeyBinds>;
 }
 
 export const DEFAULT_SYNCED_PREFERENCES: UserSyncedPreferences = {
@@ -48,6 +53,26 @@ export const DEFAULT_SYNCED_PREFERENCES: UserSyncedPreferences = {
   autoNext: true,
 };
 
+export const DEFAULT_KEYBINDS: KeyBinds = {
+  togglePlay: { code: 'Space' },
+  seekBackward: { code: 'ArrowLeft' },
+  seekForward: { code: 'ArrowRight' },
+  volumeUp: { code: 'ArrowUp' },
+  volumeDown: { code: 'ArrowDown' },
+  toggleMute: { code: 'KeyM' },
+  toggleFullscreen: { code: 'KeyF' },
+  cycleSubtitle: { code: 'KeyV' },
+  delayDecrease: { code: 'BracketLeft' },
+  delayIncrease: { code: 'BracketRight' },
+  delayReset: { code: 'Backslash' },
+  speedIncrease: { code: 'Period' },
+  speedDecrease: { code: 'Comma' },
+  nextEpisode: { code: 'KeyN' },
+  prevEpisode: { code: 'KeyP' },
+  skipIntro: { code: 'KeyI' },
+  skipEnding: { code: 'KeyE' },
+};
+
 export const DEFAULT_DEVICE_PREFERENCES: DeviceLocalPreferences = {
   volume: 1.0,
   muted: false,
@@ -61,13 +86,17 @@ export const DEFAULT_DEVICE_PREFERENCES: DeviceLocalPreferences = {
   preferredServer: "Primary",
   preferredSubtitleProvider: "Default",
   subtitleStyle: {
-    fontSize: 16,
+    fontSizeMultiplier: 1.0,
     fontFamily: "Inter",
     textColor: "#FFFFFF",
-    backgroundColor: "#000000",
-    backgroundOpacity: 0.4,
-    textShadow: "0px 0px 4px rgba(0,0,0,0.8)",
+    backgroundMode: "shadow",
+    verticalPosition: 8,
   },
+  subtitlesVisible: true,
   subtitleDelayOffset: 0,
   audioDelayOffset: 0,
+  keybindVersion: 1,
+  floatingCorner: 'bottom-right',
+  keyBinds: {},
 };
+

@@ -65,7 +65,7 @@ export default function TopProgressBar() {
   return (
     <div className="fixed top-0 left-0 right-0 z-[10000] pointer-events-none select-none">
       <div
-        className="h-[3px] bg-gradient-to-r from-accent-violet to-accent-sakura transition-all duration-150 ease-out shadow-[0_0_8px_rgba(124,58,237,0.6)]"
+        className="h-[3px] bg-gradient-to-r from-accent-violet to-accent-sakura transition-all duration-hover ease-feedback shadow-[0_0_8px_rgba(124,58,237,0.6)]"
         style={{ width: `${width}%` }}
       />
     </div>

@@ -39,10 +39,10 @@ const variantStyles: Record<ButtonVariant, string> = {
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  xs: 'text-xs px-3 py-1.5 rounded-lg gap-1',
-  sm: 'text-sm px-4 py-2 rounded-xl gap-1.5',
-  md: 'text-sm px-5 py-2.5 rounded-xl gap-2',
-  lg: 'text-base px-7 py-3.5 rounded-2xl gap-2.5',
+  xs: 'text-xs px-3 py-1.5 gap-1',
+  sm: 'text-sm px-4 py-2 gap-1.5',
+  md: 'text-sm px-5 py-2.5 gap-2',
+  lg: 'text-base px-7 py-3.5 gap-2.5',
 };
 
 export default function Button({
@@ -63,12 +63,12 @@ export default function Button({
     <button
       disabled={isDisabled}
       className={`
-        inline-flex items-center justify-center font-semibold
-        transition-[color,background-color,border-color,text-decoration-color,fill,stroke,box-shadow,transform] duration-200 ease-out
+        inline-flex items-center justify-center font-semibold rounded-button
+        transition-all duration-hover ease-feedback
         ${variantStyles[variant]}
         ${sizeStyles[size]}
         ${fullWidth ? 'w-full' : ''}
-        ${isDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer hover:-translate-y-px active:translate-y-0 active:scale-[0.98]'}
+        ${isDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer hover:-translate-y-px active:translate-y-0 active:scale-[0.97]'}
         ${className}
       `}
       {...props}

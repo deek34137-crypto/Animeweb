@@ -1,13 +1,16 @@
 import { StreamingProviderInterface } from '../types';
-import { consumetProvider } from './consumet';
-import { animepaheProvider } from './animepahe';
+import { filmuProvider } from './filmu';
+import { vidsrcMeProvider } from './vidsrcMe';
+import { vidsrcToProvider } from './vidsrcTo';
+import { vidsrcSbsProvider } from './vidsrcSbs';
+import { gogocdnProvider } from './gogocdn';
+import { vidnestProvider } from './vidnest';
 import { toonworldProvider } from './toonworld';
 import { toonplayProvider } from './toonplay';
-import { vidnestProvider } from './vidnest';
 
 class ProviderRegistry {
   private providers = new Map<string, StreamingProviderInterface>();
-  private defaultProviderName = 'toonplay';
+  private defaultProviderName = 'filmu';
 
   public register(provider: StreamingProviderInterface) {
     this.providers.set(provider.name.toLowerCase(), provider);
@@ -22,7 +25,23 @@ class ProviderRegistry {
   }
 
   public getPriorityChain(): string[] {
-    return ['toonworld', 'toonplay', 'vidnest', 'consumet', 'animepahe'];
+    return [
+      'filmu',       // 1. FilmU — Native anime (4K, sub/dub options, slug-based)
+      'vidsrc_me',   // 2. VidSrc.me — TMDB-based (1080p)
+      'vidsrc_to',   // 3. VidSrc.to — TMDB-based (1080p)
+      'vidsrc_sbs',  // 4. VidSrc.sbs — CloudStream backend (1080p)
+      'vidnest',     // 5. VidNest — HLS streams
+      'gogocdn',     // 6. GogoCDN — Gogoanime backend (720p)
+      'toonplay',    // 7. ToonPlay — Web app fallback
+    ];
+  }
+
+  /**
+   * Kids / Cartoons & Hindi Dubs Section Providers.
+   * Dedicated for cartoon titles (Doraemon, Shinchan, Pokemon, etc.)
+   */
+  public getKidsProviders(): string[] {
+    return ['toonworld'];
   }
 
   public getDefault(): StreamingProviderInterface {
@@ -43,13 +62,14 @@ class ProviderRegistry {
 
 export const registry = new ProviderRegistry();
 
-// Register working providers
+// Register verified working anime & kids providers
+registry.register(filmuProvider);
+registry.register(vidsrcMeProvider);
+registry.register(vidsrcToProvider);
+registry.register(vidsrcSbsProvider);
+registry.register(gogocdnProvider);
+registry.register(vidnestProvider);
 registry.register(toonworldProvider);
 registry.register(toonplayProvider);
-registry.register(vidnestProvider);
-registry.register(consumetProvider);
-registry.register(animepaheProvider);
 
 export default registry;
-
-

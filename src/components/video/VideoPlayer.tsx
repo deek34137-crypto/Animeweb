@@ -4,8 +4,10 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw,
   SkipForward, SkipBack, Settings, HelpCircle, Tv, Globe, Server,
-  Expand, Shrink, Bookmark, List
+  Expand, Shrink, Bookmark, List, Maximize2, X, MonitorUp
 } from 'lucide-react';
+import { RemotePlaybackProvider } from '@/lib/player/playback/CastProvider';
+import type { CastState, CastCapabilities } from '@/lib/player/types';
 import PlayerError from './PlayerError';
 import PlayerSettings from './PlayerSettings';
 import ShortcutsOverlay from './ShortcutsOverlay';
@@ -25,6 +27,8 @@ import { useNextEpisode } from '@/hooks/useNextEpisode';
 import { useBufferDiagnostics } from '@/hooks/useBufferDiagnostics';
 import { useResumeProgress } from '@/hooks/useResumeProgress';
 import { useVideoSession } from '@/hooks/useVideoSession';
+import { useSubtitleManager } from '@/hooks/useSubtitleManager';
+import SubtitleOverlay from './SubtitleOverlay';
 import type { EpisodeSource, SubtitleTrack } from '@/lib/player/types';
 import type { UserSyncedPreferences } from '@/lib/player/preferences/preferences';
 
@@ -122,6 +126,7 @@ export default function VideoPlayer({
     preferences,
     loading: preferencesLoading,
     setSyncedPreference,
+    setDevicePreference,
     debouncedSetDevice,
   } = usePlayerPreferences();
 
@@ -143,6 +148,113 @@ export default function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  // Floating Mini-player states
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [isFloating, setIsFloating] = useState(false);
+  const [isFloatingClosed, setIsFloatingClosed] = useState(false);
+  const floatingCorner = preferences.floatingCorner || 'bottom-right';
+  const setFloatingCorner = useCallback((corner: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left') => {
+    setDevicePreference('floatingCorner', corner);
+  }, [setDevicePreference]);
+
+  // Casting states
+  const [castState, setCastState] = useState<CastState>('idle');
+  const [castCapabilities, setCastCapabilities] = useState<CastCapabilities>({
+    available: false,
+    canConnect: false,
+    provider: '',
+  });
+  const castProviderRef = useRef<RemotePlaybackProvider | null>(null);
+
+  useEffect(() => {
+    const provider = new RemotePlaybackProvider();
+    castProviderRef.current = provider;
+
+    const unsubscribe = provider.subscribe((state) => {
+      setCastState(state);
+      setCastCapabilities(provider.getCapabilities());
+    });
+
+    return () => {
+      unsubscribe();
+      provider.dispose();
+    };
+  }, []);
+
+  const startCast = useCallback(async () => {
+    const video = videoRef.current;
+    if (video && castProviderRef.current) {
+      try {
+        await castProviderRef.current.connect(video);
+      } catch (err) {
+        console.error('Casting connection failed:', err);
+      }
+    }
+  }, []);
+
+  const stopCast = useCallback(async () => {
+    if (castProviderRef.current) {
+      await castProviderRef.current.disconnect();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth < 1024) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) {
+          const ratio = entry.intersectionRatio;
+
+          // Reset closed state if scroll returns sentinel to view
+          if (ratio > 0.25) {
+            setIsFloatingClosed(false);
+          }
+
+          setIsFloating((prev) => {
+            if (isFullscreen) return false;
+            if (isFloatingClosed) return false;
+
+            if (prev) {
+              return ratio < 0.25;
+            } else {
+              return ratio < 0.05;
+            }
+          });
+        }
+      },
+      {
+        threshold: [0.01, 0.05, 0.1, 0.2, 0.25, 0.3],
+        rootMargin: '-80px 0px 0px 0px',
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [isFullscreen, isFloatingClosed]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsFloating(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const restoreInline = useCallback(() => {
+    setIsFloating(false);
+    sentinelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    playerRef.current?.focus();
+  }, []);
 
   // Mobile gesture/swipe states
   const [touchFeedback, setTouchFeedback] = useState<'back' | 'forward' | null>(null);
@@ -269,6 +381,24 @@ export default function VideoPlayer({
     getCueAt: getStoryboardCueAt,
   } = useStoryboard(animeId, episodeNumber);
 
+  // 3.5 Subtitle Manager (dynamic WebVTT/SRT overlay + ASS engine)
+  const {
+    activeCues,
+    subtitleState,
+    error: subtitleError,
+    capabilities: subtitleCapabilities
+  } = useSubtitleManager({
+    videoRef,
+    containerRef: playerRef,
+    activeTrack: activeSubtitleIdx === -1 ? null : subtitleTracks[activeSubtitleIdx],
+    delayMs: preferences.subtitleDelayOffset,
+    style: preferences.subtitleStyle,
+    visible: preferences.subtitlesVisible,
+    animeId,
+    episodeNumber,
+    currentProviderName
+  });
+
   // 4. Playback Controls (Shift-hold 2x speed, Right-click hold, hotkeys layout)
   const {
     handleMouseDown,
@@ -287,6 +417,7 @@ export default function VideoPlayer({
     totalEpisodes,
     showSkipIntro,
     showSkipEnding,
+    keyBinds: preferences.keyBinds,
     onTogglePlay: () => togglePlay(),
     onSeek: (time) => {
       const video = videoRef.current;
@@ -318,6 +449,18 @@ export default function VideoPlayer({
     onCycleSubtitle: () => {
       const nextIdx = activeSubtitleIdx + 1 >= subtitleTracks.length ? -1 : activeSubtitleIdx + 1;
       setActiveSubtitleIdx(nextIdx);
+      const label = nextIdx === -1 ? 'Off' : subtitleTracks[nextIdx]?.label || 'Off';
+      setToastMessage(`Subtitles: ${label}`);
+    },
+    onAdjustDelay: (amount) => {
+      const current = preferences.subtitleDelayOffset || 0;
+      const next = Math.max(-10000, Math.min(10000, current + amount));
+      setDevicePreference('subtitleDelayOffset', next);
+      setToastMessage(`Subtitle delay: ${next > 0 ? '+' : ''}${next}ms`);
+    },
+    onResetDelay: () => {
+      setDevicePreference('subtitleDelayOffset', 0);
+      setToastMessage('Subtitle delay: Reset (0ms)');
     },
     onSkipIntro: skipIntro,
     onSkipEnding: skipEnding,
@@ -369,6 +512,9 @@ export default function VideoPlayer({
       provider: currentProviderName,
       quality: currentQuality,
     },
+    activeSubtitleIdx,
+    currentLanguage,
+    currentQuality,
   });
 
   // Toggles and settings mappings
@@ -659,7 +805,45 @@ export default function VideoPlayer({
     }
     setCurrentTime(resumeTime);
     setShowResumePromptState(false);
-  }, [resumeTime, videoRef]);
+
+    // Extended resume parameters validation and restoration
+    if (typeof window !== 'undefined') {
+      try {
+        const resumeDataStr = localStorage.getItem(`aniworld-resume:${animeId}:${episodeNumber}`);
+        if (resumeDataStr) {
+          const resumeData = JSON.parse(resumeDataStr);
+          if (resumeData.resumeVersion === 1) {
+            // 1. Playback Rate
+            if (resumeData.playbackRate && video) {
+              video.playbackRate = resumeData.playbackRate;
+              setPlaybackSpeed(resumeData.playbackRate);
+            }
+            // 2. Subtitle Track Validation
+            if (resumeData.activeSubtitleIdx !== undefined && resumeData.activeSubtitleIdx >= -1 && resumeData.activeSubtitleIdx < subtitleTracks.length) {
+              setActiveSubtitleIdx(resumeData.activeSubtitleIdx);
+            }
+            // 3. Audio Language
+            if (resumeData.currentLanguage) {
+              const hasSource = resumeData.currentLanguage === 'hindi' ? (hindiSourcesList.length > 0 || hasNativeHindi) :
+                                resumeData.currentLanguage === 'tamil' ? tamilSourcesList.length > 0 :
+                                resumeData.currentLanguage === 'telugu' ? teluguSourcesList.length > 0 :
+                                resumeData.currentLanguage === 'dub' ? dubSourcesList.length > 0 :
+                                subSourcesList.length > 0;
+              if (hasSource) {
+                setCurrentLanguage(resumeData.currentLanguage);
+              }
+            }
+            // 4. Quality Level
+            if (resumeData.currentQuality && qualityLevels.includes(resumeData.currentQuality)) {
+              selectQuality(resumeData.currentQuality);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to restore extended resume parameters:', err);
+      }
+    }
+  }, [resumeTime, videoRef, animeId, episodeNumber, subtitleTracks, hindiSourcesList, hasNativeHindi, tamilSourcesList, teluguSourcesList, dubSourcesList, subSourcesList, qualityLevels, selectQuality, setCurrentLanguage]);
 
   const handleResumeRestart = useCallback(() => {
     const video = videoRef.current;
@@ -670,7 +854,12 @@ export default function VideoPlayer({
     }
     setCurrentTime(0);
     setShowResumePromptState(false);
-  }, [videoRef]);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(`aniworld-resume:${animeId}:${episodeNumber}`);
+      } catch {}
+    }
+  }, [videoRef, animeId, episodeNumber]);
 
   useEffect(() => {
     if (!showResumePromptState) return;
@@ -796,7 +985,7 @@ export default function VideoPlayer({
     const textTracks = video.textTracks;
     const syncTracks = () => {
       for (let i = 0; i < textTracks.length; i++) {
-        textTracks[i].mode = i === activeSubtitleIdx ? 'showing' : 'disabled';
+        textTracks[i].mode = 'disabled';
       }
     };
 
@@ -907,6 +1096,10 @@ export default function VideoPlayer({
     activeSource,
     activeSources,
     isIframeSource,
+    castState,
+    castCapabilities,
+    startCast,
+    stopCast,
   }), [
     currentLanguage,
     currentQuality,
@@ -919,6 +1112,10 @@ export default function VideoPlayer({
     activeSource,
     activeSources,
     isIframeSource,
+    castState,
+    castCapabilities,
+    startCast,
+    stopCast,
     selectProvider,
     selectQuality,
     setCurrentLanguage,
@@ -976,6 +1173,10 @@ export default function VideoPlayer({
     nextEpisodeCountdown: countdown,
     nextEpisodeAccept: acceptNextEpisode,
     nextEpisodeDismiss: dismissNextEpisode,
+    isFloating,
+    setIsFloating,
+    floatingCorner,
+    setFloatingCorner,
   }), [
     isFullscreen,
     showControls,
@@ -997,6 +1198,9 @@ export default function VideoPlayer({
     getStoryboardCueAt,
     toggleFullscreen,
     togglePiP,
+    isFloating,
+    floatingCorner,
+    setFloatingCorner,
   ]);
 
   return (
@@ -1019,6 +1223,16 @@ export default function VideoPlayer({
           }
         `}} />
       )}
+      {/* Sentinel scroll trigger */}
+      <div ref={sentinelRef} className="h-0 w-full" />
+
+      {/* Stable Placeholder to prevent layout shift */}
+      {isFloating && (
+        <div className="w-full aspect-video rounded-2xl bg-white/5 shimmer-loader flex items-center justify-center text-text-muted text-xs select-none">
+          Anime playback is active in mini-player mode
+        </div>
+      )}
+
       <div
         ref={playerRef}
         onTouchStart={handleTouchStart}
@@ -1029,9 +1243,17 @@ export default function VideoPlayer({
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onContextMenu={handleContextMenu}
-        className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden group/player shadow-2xl border border-border-subtle ${
-          isFullscreen ? 'rounded-none border-none' : ''
-        }`}
+        className={isFloating
+          ? `fixed z-50 shadow-2xl rounded-xl border border-white/10 aspect-video transition-all duration-300 ${
+              floatingCorner === 'bottom-right' ? 'bottom-4 right-4' :
+              floatingCorner === 'bottom-left' ? 'bottom-4 left-4' :
+              floatingCorner === 'top-right' ? 'top-20 right-4' :
+              'top-20 left-4'
+            } w-80 lg:w-96`
+          : `relative w-full aspect-video bg-black rounded-2xl overflow-hidden group/player shadow-2xl border border-border-subtle ${
+              isFullscreen ? 'rounded-none border-none' : ''
+            }`
+        }
         style={{
           cursor: showControls ? 'default' : 'none',
           ...({
@@ -1069,18 +1291,15 @@ export default function VideoPlayer({
             className="w-full h-full object-contain cursor-pointer"
             playsInline
             crossOrigin="anonymous"
-          >
-            {subtitleTracks.map((track, i) => (
-              <track
-                key={track.lang + i}
-                kind="subtitles"
-                label={track.label}
-                srcLang={track.lang}
-                src={track.url}
-                default={i === activeSubtitleIdx}
-              />
-            ))}
-          </video>
+          />
+        )}
+
+        {/* Custom WebVTT Subtitles Overlay */}
+        {!isIframeSource && subtitleTracks[activeSubtitleIdx]?.codec !== 'ass' && (
+          <SubtitleOverlay 
+            activeCues={activeCues} 
+            style={preferences.subtitleStyle} 
+          />
         )}
 
         {/* Playback speed 2x hold indicator overlay */}
@@ -1230,7 +1449,7 @@ export default function VideoPlayer({
         )}
 
         {/* Custom Controls Bar Container overlay — hidden for iframe sources (they have built-in controls) */}
-        {showControls && !isIframeSource && (
+        {showControls && !isIframeSource && !isFloating && (
           <div
             className={`absolute bottom-4 left-4 right-4 z-40 bg-[#05050A]/70 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300 shadow-2xl ${
               showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
@@ -1357,6 +1576,22 @@ export default function VideoPlayer({
                   <Bookmark size={18} fill={showBookmarksPanel ? 'currentColor' : 'none'} />
                 </button>
 
+                {/* Cast Button */}
+                {castCapabilities.available && (
+                  <button
+                    onClick={castState === 'connected' ? stopCast : startCast}
+                    className={`transition-colors ${
+                      castState === 'connected' ? 'text-accent-violet' :
+                      castState === 'connecting' ? 'text-accent-violet animate-pulse' :
+                      'text-text-secondary hover:text-white'
+                    }`}
+                    title={castState === 'connected' ? 'Stop casting' : 'Cast to device'}
+                    aria-label={castState === 'connected' ? 'Stop casting' : 'Cast to device'}
+                  >
+                    <MonitorUp size={18} />
+                  </button>
+                )}
+
                 {/* Settings Dropdown Button */}
                 <div className="relative">
                   <button
@@ -1383,6 +1618,13 @@ export default function VideoPlayer({
                       subtitles={subtitleTracks}
                       activeSubtitleIdx={activeSubtitleIdx}
                       onSelectSubtitle={selectSubtitle}
+                      capabilities={subtitleCapabilities}
+                      subtitlesVisible={preferences.subtitlesVisible}
+                      onToggleVisibility={() => setDevicePreference('subtitlesVisible', !preferences.subtitlesVisible)}
+                      subtitleStyle={preferences.subtitleStyle}
+                      onChangeSubtitleStyle={(newStyle) => setDevicePreference('subtitleStyle', newStyle)}
+                      subtitleDelayOffset={preferences.subtitleDelayOffset}
+                      onChangeSubtitleDelay={(newDelay) => setDevicePreference('subtitleDelayOffset', newDelay)}
                       playbackSpeed={playbackSpeed}
                       onChangeSpeed={changeSpeed}
                       isAutoplayNext={preferences.autoNext}
@@ -1459,6 +1701,60 @@ export default function VideoPlayer({
                   {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Mini-player Controls overlay */}
+        {showControls && !isIframeSource && isFloating && (
+          <div className="absolute inset-0 bg-black/50 z-40 flex flex-col justify-between p-2.5 opacity-0 hover:opacity-100 transition-opacity duration-200">
+            {/* Top row: Restore and Close */}
+            <div className="flex justify-between items-center w-full">
+              <button
+                onClick={restoreInline}
+                className="text-white/80 hover:text-white p-1 rounded bg-black/40 hover:bg-black/60 transition-colors cursor-pointer"
+                title="Restore inline"
+              >
+                <Maximize2 size={15} />
+              </button>
+              <button
+                onClick={() => {
+                  setIsFloatingClosed(true);
+                  if (isPlaying) {
+                    const video = videoRef.current;
+                    if (video) video.pause();
+                    setIsPlaying(false);
+                  }
+                }}
+                className="text-white/80 hover:text-white p-1 rounded bg-black/40 hover:bg-black/60 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Center Play/Pause */}
+            <button
+              onClick={togglePlay}
+              className="self-center text-white p-3 rounded-full bg-black/60 border border-white/10 hover:bg-black/80 hover:scale-105 transition-all duration-200 cursor-pointer"
+            >
+              {isPlaying ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}
+            </button>
+
+            {/* Bottom Progress Bar */}
+            <div className="w-full flex items-center gap-2">
+              <span className="text-[10px] font-mono text-text-secondary select-none">
+                {formatTime(currentTime)}
+              </span>
+              <div className="flex-grow h-1.5 bg-white/20 rounded overflow-hidden relative">
+                <div
+                  className="absolute top-0 bottom-0 left-0 bg-accent-violet"
+                  style={{ width: `${(currentTime / duration) * 100}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-mono text-text-secondary select-none">
+                {formatTime(duration)}
+              </span>
             </div>
           </div>
         )}
