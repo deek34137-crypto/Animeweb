@@ -74,14 +74,28 @@ interface VideoPlayerProps {
 
 const getProviderFriendlyName = (name: string): string => {
   switch (name.toLowerCase()) {
-    case 'toonplay': return 'ToonPlay';
-    case 'toonworld': return 'ToonWorld';
-    case 'vidnest': return 'VidNest';
-    case 'consumet': return 'Multilingual 1';
-    case 'animepahe': return 'Multilingual 2';
-    default: return name.charAt(0).toUpperCase() + name.slice(1);
+    case 'filmu':        return 'FilmU';
+    case 'kaa':          return 'KickAss';
+    case 'anibd':        return 'AniBD';
+    case 'allmanga':     return 'AllAnime';
+    case 'vidnest':      return 'VidNest';
+    case 'gogocdn':      return 'GogoCDN';
+    case 'reanime':      return 'ReAnime';
+    case 'anime_nexus':  return 'Nexus';
+    case 'anizone':      return 'AniZone';
+    case 'anihq':        return 'AniHQ';
+    case 'toonplay':     return 'ToonPlay';
+    case 'toonworld':    return 'ToonWorld';
+    case 'animotvslash': return 'AnimoTV';
+    case 'vidsrc_me':    return 'VidSrc';
+    case 'vidsrc_to':    return 'VidSrc.to';
+    case 'vidsrc_sbs':   return 'VidSrc.sbs';
+    case 'consumet':     return 'Multilingual 1';
+    case 'animepahe':    return 'Multilingual 2';
+    default: return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
 };
+
 
 export default function VideoPlayer({
   animeId,
@@ -1863,7 +1877,9 @@ export default function VideoPlayer({
               <span>Servers</span>
             </div>
             <div className="server-row flex-grow">
-              {providersList.map((prov) => {
+              {providersList
+                .filter(prov => prov !== '__drawer__')  /* strip UI sentinel */
+                .map((prov) => {
                 const isActive = currentProviderName === prov;
                 const friendlyName = getProviderFriendlyName(prov);
                 return (
@@ -1881,6 +1897,15 @@ export default function VideoPlayer({
                         <span className="server-lang-badge multi">MULTI</span>
                         <span className="server-lang-badge hindi">HINDI</span>
                       </>
+                    )}
+                    {prov === 'anibd' && (
+                      <span className="server-lang-badge" style={{ background: '#7c3aed', color: '#fff' }}>BD</span>
+                    )}
+                    {prov === 'animotvslash' && (
+                      <span className="server-lang-badge hindi">HINDI</span>
+                    )}
+                    {prov === 'allmanga' && (
+                      <span className="server-lang-badge multi">MULTI</span>
                     )}
                   </button>
                 );

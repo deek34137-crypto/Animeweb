@@ -73,11 +73,20 @@ export const StreamingManager = {
     const cached = await streamCache.get<EpisodeStreamInfo>(cacheKey);
     if (cached) return cached;
 
-    // Get all registered provider names
-    const registeredProviders = registry.getPriorityChain(); // ['raretoons', 'deadtoons', 'puretoons', 'animetm', 'consumet', ... ]
-    
-    // Sort providers dynamically based on reliability, keeping mock last
-    const sortedProviderNames = StreamingHealth.getReorderedProviders(registeredProviders);
+    // Priority chain — used for the auto-failover queue
+    const priorityChain = registry.getPriorityChain();
+
+    // Full selectable list sent to the player UI (primary + __drawer__ sentinel + extras)
+    // PlayerSettings splits on '__drawer__' to render the two-section provider menu.
+    const drawerProviders = registry.getDrawerProviders();
+    const registeredProviders: string[] = [
+      ...priorityChain,
+      '__drawer__',
+      ...drawerProviders,
+    ];
+
+    // Sort priority chain dynamically based on reliability
+    const sortedProviderNames = StreamingHealth.getReorderedProviders(priorityChain);
 
     // If Hindi is preferred, elevate Hindi providers to the absolute front of the failover chain
     let finalChain = [...sortedProviderNames];
@@ -175,7 +184,7 @@ export const StreamingManager = {
           hindi: streamInfo.hindi || [],
           subtitles: streamInfo.subtitles || [],
           audioLanguage: streamInfo.audioLanguage,
-          providers: registeredProviders,
+          providers: registeredProviders,   // full list for UI (includes __drawer__ sentinel)
           currentProvider: provider.name,
           isFallback: streamInfo.isFallback || false,
           fallbackReason: streamInfo.fallbackReason,
@@ -233,7 +242,7 @@ export const StreamingManager = {
       dub: [],
       hindi: [],
       subtitles: [],
-      providers: registeredProviders,
+      providers: registeredProviders,   // full list for UI
       currentProvider: 'none',
       isFallback: true,
       fallbackReason: `All ${queue.length} providers failed. Last error: ${lastError?.message || 'Unknown'}`,
