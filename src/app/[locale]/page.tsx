@@ -217,15 +217,21 @@ async function HeroSection() {
     seasonal = seasonalRes.data || [];
     topRated = topRatedRes.data || [];
     const rawRecs = recsRes.data || [];
-    recommendations = rawRecs.map((item: any) => ({
-      mal_id: item.entry.mal_id,
-      title: item.entry.title,
-      images: item.entry.images,
-      url: item.entry.url,
-      score: null,
-      type: 'TV',
-      episodes: null,
-    })) as unknown as AnimeData[];
+    recommendations = rawRecs
+      .map((item: any) => {
+        const entry = item?.entry || item;
+        if (!entry) return null;
+        return {
+          mal_id: entry.mal_id || entry.id || 0,
+          title: entry.title || 'Unknown',
+          images: entry.images || { jpg: { image_url: '', large_image_url: '', small_image_url: '' } },
+          url: entry.url || '',
+          score: null,
+          type: 'TV',
+          episodes: null,
+        };
+      })
+      .filter(Boolean) as unknown as AnimeData[];
     schedules = schedulesRes.data || [];
     continueWatching = continueWatchingRes || [];
   } catch (error) {
@@ -456,15 +462,22 @@ async function UserRecommendationsSection() {
 
   try {
     const recsRes = await AnimeApi.getRecentAnimeRecommendations(1);
-    recommendations = ((recsRes.data || []) as any[]).map((item) => ({
-      mal_id: item.entry.mal_id,
-      title: item.entry.title,
-      images: item.entry.images,
-      url: item.entry.url,
-      score: null,
-      type: 'TV',
-      episodes: null,
-    })) as unknown as AnimeData[];
+    const rawRecs = (recsRes.data || []) as any[];
+    recommendations = rawRecs
+      .map((item) => {
+        const entry = item?.entry || item;
+        if (!entry) return null;
+        return {
+          mal_id: entry.mal_id || entry.id || 0,
+          title: entry.title || 'Unknown',
+          images: entry.images || { jpg: { image_url: '', large_image_url: '', small_image_url: '' } },
+          url: entry.url || '',
+          score: null,
+          type: 'TV',
+          episodes: null,
+        };
+      })
+      .filter(Boolean) as unknown as AnimeData[];
   } catch (error) {
     console.error('UserRecommendationsSection failed to load:', error);
     hasError = true;
