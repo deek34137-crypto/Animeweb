@@ -154,10 +154,7 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
           )}
 
           {userMenuOpen && session && (
-            <div
-              className="absolute right-0 mt-2 w-48 rounded-2xl glass-panel border border-border-subtle bg-bg-secondary p-1.5 shadow-2xl z-50"
-              style={{ animation: 'fadeIn 0.12s ease-out' }}
-            >
+            <div className="entrance-scale glass-panel-pro absolute right-0 mt-2 w-48 rounded-2xl border border-border-subtle p-1.5 shadow-2xl z-50 origin-top-right">
               <div className="px-3 py-2 border-b border-border-subtle mb-1">
                 <p className="text-xs font-bold text-text-primary truncate">
                   {session.user?.name}

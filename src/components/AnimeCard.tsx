@@ -273,7 +273,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                 {/* Quick Play */}
                 <button
                   onClick={handleQuickPlay}
-                  className="w-10 h-10 rounded-full bg-accent-violet hover:bg-[#6b4ae6] text-white flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105"
+                  className="btn-press w-10 h-10 rounded-full bg-accent-violet hover:bg-[#6b4ae6] text-white flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105"
                   title="Quick Play"
                 >
                   <Play size={15} fill="white" className="ml-0.5" />
@@ -283,7 +283,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                 <button
                   onClick={handleToggleWatchlist}
                   disabled={listLoading}
-                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105"
+                  className="btn-press w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105"
                   title="Add to Plan to Watch"
                 >
                   {listLoading ? (

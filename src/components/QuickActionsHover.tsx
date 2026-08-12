@@ -46,14 +46,22 @@ export default function QuickActionsHover({
   // Fetch collections when folder option is clicked
   useEffect(() => {
     if (showCollections && isLoggedIn) {
-      setCollectionsLoading(true);
+      let isMounted = true;
+      Promise.resolve().then(() => {
+        if (isMounted) setCollectionsLoading(true);
+      });
       fetch('/api/collections')
         .then((res) => res.json())
         .then((data) => {
-          if (data.collections) setCollections(data.collections);
+          if (isMounted && data.collections) setCollections(data.collections);
         })
         .catch((err) => console.error(err))
-        .finally(() => setCollectionsLoading(false));
+        .finally(() => {
+          if (isMounted) setCollectionsLoading(false);
+        });
+      return () => {
+        isMounted = false;
+      };
     }
   }, [showCollections, isLoggedIn]);
 
@@ -115,14 +123,14 @@ export default function QuickActionsHover({
   return (
     <div
       ref={menuRef}
-      className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col justify-between p-3.5 z-30 transition-all duration-200 animate-fade-in text-white rounded-2xl"
+      className="entrance-scale absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col justify-between p-3.5 z-30 text-white rounded-2xl border border-white/10"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Top Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-1.5 w-full">
         <span className="text-[10px] font-black uppercase tracking-wider text-accent-violet">Quick Actions</span>
         {onClose && (
-          <button onClick={onClose} className="p-0.5 hover:text-red-400 transition" aria-label="Close quick actions">
+          <button onClick={onClose} className="btn-press p-0.5 hover:text-red-400 transition" aria-label="Close quick actions">
             <X size={12} aria-hidden="true" />
           </button>
         )}
@@ -146,7 +154,7 @@ export default function QuickActionsHover({
                       key={col.id}
                       onClick={() => handleToggleCollection(col.id, isInCol)}
                       aria-pressed={isInCol}
-                      className={`w-full flex items-center justify-between p-1 px-2 rounded text-[10px] font-semibold border ${
+                      className={`btn-press w-full flex items-center justify-between p-1 px-2 rounded text-[10px] font-semibold border ${
                         isInCol
                           ? 'bg-accent-violet/10 border-accent-violet/30 text-accent-violet'
                           : 'bg-white/5 border-white/5 text-white/80 hover:border-white/20'
@@ -161,7 +169,7 @@ export default function QuickActionsHover({
             )}
             <button
               onClick={() => setShowCollections(false)}
-              className="text-[9px] font-bold text-text-muted hover:text-white uppercase block pt-1.5"
+              className="btn-press text-[9px] font-bold text-text-muted hover:text-white uppercase block pt-1.5"
             >
               ← Back
             </button>
@@ -181,7 +189,7 @@ export default function QuickActionsHover({
                       handleUpdate({ score: starVal });
                       setShowRating(false);
                     }}
-                    className="p-0.5 transition"
+                    className="btn-press p-0.5 transition"
                     aria-label={`Score ${starVal} out of 10`}
                     aria-pressed={score === starVal}
                   >
@@ -197,7 +205,7 @@ export default function QuickActionsHover({
             </div>
             <button
               onClick={() => setShowRating(false)}
-              className="text-[9px] font-bold text-text-muted hover:text-white uppercase block mx-auto pt-1"
+              className="btn-press text-[9px] font-bold text-text-muted hover:text-white uppercase block mx-auto pt-1"
             >
               ← Back
             </button>
@@ -218,7 +226,7 @@ export default function QuickActionsHover({
             <div className="flex justify-between items-center pt-1">
               <button
                 onClick={() => setShowNoteInput(false)}
-                className="text-[9px] font-bold text-text-muted hover:text-white uppercase"
+                className="btn-press text-[9px] font-bold text-text-muted hover:text-white uppercase"
               >
                 Cancel
               </button>
@@ -227,7 +235,7 @@ export default function QuickActionsHover({
                   handleUpdate({ notes: noteText });
                   setShowNoteInput(false);
                 }}
-                className="px-2 py-0.5 bg-accent-violet rounded text-[9px] font-bold text-white hover:bg-accent-violet/80"
+                className="btn-press px-2 py-0.5 bg-accent-violet rounded text-[9px] font-bold text-white hover:bg-accent-violet/80"
               >
                 Save
               </button>
@@ -242,7 +250,7 @@ export default function QuickActionsHover({
               onClick={() => handleUpdate({ isFavorite: !isFavorite })}
               aria-pressed={isFavorite}
               aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              className={`p-2 rounded-xl flex items-center justify-center border transition-all ${
+              className={`btn-press p-2 rounded-xl flex items-center justify-center border transition-all ${
                 isFavorite
                   ? 'bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20'
                   : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/20'
@@ -256,7 +264,7 @@ export default function QuickActionsHover({
               onClick={() => handleUpdate({ status: 'completed' })}
               aria-pressed={status === 'completed'}
               aria-label={status === 'completed' ? 'Marked as completed' : 'Mark as completed'}
-              className={`p-2 rounded-xl flex items-center justify-center border transition-all ${
+              className={`btn-press p-2 rounded-xl flex items-center justify-center border transition-all ${
                 status === 'completed'
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                   : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/20'
@@ -269,7 +277,7 @@ export default function QuickActionsHover({
             <button
               onClick={() => setShowCollections(true)}
               aria-label="Add to collection"
-              className="p-2 rounded-xl bg-white/5 border border-white/5 text-white/60 hover:text-white hover:border-white/20 flex items-center justify-center transition-all"
+              className="btn-press p-2 rounded-xl bg-white/5 border border-white/5 text-white/60 hover:text-white hover:border-white/20 flex items-center justify-center transition-all"
             >
               <Plus size={14} aria-hidden="true" />
             </button>
@@ -278,7 +286,7 @@ export default function QuickActionsHover({
             <button
               onClick={() => setShowRating(true)}
               aria-label={score !== null ? `Rated ${score}/10 — change rating` : 'Rate this anime'}
-              className={`p-2 rounded-xl flex items-center justify-center border transition-all ${
+              className={`btn-press p-2 rounded-xl flex items-center justify-center border transition-all ${
                 score !== null
                   ? 'bg-accent-gold/10 border-accent-gold/30 text-accent-gold hover:bg-accent-gold/20'
                   : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/20'
@@ -291,7 +299,7 @@ export default function QuickActionsHover({
             <button
               onClick={() => setShowNoteInput(true)}
               aria-label={notes ? 'Edit note' : 'Add quick note'}
-              className={`p-2 rounded-xl flex items-center justify-center border transition-all ${
+              className={`btn-press p-2 rounded-xl flex items-center justify-center border transition-all ${
                 notes
                   ? 'bg-accent-violet/10 border-accent-violet/30 text-accent-violet hover:bg-accent-violet/20'
                   : 'bg-white/5 border-white/5 text-white/60 hover:text-white hover:border-white/20'

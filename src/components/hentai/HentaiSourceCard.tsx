@@ -1,44 +1,35 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
-import { ExternalLink } from 'lucide-react';
-
-interface HentaiSource {
-  id: string;
-  name: string;
-  url: string;
-  status: 'working' | 'cf_protected' | 'github';
-  description: string;
-  tags: string[];
-  icon: string;
-}
+import { Play, ExternalLink } from 'lucide-react';
+import { HentaiSource } from '@/services/hentai';
+import { HentaiModalPayload } from './HentaiPlayerModal';
 
 interface HentaiSourceCardProps {
   source: HentaiSource;
+  onStream: (payload: HentaiModalPayload) => void;
 }
 
-export default function HentaiSourceCard({ source }: HentaiSourceCardProps) {
+export default function HentaiSourceCard({ source, onStream }: HentaiSourceCardProps) {
   const [hovered, setHovered] = useState(false);
 
   const statusConfig = {
     working: {
       label: '🟢 Working',
       badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-      btnClass: 'bg-gradient-to-r from-red-600 to-rose-500 text-white hover:from-red-500 hover:to-rose-400 shadow-lg shadow-red-900/20',
     },
     cf_protected: {
       label: '🟡 CF Protected',
       badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-      btnClass: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20',
     },
     github: {
       label: '📦 GitHub',
       badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-      btnClass: 'bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20',
     },
   };
 
   const cfg = statusConfig[source.status];
+  const canEmbed = source.embedSupport === 'iframe';
 
   return (
     <div
@@ -58,7 +49,9 @@ export default function HentaiSourceCard({ source }: HentaiSourceCardProps) {
           </span>
           <div>
             <h3 className="font-bold text-sm text-text-primary leading-tight">{source.name}</h3>
-            <p className="text-[10px] text-text-muted mt-0.5">{source.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</p>
+            <p className="text-[10px] text-text-muted mt-0.5">
+              {source.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+            </p>
           </div>
         </div>
         <span className={`text-[10px] font-bold border rounded-full px-2.5 py-1 flex-shrink-0 ${cfg.badgeClass}`}>
@@ -81,17 +74,28 @@ export default function HentaiSourceCard({ source }: HentaiSourceCardProps) {
         ))}
       </div>
 
-      {/* CTA */}
-      <a
-        href={source.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all duration-200 ${cfg.btnClass}`}
-        aria-label={`Visit ${source.name}`}
-      >
-        <ExternalLink size={13} />
-        Visit Source
-      </a>
+      {/* CTA — Stream opens modal; GitHub sources still link out */}
+      {canEmbed ? (
+        <button
+          onClick={() => onStream({ defaultSourceId: source.id })}
+          className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all duration-200 bg-gradient-to-r from-red-600 to-rose-500 text-white hover:from-red-500 hover:to-rose-400 shadow-lg shadow-red-900/20 hover:shadow-red-900/30"
+          aria-label={`Stream from ${source.name}`}
+        >
+          <Play size={13} />
+          Stream
+        </button>
+      ) : (
+        <a
+          href={source.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all duration-200 bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20"
+          aria-label={`Visit ${source.name}`}
+        >
+          <ExternalLink size={13} />
+          View on GitHub
+        </a>
+      )}
     </div>
   );
 }

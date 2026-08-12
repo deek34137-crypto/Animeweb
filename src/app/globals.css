@@ -233,6 +233,63 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
+.glass-panel-pro {
+  background: rgba(17, 17, 24, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* UI-UX Pro Max Tactile Button Pressing */
+.btn-press {
+  transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms ease, opacity 160ms ease;
+  will-change: transform;
+}
+
+.btn-press:active {
+  transform: scale(0.97) !important;
+}
+
+/* Entrance Scaling (never start from scale(0)) */
+.entrance-scale {
+  opacity: 0;
+  transform: scale(0.95);
+  animation: entranceScaleIn var(--duration-normal) var(--ease-out) forwards;
+}
+
+@keyframes entranceScaleIn {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scoped Hover Effects for Pointer Devices */
+@media (hover: hover) and (pointer: fine) {
+  .card-hover-pro {
+    transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out), border-color 220ms ease;
+  }
+  .card-hover-pro:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 30px -10px rgba(124, 58, 237, 0.3);
+    border-color: rgba(124, 58, 237, 0.4);
+  }
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn-press:active {
+    transform: none !important;
+  }
+}
+
 /* Anime Card Component Design */
 .anime-card {
   width: 100%;
@@ -241,9 +298,9 @@ body {
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.25s ease;
+  transition: transform 220ms var(--ease-out),
+              box-shadow 220ms var(--ease-out),
+              border-color 220ms ease;
   position: relative;
   will-change: transform;
 }
