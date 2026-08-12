@@ -175,7 +175,7 @@ export default function Sidebar({
       </div>
 
       {/* Nav links */}
-      <div ref={navRef} className="flex-1 relative">
+      <div ref={navRef} className="flex-1 relative overflow-y-auto overflow-x-hidden pr-1 -mr-1 scrollbar-thin min-h-0">
         {/* Animated cursor pill */}
         <div
           aria-hidden="true"
