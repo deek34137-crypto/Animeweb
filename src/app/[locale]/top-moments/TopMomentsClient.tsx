@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, ThumbsUp, EyeOff, Plus, Play } from 'lucide-react';
+import { Sparkles, ThumbsUp, EyeOff, Plus, Play, RefreshCw } from 'lucide-react';
 import MomentSubmitModal from '@/components/community/MomentSubmitModal';
 
 interface Moment {
@@ -26,6 +26,7 @@ export default function TopMomentsClient() {
   const [moments, setMoments] = useState<Moment[]>([]);
   const [sort, setSort] = useState<'votes' | 'new'>('votes');
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(new Set());
 
@@ -45,6 +46,20 @@ export default function TopMomentsClient() {
       console.error('Failed to fetch top moments:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncSakugabooru = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/top-moments/sync-sakugabooru?limit=25', { method: 'POST' });
+      if (res.ok) {
+        await fetchMoments();
+      }
+    } catch (err) {
+      console.error('Failed to sync Sakugabooru:', err);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -97,13 +112,23 @@ export default function TopMomentsClient() {
             </p>
           </div>
 
-          <button
-            onClick={() => setIsSubmitOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm shadow-lg shadow-violet-600/30 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Nominate Moment
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSyncSakugabooru}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 font-semibold text-sm transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync Sakugabooru'}
+            </button>
+            <button
+              onClick={() => setIsSubmitOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm shadow-lg shadow-violet-600/30 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Nominate Moment
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
