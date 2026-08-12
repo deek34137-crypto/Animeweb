@@ -4,7 +4,6 @@ import React from 'react';
 import { usePathname } from '@/navigation';
 import { Link } from '@/navigation';
 import {
-import {
   Home, Play, Heart, Clock, Flame, Calendar, Settings, X, Tv, Compass, MessageSquare, Trophy, ShieldAlert, Baby, Sparkles, Brain, Layers
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
