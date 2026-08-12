@@ -7,9 +7,10 @@ import { X, ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
 interface TransposeRatingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onApply?: () => void;
 }
 
-export default function TransposeRatingsModal({ isOpen, onClose }: TransposeRatingsModalProps) {
+export default function TransposeRatingsModal({ isOpen, onClose, onApply }: TransposeRatingsModalProps) {
   const [delta, setDelta] = useState<number>(0);
   const [preview, setPreview] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,6 +51,7 @@ export default function TransposeRatingsModal({ isOpen, onClose }: TransposeRati
 
       if (res.ok) {
         alert(`Successfully shifted all ratings by ${delta > 0 ? '+' : ''}${delta.toFixed(2)}!`);
+        if (onApply) onApply();
         onClose();
       }
     } catch (err) {

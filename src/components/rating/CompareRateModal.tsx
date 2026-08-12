@@ -9,22 +9,29 @@ import { getCompareRatePreview, RatedEntry } from '@/lib/rating/compareRate';
 interface CompareRateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  animeId: string;
-  animeTitle: string;
-  animeImage: string;
+  targetAnime?: { id: string; title: string; image?: string } | null;
+  animeId?: string;
+  animeTitle?: string;
+  animeImage?: string;
   existingScore?: number;
   onConfirm?: (score: number) => void;
+  onSave?: () => void;
 }
 
 export default function CompareRateModal({
   isOpen,
   onClose,
-  animeId,
-  animeTitle,
-  animeImage,
+  targetAnime,
+  animeId: animeIdProp,
+  animeTitle: animeTitleProp,
+  animeImage: animeImageProp,
   existingScore = 7.5,
   onConfirm,
+  onSave,
 }: CompareRateModalProps) {
+  const animeId = animeIdProp ?? targetAnime?.id ?? '';
+  const animeTitle = animeTitleProp ?? targetAnime?.title ?? '';
+  const animeImage = animeImageProp ?? targetAnime?.image ?? '';
   const [sliderScore, setSliderScore] = useState<number>(existingScore);
   const [ratedEntries, setRatedEntries] = useState<RatedEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,6 +73,7 @@ export default function CompareRateModal({
 
       if (res.ok) {
         if (onConfirm) onConfirm(preview.targetScore);
+        if (onSave) onSave();
         onClose();
       }
     } catch (err) {
