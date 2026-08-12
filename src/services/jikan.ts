@@ -279,16 +279,70 @@ export const JikanAPI = {
       const gql = /* GraphQL */ `
         query ($page: Int, $perPage: Int) {
           Page(page: $page, perPage: $perPage) {
-            media(status: RELEASING, sort: TRENDING_DESC, type: ANIME) { ${MEDIA_FIELDS} }
+            airingSchedules(notYetAired: true, sort: TIME) {
+              airingAt
+              episode
+              media {
+                id
+                idMal
+                siteUrl
+                title { romaji english native }
+                episodes
+                averageScore
+                popularity
+                favourites
+                coverImage { large medium }
+              }
+            }
           }
         }
       `;
-      const res = await anilistQuery<{ Page: { media: unknown[] } }>(gql, { page, perPage: 50 });
-      // ScheduleEntry is structurally compatible with AnimeData for Phase 1
-      const result = { data: res.Page.media.map(mapAnilistMedia) as unknown as ScheduleEntry[] };
-      setCache(cacheKey, result, 5 * 60 * 1000); // 5 min TTL – schedules change fast
+      const res = await anilistQuery<{ Page: { airingSchedules: any[] } }>(gql, { page, perPage: 50 });
+      const weekDays = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+      const rawList = res?.Page?.airingSchedules || [];
+
+      const mapped = rawList
+        .map((item: any) => {
+          const m = item.media;
+          if (!m) return null;
+          const airDate = new Date(item.airingAt * 1000);
+          const dayStr = weekDays[airDate.getUTCDay()];
+          const hoursStr = String(airDate.getUTCHours()).padStart(2, '0');
+          const minsStr = String(airDate.getUTCMinutes()).padStart(2, '0');
+          const broadcastStr = `${dayStr} at ${hoursStr}:${minsStr} (JST)`;
+
+          return {
+            mal_id: m.idMal || m.id,
+            url: m.siteUrl || '',
+            images: {
+              jpg: {
+                image_url: m.coverImage?.large || m.coverImage?.medium || '',
+                large_image_url: m.coverImage?.large || m.coverImage?.medium || '',
+                small_image_url: m.coverImage?.medium || '',
+              },
+            },
+            title: m.title?.romaji || m.title?.english || 'Unknown',
+            title_english: m.title?.english || null,
+            title_japanese: m.title?.native || null,
+            episodes: m.episodes || null,
+            score: m.averageScore ? m.averageScore / 10 : null,
+            popularity: m.popularity || null,
+            broadcast: {
+              day: dayStr,
+              time: `${hoursStr}:${minsStr}`,
+              timezone: 'Asia/Tokyo',
+              string: broadcastStr,
+            },
+            airingAt: airDate.toISOString(),
+          } as unknown as ScheduleEntry;
+        })
+        .filter((item): item is ScheduleEntry => Boolean(item));
+
+      const result = { data: mapped };
+      setCache(cacheKey, result, 5 * 60 * 1000); // 5 min TTL
       return result;
-    } catch {
+    } catch (err) {
+      console.error('[JikanAPI.getAiringSchedule] Error:', err);
       return { data: [] };
     }
   },

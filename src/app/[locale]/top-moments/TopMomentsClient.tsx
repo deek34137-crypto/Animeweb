@@ -219,7 +219,12 @@ export default function TopMomentsClient() {
 
                   {/* Submitter & Vote Action */}
                   <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs text-slate-500">
-                    <span>by {m.user?.displayName || m.user?.username || 'User'}</span>
+                    <span>
+                      by{' '}
+                      {m.animeId?.startsWith('sakugabooru_') || m.description?.includes('Sakugabooru')
+                        ? 'Sakugabooru'
+                        : m.user?.displayName || m.user?.username || 'User'}
+                    </span>
                     <button
                       onClick={() => handleVote(m.id)}
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold transition-all ${

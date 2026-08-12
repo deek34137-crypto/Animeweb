@@ -11,8 +11,12 @@ interface LeaderboardCache {
   };
 }
 
-const leaderboardCache: LeaderboardCache = {};
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes in milliseconds
+let leaderboardCache: LeaderboardCache = {};
+const CACHE_TTL = 30 * 1000; // 30 seconds for live responsiveness
+
+export function clearLeaderboardCache() {
+  leaderboardCache = {};
+}
 
 export async function GET(req: Request) {
   try {

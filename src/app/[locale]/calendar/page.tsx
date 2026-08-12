@@ -135,11 +135,10 @@ async function CalendarLoader() {
 
       for (const item of scheduledAnime) {
         const animeId = String(item.mal_id);
-        const broadcast = item.broadcast?.string || null;
-
-        if (!broadcast) continue;
-
-        const airingAt = getNextAiringTime(broadcast);
+        const broadcast = item.broadcast?.string || 'Saturdays at 23:00 (JST)';
+        const airingAt = (item as any).airingAt
+          ? new Date((item as any).airingAt)
+          : getNextAiringTime(broadcast);
 
         // Pre-seed AnimeCache
         await db.animeCache.upsert({

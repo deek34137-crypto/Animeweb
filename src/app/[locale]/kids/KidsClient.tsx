@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+
 import { motion } from 'framer-motion';
 import { Sparkles, Play, Globe, Shield, Tv, Search, Volume2 } from 'lucide-react';
 import { Link } from '@/navigation';
+
+import { proxyUrl } from '@/lib/image';
 
 interface KidsShow {
   id: string; // MAL ID or slug
@@ -22,7 +25,7 @@ const KIDS_CATALOG: KidsShow[] = [
     id: '527',
     title: 'Pokémon',
     hindiTitle: 'पोकेमॉन',
-    image: 'https://cdn.myanimelist.net/images/anime/4/19644.jpg',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx527-kF2FwJkF3h1g.png',
     category: 'Cartoons',
     episodesCount: 276,
     rating: 'G - All Ages',
@@ -33,7 +36,7 @@ const KIDS_CATALOG: KidsShow[] = [
     id: '2471',
     title: 'Doraemon',
     hindiTitle: 'डोरेमोन',
-    image: 'https://cdn.myanimelist.net/images/anime/10/75708.jpg',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2471-X3oF0X3X3X3X.jpg',
     category: 'Cartoons',
     episodesCount: 1787,
     rating: 'G - All Ages',
@@ -44,7 +47,7 @@ const KIDS_CATALOG: KidsShow[] = [
     id: '2986',
     title: 'Crayon Shin-chan',
     hindiTitle: 'शिनचैन',
-    image: 'https://cdn.myanimelist.net/images/anime/1458/117215.jpg',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2986-W117215.jpg',
     category: 'Cartoons',
     episodesCount: 1000,
     rating: 'PG - Children',
@@ -55,7 +58,7 @@ const KIDS_CATALOG: KidsShow[] = [
     id: '223',
     title: 'Dragon Ball',
     hindiTitle: 'ड्रैगन बॉल',
-    image: 'https://cdn.myanimelist.net/images/anime/1884/94833.jpg',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx223-24833.jpg',
     category: 'Anime',
     episodesCount: 153,
     rating: 'PG - Children',
@@ -66,7 +69,7 @@ const KIDS_CATALOG: KidsShow[] = [
     id: '20',
     title: 'Naruto',
     hindiTitle: 'नारुतो',
-    image: 'https://cdn.myanimelist.net/images/anime/13/11401.jpg',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20-7383.jpg',
     category: 'Hindi Dubbed',
     episodesCount: 220,
     rating: 'PG-13',
@@ -77,7 +80,7 @@ const KIDS_CATALOG: KidsShow[] = [
     id: '235',
     title: 'Detective Conan',
     hindiTitle: 'डिटेक्टिव कॉनन',
-    image: 'https://cdn.myanimelist.net/images/anime/1320/117349.jpg',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx235-117349.jpg',
     category: 'Hindi Dubbed',
     episodesCount: 1000,
     rating: 'PG-13',
@@ -88,7 +91,7 @@ const KIDS_CATALOG: KidsShow[] = [
     id: '249',
     title: 'Inazuma Eleven',
     hindiTitle: 'इनाज़ुमा इलेवन',
-    image: 'https://cdn.myanimelist.net/images/anime/13/21808.jpg',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx249-21808.jpg',
     category: 'Cartoons',
     episodesCount: 127,
     rating: 'G - All Ages',
@@ -99,7 +102,7 @@ const KIDS_CATALOG: KidsShow[] = [
     id: '936',
     title: 'Beyblade',
     hindiTitle: 'बेब्लेड',
-    image: 'https://cdn.myanimelist.net/images/anime/7/75218.jpg',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx936-75218.jpg',
     category: 'Cartoons',
     episodesCount: 51,
     rating: 'G - All Ages',
@@ -111,6 +114,19 @@ const KIDS_CATALOG: KidsShow[] = [
 export default function KidsClient() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+  // Set kids_mode cookie so Edge middleware can block /hentai/* routes
+  React.useEffect(() => {
+    document.cookie = 'kids_mode=true; path=/; SameSite=Lax; max-age=86400';
+    localStorage.setItem('kids_mode', 'true');
+    return () => {
+      // Clear when unmounting (user leaves Kids Zone)
+      document.cookie = 'kids_mode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      localStorage.removeItem('kids_mode');
+    };
+  }, []);
+
+
 
   const categories = ['All', 'Cartoons', 'Hindi Dubbed', 'Anime'];
 
@@ -202,7 +218,7 @@ export default function KidsClient() {
               {/* Poster */}
               <div className="relative aspect-[3/4] overflow-hidden bg-slate-900">
                 <img
-                  src={show.image}
+                  src={proxyUrl(show.image)}
                   alt={show.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />

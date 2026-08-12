@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+﻿import React, { Suspense } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import enMessages from '../../../messages/en.json';
@@ -12,6 +12,7 @@ import AppShell from '@/components/AppShell';
 import NavigationLoader from '@/components/ui/NavigationLoader';
 import PWAProvider from '@/providers/PWAProvider';
 import { Analytics } from '@vercel/analytics/next';
+import CookieConsent from '@/components/CookieConsent';
 import { WebVitals } from '@/components/analytics/WebVitals';
 import { Inter, Outfit, JetBrains_Mono } from 'next/font/google';
 import { Metadata } from 'next';
@@ -135,6 +136,7 @@ export default async function LocaleLayout({
             </QueryProvider>
           </SessionProvider>
         </NextIntlClientProvider>
+        <CookieConsent />
         <Analytics />
       </body>
     </html>

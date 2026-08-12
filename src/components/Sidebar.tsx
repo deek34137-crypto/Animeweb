@@ -71,6 +71,11 @@ export default function Sidebar({
   const t = useTranslations('Navbar');
   const { data: session } = useSession();
   const userRole = session?.user?.role;
+  const [isKidsMode, setIsKidsMode] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsKidsMode(localStorage.getItem('kids_mode') === 'true');
+  }, []);
 
   const navLinks = [
     { href: '/', label: 'Home', icon: Home },
@@ -165,6 +170,37 @@ export default function Sidebar({
             </Link>
           );
         })}
+
+        {/* 18+ Adults Only — logged-in users only, hidden in Kids Mode */}
+        {session && !isKidsMode && (
+          <>
+            <div className="border-t border-red-500/20 my-2" />
+            <Link
+              href="/hentai/gate"
+              onClick={onClose}
+              aria-label="Adults Only Hentai Section"
+              className={`group flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                pathname.startsWith('/hentai')
+                  ? 'bg-red-500/10 text-red-400'
+                  : 'text-text-secondary hover:text-red-400 hover:bg-red-500/5'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Flame
+                  size={16}
+                  aria-hidden="true"
+                  className={`transition-colors duration-200 ${
+                    pathname.startsWith('/hentai') ? 'text-red-400' : 'text-text-muted group-hover:text-red-400'
+                  }`}
+                />
+                <span>Adults Only</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-500 text-white">
+                18+
+              </span>
+            </Link>
+          </>
+        )}
       </nav>
       
       {/* Sidebar Footer context */}

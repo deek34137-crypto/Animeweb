@@ -16,6 +16,14 @@ const ipLimitBucket = new Map<string, { tokens: number; lastRefill: number }>();
 export default async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
+  // Kids mode redirect for adult routes
+  if (path.includes('/hentai')) {
+    const kidsMode = req.cookies.get('kids_mode')?.value;
+    if (kidsMode === 'true') {
+      return NextResponse.redirect(new URL('/', req.url));
+    }
+  }
+
   if (path.startsWith('/api/')) {
     // Exclude health checks from rate limiting to prevent false-alarm alerts
     if (path.startsWith('/api/health')) {
