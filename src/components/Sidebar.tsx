@@ -4,7 +4,8 @@ import React from 'react';
 import { usePathname } from '@/navigation';
 import { Link } from '@/navigation';
 import {
-  Home, Play, Heart, Clock, Flame, Calendar, Settings, X, Tv, Compass, MessageSquare, Trophy, ShieldAlert
+import {
+  Home, Play, Heart, Clock, Flame, Calendar, Settings, X, Tv, Compass, MessageSquare, Trophy, ShieldAlert, Baby, Sparkles, Brain, Layers
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
@@ -73,30 +74,34 @@ export default function Sidebar({
   const userRole = session?.user?.role;
 
   const navLinks = [
-    { href: '/', key: 'home', icon: Home },
-    { href: '/discover', key: 'discover', icon: Compass },
+    { href: '/', label: 'Home', icon: Home },
+    { href: '/kids', label: 'Kids Zone 🎈', icon: Baby, badge: 'Hindi/Sub' },
+    { href: '/discover', label: 'Discover', icon: Compass },
     {
       href: '/profile?tab=watching',
-      key: 'continueWatching',
+      label: 'Continue Watching',
       icon: Play,
       badge: continueWatchingCount > 0 ? continueWatchingCount : null,
     },
     {
       href: '/profile',
-      key: 'library',
+      label: 'Library',
       icon: Heart,
       badge: myAnimeCount > 0 ? myAnimeCount : null,
     },
-    { href: '/history', key: 'history', icon: Clock },
-    { href: '/calendar', key: 'calendar', icon: Calendar },
-    { href: '/seasonal', key: 'seasonal', icon: Flame },
-    { href: '/leaderboard', key: 'leaderboard', icon: Trophy },
-    { href: '/community', key: 'community', icon: MessageSquare },
-    { href: '/profile/settings', key: 'settings', icon: Settings },
+    { href: '/top-moments', label: 'Top Moments 🏆', icon: Sparkles },
+    { href: '/profile/persona', label: 'Anime Persona 🎭', icon: Brain },
+    { href: '/profile/tier-check', label: 'Tier Check 📊', icon: Layers },
+    { href: '/history', label: 'History', icon: Clock },
+    { href: '/calendar', label: 'Calendar', icon: Calendar },
+    { href: '/seasonal', label: 'Seasonal', icon: Flame },
+    { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+    { href: '/community', label: 'Community', icon: MessageSquare },
+    { href: '/profile/settings', label: 'Settings', icon: Settings },
   ];
 
   if (userRole === 'ADMIN' || userRole === 'MODERATOR') {
-    navLinks.push({ href: '/admin', key: 'adminPanel', icon: ShieldAlert });
+    navLinks.push({ href: '/admin', label: 'Admin Panel', icon: ShieldAlert });
   }
 
   const isActive = (href: string) => {
@@ -121,7 +126,7 @@ export default function Sidebar({
 
       {/* Nav links */}
       <nav className="flex-1 space-y-1">
-        {navLinks.map(({ href, key, icon: Icon, badge }) => {
+        {navLinks.map(({ href, label, icon: Icon, badge }) => {
           const active = isActive(href);
           return (
             <Link
@@ -143,7 +148,7 @@ export default function Sidebar({
                     active ? 'text-[#7c3aed]' : 'text-text-muted group-hover:text-text-secondary'
                   }`}
                 />
-                <span>{t(key)}</span>
+                <span>{label}</span>
               </div>
 
               {/* Badge */}

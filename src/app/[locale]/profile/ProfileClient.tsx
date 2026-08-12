@@ -15,6 +15,9 @@ import { ACHIEVEMENTS } from '@/lib/gamification/achievements-list';
 import { useWatchlistStore } from '@/store/useWatchlistStore';
 import { useSession } from 'next-auth/react';
 import { CollectionsSkeleton, InsightsSkeleton, ActivityLogSkeleton } from '@/components/ui/Skeleton';
+import CompareRateModal from '@/components/rating/CompareRateModal';
+import SmartRateModal from '@/components/rating/SmartRateModal';
+import TransposeRatingsModal from '@/components/rating/TransposeRatingsModal';
 
 interface ListEntry {
   id: string;
@@ -122,6 +125,12 @@ export default function ProfileClient({
 
   const [activity, setActivity] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+
+  // YAR Rating Modals State
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [isSmartOpen, setIsSmartOpen] = useState(false);
+  const [isTransposeOpen, setIsTransposeOpen] = useState(false);
+  const [targetCompareAnime, setTargetCompareAnime] = useState<{ id: string; title: string; image?: string } | null>(null);
 
   // Undo notification countdown timer
   const [undoCountdown, setUndoCountdown] = useState(10);
@@ -490,6 +499,52 @@ export default function ProfileClient({
             )}
           </button>
         ))}
+      </div>
+
+      {/* YAR Rating Tools & Features Bar */}
+      <div className="bg-gradient-to-r from-violet-950/40 via-purple-900/30 to-indigo-950/40 border border-violet-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-fade-up">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 font-bold">
+            ⚡
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">Rating & Taste Suite</h4>
+            <p className="text-[11px] text-slate-400">Quarter-point 0.25 scaling, 1v1 Elo comparisons, and fan MBTI persona.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setIsCompareOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/30 text-violet-200 text-xs font-bold transition-all shadow-sm"
+          >
+            🎯 Compare Rate
+          </button>
+          <button
+            onClick={() => setIsSmartOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 text-purple-200 text-xs font-bold transition-all shadow-sm"
+          >
+            ⚔ Smart Rate 1v1
+          </button>
+          <button
+            onClick={() => setIsTransposeOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/30 text-indigo-200 text-xs font-bold transition-all shadow-sm"
+          >
+            🎚 Transpose Scores
+          </button>
+          <Link
+            href="/profile/persona"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-600/30 hover:bg-pink-600/50 border border-pink-500/30 text-pink-200 text-xs font-bold transition-all shadow-sm"
+          >
+            🎭 Persona
+          </Link>
+          <Link
+            href="/profile/tier-check"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/30 text-amber-200 text-xs font-bold transition-all shadow-sm"
+          >
+            📊 Tier Check
+          </Link>
+        </div>
       </div>
 
       {/* SEARCH AND FILTERS PANEL (Only shown for list entry views) */}
@@ -1214,6 +1269,30 @@ export default function ProfileClient({
             </div>
           </form>
         </div>
+      )}
+
+      {/* YAR Rating Modals */}
+      {isCompareOpen && (
+        <CompareRateModal
+          isOpen={isCompareOpen}
+          onClose={() => setIsCompareOpen(false)}
+          targetAnime={targetCompareAnime}
+          onSave={fetchList}
+        />
+      )}
+      {isSmartOpen && (
+        <SmartRateModal
+          isOpen={isSmartOpen}
+          onClose={() => setIsSmartOpen(false)}
+          onComplete={fetchList}
+        />
+      )}
+      {isTransposeOpen && (
+        <TransposeRatingsModal
+          isOpen={isTransposeOpen}
+          onClose={() => setIsTransposeOpen(false)}
+          onApply={fetchList}
+        />
       )}
     </div>
   );

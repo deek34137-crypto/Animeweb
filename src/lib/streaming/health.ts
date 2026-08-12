@@ -65,13 +65,25 @@ const MAX_EXPECTED_LATENCY_MS = 5000;     // normalisation ceiling
 
 // ─── In-memory cache ──────────────────────────────────────────────────────────
 
-// Default seed values — equal baselines until Redis loads
+// Default seed values — healthy baselines for all providers
 const DEFAULT_SEEDS: Record<string, ProviderStats> = {
-  toonworld:  { successes: 50, weightedFailures: 2,  totalResponseTimeMs: 75000,  totalStallMs: 0, recentEvents: [], lastWrittenAt: Date.now() },
-  consumet:   { successes: 50, weightedFailures: 5,  totalResponseTimeMs: 100000, totalStallMs: 0, recentEvents: [], lastWrittenAt: Date.now() },
-  animepahe:  { successes: 45, weightedFailures: 10, totalResponseTimeMs: 112500, totalStallMs: 0, recentEvents: [], lastWrittenAt: Date.now() },
-  anicli:     { successes: 0,  weightedFailures: 50, totalResponseTimeMs: 0,      totalStallMs: 0, recentEvents: [], lastWrittenAt: Date.now() },
-  mock:       { successes: 100,weightedFailures: 0,  totalResponseTimeMs: 1000,   totalStallMs: 0, recentEvents: [], lastWrittenAt: Date.now() },
+  filmu:        { successes: 50, weightedFailures: 0, totalResponseTimeMs: 25000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  kaa:          { successes: 50, weightedFailures: 0, totalResponseTimeMs: 30000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  anibd:        { successes: 50, weightedFailures: 0, totalResponseTimeMs: 15000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  allmanga:     { successes: 50, weightedFailures: 0, totalResponseTimeMs: 20000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  reanime:      { successes: 50, weightedFailures: 0, totalResponseTimeMs: 25000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  anime_nexus:  { successes: 50, weightedFailures: 0, totalResponseTimeMs: 25000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  anizone:      { successes: 50, weightedFailures: 0, totalResponseTimeMs: 25000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  anihq:        { successes: 50, weightedFailures: 0, totalResponseTimeMs: 30000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  animotvslash: { successes: 50, weightedFailures: 0, totalResponseTimeMs: 30000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  vidnest:      { successes: 50, weightedFailures: 0, totalResponseTimeMs: 35000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  gogocdn:      { successes: 50, weightedFailures: 0, totalResponseTimeMs: 40000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  toonworld:    { successes: 50, weightedFailures: 0, totalResponseTimeMs: 30000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  toonplay:     { successes: 50, weightedFailures: 0, totalResponseTimeMs: 35000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  vidsrc_me:    { successes: 50, weightedFailures: 0, totalResponseTimeMs: 40000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  vidsrc_to:    { successes: 50, weightedFailures: 0, totalResponseTimeMs: 40000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  vidsrc_sbs:   { successes: 50, weightedFailures: 0, totalResponseTimeMs: 40000, totalStallMs: 0, recentEvents: [1,1,1,1,1], lastWrittenAt: Date.now() },
+  mock:         { successes: 10, weightedFailures: 20, totalResponseTimeMs: 50000, totalStallMs: 0, recentEvents: [0,0,1],   lastWrittenAt: Date.now() },
 };
 
 let providerStats: Record<string, ProviderStats> = { ...DEFAULT_SEEDS };
@@ -367,8 +379,22 @@ export const StreamingHealth = {
   checkSourceHealth: async (url: string): Promise<boolean> => {
     if (!url) return false;
 
-    // Always pass local/mock URLs
-    if (url.startsWith('http://localhost') || url.includes('mock-') || url.includes('sample.m3u8')) {
+    // Embed/iframe URLs or local/mock URLs — skip HEAD request, always treat as reachable
+    if (
+      url.includes('embed.') ||
+      url.includes('/embed/') ||
+      url.includes('kaa.lt') ||
+      url.includes('anibd.app') ||
+      url.includes('allmanga.to') ||
+      url.includes('reanime.to') ||
+      url.includes('anime.nexus') ||
+      url.includes('anizone.to') ||
+      url.includes('anihq.cc') ||
+      url.includes('animotvslash.org') ||
+      url.startsWith('http://localhost') ||
+      url.includes('mock-') ||
+      url.includes('sample.m3u8')
+    ) {
       return true;
     }
 
