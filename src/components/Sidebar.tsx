@@ -109,19 +109,29 @@ export default function Sidebar({
     { href: '/history', label: 'History', icon: Clock },
     { href: '/calendar', label: 'Calendar', icon: Calendar },
     { href: '/seasonal', label: 'Seasonal', icon: Flame },
+  ];
+
+  // Insert Adults Only if logged in and not in kids mode
+  if (session && !isKidsMode) {
+    navLinks.push({
+      href: '/hentai/gate',
+      label: 'Adults Only',
+      icon: Flame,
+      badge: '18+',
+    } as any);
+  }
+
+  navLinks.push(
     { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
     { href: '/community', label: 'Community', icon: MessageSquare },
-    { href: '/profile/settings', label: 'Settings', icon: Settings },
-  ];
+    { href: '/profile/settings', label: 'Settings', icon: Settings }
+  );
 
   if (userRole === 'ADMIN' || userRole === 'MODERATOR') {
     navLinks.push({ href: '/admin', label: 'Admin Panel', icon: ShieldAlert });
   }
 
-  const allHrefs = [
-    ...navLinks.map((l) => l.href),
-    ...(session && !isKidsMode ? ['/hentai/gate'] : []),
-  ];
+  const allHrefs = navLinks.map((l) => l.href);
 
   const isActive = (href: string) => {
     if (href === '/') {
@@ -175,7 +185,7 @@ export default function Sidebar({
       </div>
 
       {/* Nav links */}
-      <div ref={navRef} className="flex-1 relative overflow-y-auto overflow-x-hidden pr-1 -mr-1 scrollbar-thin min-h-0">
+      <div ref={navRef} className="flex-1 relative overflow-y-auto overflow-x-hidden pr-1 -mr-1 scrollbar-thin min-h-0 pb-10">
         {/* Animated cursor pill */}
         <div
           aria-hidden="true"
@@ -211,82 +221,60 @@ export default function Sidebar({
         <nav className="space-y-1">
           {navLinks.map(({ href, label, icon: Icon, badge }) => {
             const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href as '/'}
-                ref={(el) => setItemRef(href, el as HTMLElement | null)}
-                onClick={onClose}
-                onMouseEnter={() => setHoveredHref(href)}
-                onMouseLeave={() => setHoveredHref(null)}
-                aria-current={active ? 'page' : undefined}
-                className={`group relative flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-colors duration-150 ${
-                  active
-                    ? 'text-[#7c3aed]'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon
-                    size={16}
-                    aria-hidden="true"
-                    className={`transition-colors duration-150 ${
-                      active ? 'text-[#7c3aed]' : 'text-text-muted group-hover:text-text-secondary'
-                    }`}
-                  />
-                  <span>{label}</span>
-                </div>
+            const isAdult = href === '/hentai/gate';
+            
+            // Add a visual separator above Adults Only
+            const separator = isAdult ? <div key="sep-adult" className="border-t border-red-500/20 my-3" /> : null;
 
-                {/* Badge */}
-                {badge !== null && badge !== undefined && (
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm transition-colors ${
-                      active
-                        ? 'bg-[#7c3aed] text-white'
-                        : 'bg-bg-elevated text-text-secondary group-hover:bg-border-subtle group-hover:text-text-primary'
-                    }`}
-                  >
-                    {badge}
-                  </span>
-                )}
-              </Link>
+            return (
+              <React.Fragment key={href}>
+                {separator}
+                <Link
+                  href={href as '/'}
+                  ref={(el) => setItemRef(href, el as HTMLElement | null)}
+                  onClick={onClose}
+                  onMouseEnter={() => setHoveredHref(href)}
+                  onMouseLeave={() => setHoveredHref(null)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`group relative flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-colors duration-150 ${
+                    active
+                      ? (isAdult ? 'text-red-400' : 'text-[#7c3aed]')
+                      : `text-text-secondary ${isAdult ? 'hover:text-red-400' : 'hover:text-text-primary'}`
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon
+                      size={16}
+                      aria-hidden="true"
+                      className={`transition-colors duration-150 ${
+                        active 
+                          ? (isAdult ? 'text-red-400' : 'text-[#7c3aed]') 
+                          : `text-text-muted ${isAdult ? 'group-hover:text-red-400' : 'group-hover:text-text-secondary'}`
+                      }`}
+                    />
+                    <span>{label}</span>
+                  </div>
+
+                  {/* Badge */}
+                  {badge !== null && badge !== undefined && (
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm transition-colors ${
+                        isAdult 
+                          ? 'bg-red-500 text-white animate-pulse'
+                          : active
+                            ? 'bg-[#7c3aed] text-white'
+                            : 'bg-bg-elevated text-text-secondary group-hover:bg-border-subtle group-hover:text-text-primary'
+                      }`}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </Link>
+                {/* Separator after Adults Only */}
+                {isAdult && <div key="sep-adult-bottom" className="border-t border-border-subtle/50 my-3" />}
+              </React.Fragment>
             );
           })}
-
-          {/* 18+ Adults Only — logged-in users only, hidden in Kids Mode */}
-          {session && !isKidsMode && (
-            <>
-              <div className="border-t border-red-500/20 my-2" />
-              <Link
-                href="/hentai/gate"
-                ref={(el) => setItemRef('/hentai/gate', el as HTMLElement | null)}
-                onClick={onClose}
-                onMouseEnter={() => setHoveredHref('/hentai/gate')}
-                onMouseLeave={() => setHoveredHref(null)}
-                aria-label="Adults Only Hentai Section"
-                aria-current={isHentaiActive ? 'page' : undefined}
-                className={`group relative flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-colors duration-150 ${
-                  isHentaiActive
-                    ? 'text-red-400'
-                    : 'text-text-secondary hover:text-red-400'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Flame
-                    size={16}
-                    aria-hidden="true"
-                    className={`transition-colors duration-150 ${
-                      isHentaiActive ? 'text-red-400' : 'text-text-muted group-hover:text-red-400'
-                    }`}
-                  />
-                  <span>Adults Only</span>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-500 text-white animate-pulse">
-                  18+
-                </span>
-              </Link>
-            </>
-          )}
         </nav>
       </div>
 
