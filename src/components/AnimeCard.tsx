@@ -101,7 +101,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
         <Link
           href={`/anime/${anime.mal_id}`}
           prefetch={prefetch}
-          className="flex h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover"
+          className="card-hover-pro flex h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle"
         >
           {/* Left: Poster */}
           <div className="relative w-[36%] sm:w-[30%] flex-shrink-0 overflow-hidden bg-surface-3 h-full">
@@ -114,7 +114,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
               priority={prefetch}
             />
             {rank && (
-              <div className="absolute top-2 left-2 z-10 w-7.5 h-7.5 rounded-lg bg-accent-violet flex items-center justify-center text-[11px] font-semibold text-white shadow-lg">
+              <div className="absolute top-2 left-2 z-10 w-7.5 h-7.5 rounded-lg bg-bg-elevated/90 backdrop-blur-md flex items-center justify-center text-[11px] font-bold text-text-primary border border-border-subtle shadow-md">
                 #{rank}
               </div>
             )}
@@ -141,7 +141,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                   </span>
                 )}
               </div>
-              <h3 className="text-xs sm:text-sm md:text-base font-black text-text-primary line-clamp-1 sm:line-clamp-2 leading-snug group-hover/card:text-accent-violet transition-colors duration-200">
+              <h3 className="text-xs sm:text-sm md:text-base font-bold text-text-primary line-clamp-1 sm:line-clamp-2 leading-snug group-hover/card:text-accent-primary transition-colors duration-200">
                 {title}
               </h3>
               <p className="hidden sm:block text-[11px] text-text-muted line-clamp-2 sm:line-clamp-3 leading-relaxed font-medium">
@@ -172,7 +172,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
         <Link
           href={`/anime/${anime.mal_id}`}
           prefetch={prefetch}
-          className="block relative w-full h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover min-h-[350px]"
+          className="card-hover-pro block relative w-full h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle min-h-[350px]"
         >
           <div className="absolute inset-0 w-full h-full overflow-hidden bg-surface-3">
             <Image
@@ -187,7 +187,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           </div>
 
           {rank && (
-            <div className="absolute top-4 left-4 z-10 w-9.5 h-9.5 rounded-xl bg-accent-violet flex items-center justify-center text-xs font-semibold text-white shadow-lg">
+            <div className="absolute top-4 left-4 z-10 w-9.5 h-9.5 rounded-xl bg-bg-elevated/90 backdrop-blur-md flex items-center justify-center text-xs font-bold text-text-primary border border-border-subtle shadow-md">
               #{rank}
             </div>
           )}
@@ -211,7 +211,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                 </span>
               )}
             </div>
-            <h3 className="text-base sm:text-xl md:text-2xl font-black text-white line-clamp-2 leading-tight group-hover/card:text-accent-violet transition-colors">
+            <h3 className="text-base sm:text-xl md:text-2xl font-bold text-white line-clamp-2 leading-tight group-hover/card:text-accent-primary transition-colors">
               {title}
             </h3>
             <p className="text-[11px] sm:text-xs text-text-secondary line-clamp-3 sm:line-clamp-4 leading-relaxed font-medium max-w-[90%] opacity-90">
@@ -236,7 +236,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
 
   // 3. STANDARD VARIANT: Vertical card with slide-up overlays
   return (
-    <div className="group relative w-full select-none flex flex-col h-full bg-bg-secondary/40 border border-border-subtle rounded-2xl overflow-hidden hover:border-[#7c3aed]/40 hover:shadow-[0_8px_24px_rgba(124,58,237,0.1)] hover:-translate-y-1 transition-all duration-300">
+    <div className="anime-card group relative w-full select-none flex flex-col h-full bg-bg-secondary/40 border border-border-subtle rounded-2xl overflow-hidden">
       <Link href={`/anime/${anime.mal_id}`} prefetch={prefetch} className="w-full flex-1 flex flex-col">
         {/* Poster Container */}
         <div className="relative aspect-[2/3] w-full overflow-hidden bg-bg-elevated/20">
@@ -254,7 +254,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           {watchedPct > 0 && (
             <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20">
               <div
-                className="h-full bg-gradient-to-r from-[#7c3aed] to-[#ec4899] transition-all duration-300"
+                className="h-full bg-accent-primary transition-all duration-300"
                 style={{ width: `${watchedPct}%` }}
               />
             </div>
@@ -274,10 +274,10 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                 {/* Quick Play */}
                 <button
                   onClick={handleQuickPlay}
-                  className="btn-press w-10 h-10 rounded-full bg-accent-violet hover:bg-[#6b4ae6] text-white flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105"
+                  className="btn-press w-10 h-10 rounded-full bg-accent-primary text-bg-primary flex items-center justify-center shadow-lg transition-transform duration-200"
                   title="Quick Play"
                 >
-                  <Play size={15} fill="white" className="ml-0.5" />
+                  <Play size={15} fill="currentColor" className="ml-0.5" />
                 </button>
 
                 {/* Quick Library Toggle */}
@@ -321,7 +321,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
 
           {/* Rank overlay badge */}
           {rank && (
-            <div className="absolute bottom-2 left-2 z-10 w-7.5 h-7.5 rounded-lg bg-accent-violet text-white text-[11px] font-semibold flex items-center justify-center shadow-lg">
+            <div className="absolute bottom-2 left-2 z-10 w-7.5 h-7.5 rounded-lg bg-bg-elevated/90 backdrop-blur-md text-text-primary text-[11px] font-bold border border-border-subtle flex items-center justify-center shadow-lg">
               #{rank}
             </div>
           )}
