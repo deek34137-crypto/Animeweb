@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Link, useRouter } from '@/navigation';
 import { AnimeData } from '@/services/jikan';
 import { Star, Plus, Play, Check, Loader2 } from 'lucide-react';
@@ -104,13 +105,13 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
         >
           {/* Left: Poster */}
           <div className="relative w-[36%] sm:w-[30%] flex-shrink-0 overflow-hidden bg-surface-3 h-full">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
               alt={title}
-              className="w-full h-full object-cover group-hover/card:scale-[1.05] transition-transform duration-500 ease-out"
-              loading="lazy"
-              referrerPolicy="no-referrer"
+              fill
+              sizes="(max-width: 768px) 50vw, 33vw"
+              className="object-cover group-hover/card:scale-[1.05] transition-transform duration-500 ease-out"
+              priority={prefetch}
             />
             {rank && (
               <div className="absolute top-2 left-2 z-10 w-7.5 h-7.5 rounded-lg bg-accent-violet flex items-center justify-center text-[11px] font-semibold text-white shadow-lg">
@@ -174,13 +175,13 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
           className="block relative w-full h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover min-h-[350px]"
         >
           <div className="absolute inset-0 w-full h-full overflow-hidden bg-surface-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
               alt={title}
-              className="w-full h-full object-cover group-hover/card:scale-[1.04] transition-transform duration-700 ease-out"
-              loading="lazy"
-              referrerPolicy="no-referrer"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover group-hover/card:scale-[1.04] transition-transform duration-700 ease-out"
+              priority={prefetch}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-[#05050A]/70 to-[#05050A]/20 opacity-95" />
           </div>
@@ -240,13 +241,13 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
         {/* Poster Container */}
         <div className="relative aspect-[2/3] w-full overflow-hidden bg-bg-elevated/20">
           {/* Poster Image */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
-            loading="lazy"
-            referrerPolicy="no-referrer"
+            fill
+            sizes="(max-width: 768px) 33vw, 20vw"
+            className="object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
+            priority={prefetch}
           />
 
           {/* Dynamic Progress Bar overlay */}

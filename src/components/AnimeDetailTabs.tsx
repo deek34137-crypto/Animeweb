@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import {
   MessageSquare, Users, Play, Star, Calendar, Check, Heart, ArrowRight,
   Loader2, Share2, ExternalLink, Volume2, ShieldAlert,
@@ -306,12 +307,12 @@ function OverviewTab({
                   <Play size={14} fill="currentColor" className="ml-0.5" />
                 </div>
               </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
                 alt="Episode Thumbnail Placeholder"
-                className="w-full h-full object-cover opacity-90 scale-[1.05] group-hover:scale-100 transition-transform duration-300"
-                referrerPolicy="no-referrer"
+                fill
+                sizes="128px"
+                className="object-cover opacity-90 scale-[1.05] group-hover:scale-100 transition-transform duration-300"
               />
             </div>
             {/* Metadata info */}
@@ -568,13 +569,12 @@ function OverviewTab({
                     className="block"
                   >
                     <div className="aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-colors">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={r.entry.images.webp.image_url || r.entry.images.jpg.image_url}
                         alt={r.entry.title}
-                        className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
+                        fill
+                        sizes="128px"
+                        className="object-cover group-hover:scale-[1.05] transition-transform duration-300"
                       />
                     </div>
                     <p className="mt-2 text-[11px] font-semibold text-text-secondary line-clamp-2 leading-tight group-hover:text-accent-violet transition-colors">
@@ -871,12 +871,12 @@ function EpisodesTab({
           <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-black text-white z-10">
             EP {ep.mal_id}
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
             alt={ep.title || `Episode ${ep.mal_id}`}
-            className="w-full h-full object-cover opacity-80 scale-[1.05]"
-            referrerPolicy="no-referrer"
+            fill
+            sizes="160px"
+            className="object-cover opacity-80 scale-[1.05]"
           />
           {/* Play progress bar overlay */}
           {progressPct > 0 && (
@@ -1239,13 +1239,12 @@ function ReviewsTab({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={userImg}
                         alt={review.user.username}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
+                        fill
+                        sizes="40px"
+                        className="object-cover"
                       />
                     </div>
                     <div>
@@ -1356,13 +1355,12 @@ function CastStaffTab({
                 className="flex items-center gap-3 bg-surface-2/60 border border-border-subtle rounded-xl p-3 hover:border-border-emphasis transition-all"
               >
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={member.person.images.jpg.image_url}
                     alt={member.person.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
+                    fill
+                    sizes="40px"
+                    className="object-cover"
                   />
                 </div>
                 <div className="min-w-0">
@@ -1404,13 +1402,12 @@ function CastStaffTab({
                         {/* Character Details */}
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-12 h-12 rounded-xl overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                               src={c.character.images.jpg.image_url}
                               alt={c.character.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
+                              fill
+                              sizes="48px"
+                              className="object-cover"
                             />
                           </div>
                           <div className="min-w-0">
@@ -1428,13 +1425,12 @@ function CastStaffTab({
                                 <p className="text-[8px] text-accent-violet uppercase font-extrabold tracking-wider">JP VA</p>
                               </div>
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <Image
                                   src={jpVA.person.images.jpg.image_url}
                                   alt={jpVA.person.name}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
+                                  fill
+                                  sizes="32px"
+                                  className="object-cover"
                                 />
                               </div>
                             </div>
@@ -1447,13 +1443,12 @@ function CastStaffTab({
                                 <p className="text-[8px] text-amber-500 uppercase font-extrabold tracking-wider">EN VA</p>
                               </div>
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <Image
                                   src={enVA.person.images.jpg.image_url}
                                   alt={enVA.person.name}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
+                                  fill
+                                  sizes="32px"
+                                  className="object-cover"
                                 />
                               </div>
                             </div>
@@ -1481,13 +1476,12 @@ function CastStaffTab({
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-10 h-10 rounded-lg overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                               src={c.character.images.jpg.image_url}
                               alt={c.character.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
+                              fill
+                              sizes="40px"
+                              className="object-cover"
                             />
                           </div>
                           <div className="min-w-0">
@@ -1503,13 +1497,12 @@ function CastStaffTab({
                               <p className="text-[8px] text-text-muted uppercase tracking-wider">JP VA</p>
                             </div>
                             <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
+                              <Image
                                 src={jpVA.person.images.jpg.image_url}
                                 alt={jpVA.person.name}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                                referrerPolicy="no-referrer"
+                                fill
+                                sizes="32px"
+                                className="object-cover"
                               />
                             </div>
                           </div>
@@ -1681,13 +1674,12 @@ function RelatedTab({
                 className="group flex flex-col space-y-2"
               >
                 <div className="aspect-[3/4] w-full rounded-2xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-all duration-300 relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={item.entry.images.webp.image_url || item.entry.images.jpg.image_url}
                     alt={item.entry.title}
-                    className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                    className="object-cover group-hover:scale-[1.05] transition-transform duration-300"
                   />
                   {item.votes > 0 && (
                     <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-accent-sakura">

@@ -111,6 +111,14 @@ export default async function HomePage({ params }: HomePageProps) {
   const orgSchema = getOrganizationSchema();
   const websiteSchema = getWebsiteSchema();
 
+  // Initiate all data fetches in parallel immediately
+  const sessionPromise = auth().catch(() => null);
+  const trendingPromise = AnimeApi.getTrendingAnime(1).catch(() => ({ data: [] }));
+  const seasonalPromise = AnimeApi.getSeasonalAnime(1).catch(() => ({ data: [] }));
+  const topRatedPromise = AnimeApi.getTopRatedAnime(1).catch(() => ({ data: [] }));
+  const recsPromise = AnimeApi.getRecentAnimeRecommendations(1).catch(() => ({ data: [] }));
+  const schedulePromise = AnimeApi.getAiringSchedule(1).catch(() => ({ data: [] }));
+
   return (
     <div className="space-y-10 pb-16 animate-fade-in">
       {/* JSON-LD Schemas */}
@@ -129,12 +137,19 @@ export default async function HomePage({ params }: HomePageProps) {
 
       {/* 1. Hero Spotlight Carousel Rotation (Suspended) */}
       <Suspense fallback={<HeroSkeleton />}>
-        <HeroSection />
+        <HeroSection 
+          sessionPromise={sessionPromise}
+          trendingPromise={trendingPromise}
+          seasonalPromise={seasonalPromise}
+          topRatedPromise={topRatedPromise}
+          recsPromise={recsPromise}
+          schedulePromise={schedulePromise}
+        />
       </Suspense>
 
       {/* 2. Quick Actions Row (Suspended) */}
       <Suspense fallback={<div className="h-16 shimmer-loader rounded-xl" />}>
-        <QuickActionsSection />
+        <QuickActionsSection sessionPromise={sessionPromise} />
       </Suspense>
 
       {/* Recently Visited Links */}
@@ -142,34 +157,34 @@ export default async function HomePage({ params }: HomePageProps) {
 
       {/* 3. Continue Watching & User Dashboard Stats (Suspended) */}
       <Suspense fallback={<div className="h-64 shimmer-loader rounded-2xl" />}>
-        <UserDashboardSection />
+        <UserDashboardSection sessionPromise={sessionPromise} />
       </Suspense>
 
       {/* ─── Content Feed Carousels ─── */}
       <div className="space-y-12">
         {/* Trending Now */}
         <Suspense fallback={<SectionSkeleton count={6} />}>
-          <TrendingSection />
+          <TrendingSection trendingPromise={trendingPromise} />
         </Suspense>
 
         {/* Popular This Season */}
         <Suspense fallback={<SectionSkeleton count={6} />}>
-          <SeasonalSection />
+          <SeasonalSection seasonalPromise={seasonalPromise} />
         </Suspense>
 
         {/* Top Rated */}
         <Suspense fallback={<SectionSkeleton count={6} />}>
-          <TopRatedSection />
+          <TopRatedSection topRatedPromise={topRatedPromise} />
         </Suspense>
 
         {/* New Episodes Today */}
         <Suspense fallback={<SectionSkeleton count={6} />}>
-          <RecentlyUpdatedSection />
+          <RecentlyUpdatedSection seasonalPromise={seasonalPromise} />
         </Suspense>
 
         {/* Recommended For You (logged-in only; Suspended) */}
         <Suspense fallback={null}>
-          <UserRecommendationsSection />
+          <UserRecommendationsSection sessionPromise={sessionPromise} recsPromise={recsPromise} />
         </Suspense>
 
         {/* Genres */}
@@ -180,7 +195,7 @@ export default async function HomePage({ params }: HomePageProps) {
 }
 
 // ─── Suspenseful Server Component: Hero Section ──────────────────────────────
-async function HeroSection() {
+async function HeroSection({ sessionPromise, trendingPromise, seasonalPromise, topRatedPromise, recsPromise, schedulePromise }: any) {
   let trending: AnimeData[] = [];
   let seasonal: AnimeData[] = [];
   let topRated: AnimeData[] = [];
@@ -190,20 +205,12 @@ async function HeroSection() {
   let userId: string | undefined = undefined;
 
   try {
-    const session = await auth().catch(() => null);
+    const session = await sessionPromise;
     userId = session?.user?.id;
 
-    const promises: Promise<any>[] = [
-      AnimeApi.getTrendingAnime(1).catch(() => ({ data: [] })),
-      AnimeApi.getSeasonalAnime(1).catch(() => ({ data: [] })),
-      AnimeApi.getTopRatedAnime(1).catch(() => ({ data: [] })),
-      AnimeApi.getRecentAnimeRecommendations(1).catch(() => ({ data: [] })),
-      AnimeApi.getAiringSchedule(1).catch(() => ({ data: [] })),
-    ];
-    
-    if (userId) {
-      promises.push(AnimeApi.getContinueWatching(userId).catch(() => []));
-    }
+    const continueWatchingPromise = userId 
+      ? AnimeApi.getContinueWatching(userId).catch(() => []) 
+      : Promise.resolve([]);
 
     const [
       trendingRes,
@@ -212,7 +219,14 @@ async function HeroSection() {
       recsRes,
       schedulesRes,
       continueWatchingRes,
-    ] = await Promise.all(promises);
+    ] = await Promise.all([
+      trendingPromise,
+      seasonalPromise,
+      topRatedPromise,
+      recsPromise,
+      schedulePromise,
+      continueWatchingPromise
+    ]);
 
     trending = trendingRes.data || [];
     seasonal = seasonalRes.data || [];
@@ -257,8 +271,8 @@ async function HeroSection() {
 }
 
 // ─── Suspenseful Server Component: Quick Actions ─────────────────────────────
-async function QuickActionsSection() {
-  const session = await auth().catch(() => null);
+async function QuickActionsSection({ sessionPromise }: any) {
+  const session = await sessionPromise;
   const userId = session?.user?.id;
 
   let continueWatching: any[] = [];
@@ -274,8 +288,8 @@ async function QuickActionsSection() {
 }
 
 // ─── Suspenseful Server Component: User Dashboard Stats & Continue Watching ───
-async function UserDashboardSection() {
-  const session = await auth().catch(() => null);
+async function UserDashboardSection({ sessionPromise }: any) {
+  const session = await sessionPromise;
   const userId = session?.user?.id;
 
   if (!userId) {
@@ -372,12 +386,12 @@ async function UserDashboardSection() {
 }
 
 // ─── Sibling Async component: Trending Now ────────────────────────────────────
-async function TrendingSection() {
+async function TrendingSection({ trendingPromise }: { trendingPromise: Promise<any> }) {
   let trending: AnimeData[] = [];
   let hasError = false;
 
   try {
-    const res = await AnimeApi.getTrendingAnime(1);
+    const res = await trendingPromise;
     trending = res.data || [];
     if (trending.length === 0) throw new Error("Empty trending catalog");
   } catch (error) {
@@ -392,12 +406,12 @@ async function TrendingSection() {
 }
 
 // ─── Sibling Async component: Seasonal highlights ─────────────────────────────
-async function SeasonalSection() {
+async function SeasonalSection({ seasonalPromise }: { seasonalPromise: Promise<any> }) {
   let seasonal: AnimeData[] = [];
   let hasError = false;
 
   try {
-    const res = await AnimeApi.getSeasonalAnime(1);
+    const res = await seasonalPromise;
     seasonal = res.data || [];
     if (seasonal.length === 0) throw new Error("Empty seasonal catalog");
   } catch (error) {
@@ -412,12 +426,12 @@ async function SeasonalSection() {
 }
 
 // ─── Sibling Async component: Top Rated ───────────────────────────────────────
-async function TopRatedSection() {
+async function TopRatedSection({ topRatedPromise }: { topRatedPromise: Promise<any> }) {
   let topRated: AnimeData[] = [];
   let hasError = false;
 
   try {
-    const res = await AnimeApi.getTopRatedAnime(1);
+    const res = await topRatedPromise;
     topRated = res.data || [];
     if (topRated.length === 0) throw new Error("Empty top rated catalog");
   } catch (error) {
@@ -432,12 +446,12 @@ async function TopRatedSection() {
 }
 
 // ─── Sibling Async component: Recently Updated ────────────────────────────────
-async function RecentlyUpdatedSection() {
+async function RecentlyUpdatedSection({ seasonalPromise }: { seasonalPromise: Promise<any> }) {
   let seasonal: AnimeData[] = [];
   let hasError = false;
 
   try {
-    const res = await AnimeApi.getSeasonalAnime(1);
+    const res = await seasonalPromise;
     seasonal = res.data || [];
     if (seasonal.length === 0) throw new Error("Empty seasonal catalog for updates");
   } catch (error) {
@@ -452,8 +466,8 @@ async function RecentlyUpdatedSection() {
 }
 
 // ─── Suspenseful Server Component: User Recommendations ─────────────────────
-async function UserRecommendationsSection() {
-  const session = await auth().catch(() => null);
+async function UserRecommendationsSection({ sessionPromise, recsPromise }: { sessionPromise: Promise<any>, recsPromise: Promise<any> }) {
+  const session = await sessionPromise;
   const userId = session?.user?.id;
 
   if (!userId) return null;
@@ -462,7 +476,7 @@ async function UserRecommendationsSection() {
   let hasError = false;
 
   try {
-    const recsRes = await AnimeApi.getRecentAnimeRecommendations(1);
+    const recsRes = await recsPromise;
     const rawRecs = (recsRes.data || []) as any[];
     recommendations = rawRecs
       .map((item) => {
