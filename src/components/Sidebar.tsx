@@ -138,13 +138,7 @@ export default function Sidebar({
   const activeHref = allHrefs.find(isActive) ?? null;
 
   // Group State
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    browse: true,
-    myAnime: true,
-    fun: true,
-    community: true,
-    system: true,
-  });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const toggleGroup = (id: string) => {
     setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }));
@@ -221,7 +215,7 @@ export default function Sidebar({
     }
   };
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex flex-col h-full bg-bg-secondary border-r border-border-subtle p-5">
       {/* Brand logo in Sidebar (Desktop) */}
       <div className="hidden lg:flex items-center gap-3 mb-8 px-2">
@@ -346,13 +340,13 @@ export default function Sidebar({
     <>
       {/* Desktop Sidebar (persistent on screens >= lg) */}
       <aside className="hidden lg:block w-64 flex-shrink-0 h-screen sticky top-0 z-40">
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Mobile Sidebar Slide-out Drawer */}
       {isOpen && (
         <MobileSidebarDrawer onClose={onClose}>
-          <SidebarContent />
+          {sidebarContent}
         </MobileSidebarDrawer>
       )}
     </>
