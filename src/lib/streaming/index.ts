@@ -36,7 +36,7 @@ export const StreamingManager = {
     }
 
     // Try each provider in the priority chain until one returns episodes
-    const chain = ['toonworld', 'toonplay', 'vidnest'];
+    const chain = registry.getPriorityChain();
     for (const pName of chain) {
       const provider = registry.get(pName);
       if (!provider) continue;

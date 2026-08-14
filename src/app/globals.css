@@ -3,27 +3,27 @@
 @tailwind utilities;
 
 :root {
-  /* Premium Dark Theme Color Palette */
-  --bg-primary: #0a0a0f;        /* Deep space black — main background */
-  --bg-secondary: #111118;       /* Card backgrounds */
-  --bg-elevated: #1a1a27;        /* Hover states, elevated cards */
-  --bg-glass: rgba(255, 255, 255, 0.04);  /* Glassmorphism panels */
+  /* Premium Dark Theme Color Palette - Elegant Slate */
+  --bg-primary: #09090b;        /* Zinc 950 — main background */
+  --bg-secondary: #18181b;       /* Zinc 900 — Card backgrounds */
+  --bg-elevated: #27272a;        /* Zinc 800 — Hover states, elevated cards */
+  --bg-glass: rgba(255, 255, 255, 0.03);  /* Glassmorphism panels */
 
-  --accent-primary: #7c3aed;     /* Violet — main brand color */
-  --accent-glow: #9f5eff;        /* Lighter violet for glows */
-  --accent-secondary: #06b6d4;   /* Cyan — secondary highlights */
-  --accent-pink: #ec4899;        /* Hot pink — episode badges, tags */
+  --accent-primary: #fafafa;     /* Zinc 50 — main brand color */
+  --accent-glow: rgba(255, 255, 255, 0.1); /* Subtle white glow */
+  --accent-secondary: #a1a1aa;   /* Zinc 400 — secondary highlights */
+  --accent-pink: #ec4899;        /* Hot pink — keeping for semantic badges if strictly necessary */
 
-  --text-primary: #f1f5f9;       /* Near white */
-  --text-secondary: #94a3b8;     /* Muted gray */
-  --text-muted: #475569;         /* Very muted */
+  --text-primary: #fafafa;       /* Zinc 50 */
+  --text-secondary: #a1a1aa;     /* Zinc 400 */
+  --text-muted: #52525b;         /* Zinc 600 */
 
-  --border-subtle: rgba(255, 255, 255, 0.06);   /* Card borders */
-  --border-glow: rgba(124, 58, 237, 0.3);       /* Accent borders */
+  --border-subtle: rgba(255, 255, 255, 0.05);   /* Clean, ultra-subtle border */
+  --border-glow: rgba(255, 255, 255, 0.1);       /* Subtle border accent */
 
-  --gradient-hero: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0a0a0f 100%);
-  --gradient-card: linear-gradient(180deg, transparent 40%, rgba(10, 10, 15, 0.95) 100%);
-  --gradient-accent: linear-gradient(90deg, #7c3aed, #ec4899);
+  --gradient-hero: linear-gradient(135deg, #09090b 0%, #18181b 100%);
+  --gradient-card: linear-gradient(180deg, transparent 40%, rgba(9, 9, 11, 0.95) 100%);
+  --gradient-accent: linear-gradient(90deg, #fafafa, #d4d4d8);
 
   /* Tailwind Mappings Compatibility */
   --color-void: var(--bg-primary);
@@ -64,11 +64,11 @@
   --duration-normal: 180ms;
   --duration-slow: 250ms;
 
-  --transition-hover: var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-dropdown: 130ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-page: 220ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-modal: var(--duration-normal) cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-drawer: var(--duration-slow) cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-hover: var(--duration-fast) cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-dropdown: 130ms cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-page: 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-modal: var(--duration-normal) cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-drawer: var(--duration-slow) cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .light, [data-theme="light"] {
@@ -164,13 +164,11 @@ body {
 }
 
 .logo-text {
-  background: linear-gradient(90deg, #9f5eff, #ec4899);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
   font-family: 'Outfit', sans-serif;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 1.25rem;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 /* Shimmer Loading Keyframe */
@@ -241,9 +239,9 @@ body {
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
-/* UI-UX Pro Max Tactile Button Pressing */
+/* UI-UX Pro Max Tactile Button Pressing (Emil Kowalski pattern) */
 .btn-press {
-  transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms ease, opacity 160ms ease;
+  transition: transform 160ms var(--ease-out), filter 160ms ease, opacity 160ms ease;
   will-change: transform;
 }
 
@@ -271,9 +269,9 @@ body {
     transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out), border-color 220ms ease;
   }
   .card-hover-pro:hover {
-    transform: translateY(-4px) scale(1.01);
-    box-shadow: 0 12px 30px -10px rgba(124, 58, 237, 0.3);
-    border-color: rgba(124, 58, 237, 0.4);
+    transform: translateY(-2px) scale(1.005);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    border-color: rgba(255, 255, 255, 0.1);
   }
 }
 
@@ -306,10 +304,10 @@ body {
 }
 
 .anime-card:hover {
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: 0 16px 40px rgba(124, 58, 237, 0.28),
-              0 4px 12px rgba(0, 0, 0, 0.4);
-  border-color: rgba(159, 94, 255, 0.5);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4),
+              0 4px 8px rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .lang-badge {
@@ -339,12 +337,6 @@ body {
   align-items: center;
   gap: 12px;
 }
-.accent-bar {
-  width: 3px;
-  height: 24px;
-  background: linear-gradient(180deg, #7c3aed, #ec4899);
-  border-radius: 100px;
-}
 .section-header h2 {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
@@ -359,7 +351,6 @@ body {
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  box-shadow: 0 0 60px rgba(124,58,237,0.15);
   aspect-ratio: 16/9;
   width: 100%;
 }
@@ -417,25 +408,24 @@ body {
   box-shadow: 0 0 16px color-mix(in srgb, var(--player-accent, #7c3aed) 40%, transparent);
 }
 
-/* Server Suggestion Glow Animation */
+/* Server Suggestion Glow Animation - Subdued */
 @keyframes pulseSuggest {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--player-accent, #7c3aed) 45%, transparent);
-    border-color: var(--player-accent, #7c3aed);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.05);
+    border-color: var(--border-subtle);
   }
   50% {
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--player-accent, #7c3aed) 0%, transparent);
-    border-color: var(--player-accent, #7c3aed);
-    transform: translateY(-1px) scale(1.03);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
   }
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--player-accent, #7c3aed) 0%, transparent);
-    border-color: var(--player-accent, #7c3aed);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.0);
+    border-color: var(--border-subtle);
   }
 }
 
 .server-btn.pulse-suggest {
-  animation: pulseSuggest 1.2s ease-in-out infinite;
+  animation: pulseSuggest 2s ease-in-out infinite;
 }
 
 
@@ -447,9 +437,8 @@ body {
   opacity: 0.7;
 }
 .server-btn.active .server-dot {
-  background: #a78bfa;
+  background: #fafafa;
   opacity: 1;
-  box-shadow: 0 0 6px #a78bfa;
 }
 
 /* Language Toggle Segmented Control */
@@ -487,7 +476,7 @@ body {
 .episode-list::-webkit-scrollbar { width: 4px; }
 .episode-list::-webkit-scrollbar-track { background: transparent; }
 .episode-list::-webkit-scrollbar-thumb {
-  background: rgba(124,58,237,0.4);
+  background: rgba(255,255,255,0.2);
   border-radius: 100px;
 }
 
@@ -498,14 +487,12 @@ body {
   padding: 10px 14px;
   border-radius: 10px;
   cursor: pointer;
-  transition: background-color var(--duration-fast) ease,
-              border-left-color var(--duration-fast) ease;
-  border-left: 3px solid transparent;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 .episode-item:hover { background: var(--bg-elevated); }
 .episode-item.active {
-  background: rgba(124,58,237,0.1);
-  border-left-color: var(--accent-primary);
+  background: var(--bg-elevated);
+  font-weight: 500;
 }
 
 /* Toast Notification Styles */
@@ -538,17 +525,7 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Hero Ambient Glows */
-.hero::before {
-  content: '';
-  position: absolute;
-  top: -200px;
-  left: 30%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%);
-  pointer-events: none;
-}
+
 
 .card-row {
   display: flex;
@@ -586,7 +563,7 @@ body {
 
 /* Global keyboard focus ring — visible only on keyboard navigation */
 :focus-visible {
-  outline: 2px solid rgba(159, 94, 255, 0.7);
+  outline: 2px solid rgba(255, 255, 255, 0.4);
   outline-offset: 2px;
   border-radius: 6px;
 }

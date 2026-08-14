@@ -137,7 +137,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
             episode: epNum,
           },
         },
-      })
+      }).catch((e) => { console.error('progress error', e); return null; })
     : Promise.resolve(null);
 
   const historyPromise = userId
@@ -149,7 +149,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
         select: {
           episode: true,
         },
-      })
+      }).catch((e) => { console.error('history error', e); return []; })
     : Promise.resolve([]);
 
   // Resolve metadata first to get the mainTitle

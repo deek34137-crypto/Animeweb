@@ -218,17 +218,11 @@ export default function HeroBanner({
         className="relative z-10 flex flex-col justify-end h-full p-5 sm:p-8 max-w-2xl space-y-3 animate-hero-text"
       >
         {/* Tagline */}
-        <div className="space-y-1">
-          <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-widest ${
-              current.isContinue
-                ? 'bg-accent-pink/15 text-accent-pink'
-                : 'bg-accent-violet/10 border border-accent-violet/20 text-[#7c3aed]'
-            }`}
-          >
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-accent-secondary">
             {current.tagline}
           </span>
-          <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-text-primary tracking-tight font-display line-clamp-1 leading-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-text-primary font-display line-clamp-1 leading-tight">
             {current.title}
           </h1>
         </div>
@@ -248,9 +242,9 @@ export default function HeroBanner({
             </div>
 
             <div className="w-full space-y-1.5">
-              <div className="h-1.5 bg-bg-elevated rounded-full overflow-hidden border border-border-subtle">
+              <div className="h-1 bg-bg-elevated rounded-full overflow-hidden border border-border-subtle">
                 <div
-                  className="h-full bg-gradient-to-r from-[#7c3aed] to-[#ec4899] rounded-full shadow-[0_0_8px_rgba(124,91,255,0.6)] transition-all duration-500"
+                  className="h-full bg-accent-primary rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${current.extra.percentageComplete || 0}%` }}
                 />
               </div>
@@ -285,20 +279,20 @@ export default function HeroBanner({
         )}
 
         {/* CTA Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 mt-2">
           <button
             onClick={() => router.push(current.ctaUrl as '/')}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-accent-violet text-white font-bold text-xs hover:bg-[#6b4ae6] transition-all duration-200 hover:-translate-y-px shadow-[0_0_20px_rgba(124,91,255,0.3)] hover:shadow-[0_0_28px_rgba(124,91,255,0.5)]"
+            className="btn-press inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent-primary text-bg-primary font-bold text-xs"
           >
-            <Play size={11} fill="white" />
+            <Play size={12} className="fill-current" />
             <span dangerouslySetInnerHTML={{ __html: current.ctaText }} />
           </button>
           {!current.isContinue && (
             <button
               onClick={() => router.push(current.ctaUrl as '/')}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-bg-elevated/70 border border-border-subtle hover:border-text-secondary/20 text-text-primary font-bold text-xs hover:bg-bg-elevated transition-all duration-200 hover:-translate-y-px backdrop-blur-md"
+              className="btn-press inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-bg-elevated/50 border border-border-subtle text-text-primary font-bold text-xs hover:bg-bg-elevated backdrop-blur-md"
             >
-              <Info size={12} />
+              <Info size={14} />
               <span>More Info</span>
             </button>
           )}
