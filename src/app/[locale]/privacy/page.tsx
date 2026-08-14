@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Metadata } from 'next';
 import { Shield, Lock, Eye, Server, RefreshCw, ShieldAlert, Globe, Trash2, Scale, Baby } from 'lucide-react';
 import { getSeoMetadata, getBreadcrumbSchema } from '@/lib/seo';
@@ -107,27 +107,10 @@ export default async function PrivacyPolicyPage({ params }: Props) {
                 </div>
               ))}
             </div>
-            <p className="text-text-muted">The <code className="bg-bg-elevated px-1 rounded text-[10px]">hentai_age_verified</code> localStorage key is stored on your device only for adult section access and is never transmitted to our servers. You can manage all cookies via the &quot;Cookie Settings&quot; link in the footer.</p>
+            <p className="text-text-muted">You can manage all cookies via the &quot;Cookie Settings&quot; link in the footer.</p>
           </div>
         </section>
 
-        {/* 4. Adult Content & Age Verification */}
-        <section className="glass-panel border border-red-500/20 rounded-3xl p-6 space-y-3">
-          <div className="flex items-center gap-2 text-red-400">
-            <ShieldAlert size={18} />
-            <h2 className="text-base font-bold text-text-primary font-display">4. Adult Content & Age Verification</h2>
-          </div>
-          <div className="text-xs text-text-secondary leading-relaxed space-y-2 pl-7">
-            <p>Aniworld provides links to third-party adult content sites in a dedicated 18+ section. Regarding this section:</p>
-            <ul className="list-disc pl-5 space-y-1.5">
-              <li>Access requires: (1) being logged in with a verified account, and (2) completing the age verification click-through.</li>
-              <li>Age verification is stored in <code className="bg-bg-elevated px-1 rounded text-[10px]">localStorage</code> on your device only — it is never transmitted to our servers.</li>
-              <li>We do not verify age against any external database; it is self-declared by the user.</li>
-              <li>If you are under 18, you must not access the hentai section.</li>
-              <li>Parents: enable Kids Mode from the sidebar to prevent access to adult content.</li>
-            </ul>
-          </div>
-        </section>
 
         {/* 5. Third-Party Services & APIs */}
         <section className="glass-panel border border-border-default rounded-3xl p-6 space-y-3">
@@ -139,7 +122,7 @@ export default async function PrivacyPolicyPage({ params }: Props) {
             <ul className="list-disc pl-5 space-y-1.5">
               <li><strong>Jikan / MyAnimeList:</strong> Anime metadata (no personal data sent).</li>
               <li><strong>AniList:</strong> OAuth login and watch list synchronization.</li>
-              <li><strong>HStream.moe:</strong> Public API used for hentai trending metadata (no user data sent).</li>
+
               <li><strong>Vercel Analytics:</strong> Anonymous, aggregated performance data with no personally identifiable information.</li>
               <li><strong>Web Push (VAPID):</strong> Opt-in push notifications. Subscription data stored on your device and our server.</li>
             </ul>
@@ -156,7 +139,7 @@ export default async function PrivacyPolicyPage({ params }: Props) {
             <ul className="list-disc pl-5 space-y-1.5">
               <li>Account data is retained for as long as your account is active.</li>
               <li>Watch history is retained indefinitely unless manually cleared from your account settings.</li>
-              <li>Age verification data exists only in your browser localStorage and is cleared when you clear browser data.</li>
+
               <li>To request complete account deletion, email: <strong>animeworldrj@gmail.com</strong></li>
             </ul>
           </div>

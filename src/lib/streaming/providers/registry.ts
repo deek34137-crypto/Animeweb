@@ -15,6 +15,7 @@ import { vidsrcSbsProvider }    from './vidsrcSbs';
 import { toonplayProvider }     from './toonplay';
 import { toonworldProvider }    from './toonworld';
 import { animotvslashProvider } from './animotvslash';
+import { kartoonsProvider }     from './kartoons';
 
 class ProviderRegistry {
   private providers = new Map<string, StreamingProviderInterface>();
@@ -39,8 +40,8 @@ class ProviderRegistry {
    */
   public getPriorityChain(): string[] {
     return [
-      'filmu',     // 1. FilmU         — 4K, slug-based, native sub/dub
-      'kaa',       // 2. KickAssAnime  — fast CDN, sub/dub, ~1847ms
+      'kartoons',  // 1. Kartoons      — native API, ~3s, ad-free
+      'filmu',     // 2. FilmU         — 4K, slug-based, native sub/dub
       'anibd',     // 3. AniBD         — BD/uncensored releases, fastest ~401ms
       'allmanga',  // 4. AllAnime      — large catalog, ~744ms
       'vidnest',   // 5. VidNest       — AniList-based, Hindi support
@@ -71,6 +72,7 @@ class ProviderRegistry {
    */
   public getKidsProviders(): string[] {
     return [
+      'kartoons',       // Kartoons     — native API, ad-free
       'toonworld',      // ToonWorld    — primary kids source
       'animotvslash',   // AnimoTV Slash — cartoons + Hindi dubs
     ];
@@ -147,5 +149,6 @@ registry.register(toonplayProvider);    // ToonPlay — multi-audio scraper
 // ─────────────────────────────────────────────────────────────
 registry.register(toonworldProvider);      // ToonWorld — primary kids
 registry.register(animotvslashProvider);   // AnimoTV Slash — cartoons + Hindi dubs
+registry.register(kartoonsProvider);       // Kartoons — kartoons.me search embed
 
 export default registry;

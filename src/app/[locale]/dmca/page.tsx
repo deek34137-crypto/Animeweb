@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Metadata } from 'next';
 import { Copyright, FileX, FileCheck, Ban, ShieldAlert } from 'lucide-react';
 import { getSeoMetadata, getBreadcrumbSchema } from '@/lib/seo';
@@ -125,16 +125,7 @@ export default async function DmcaPage({ params }: Props) {
           </p>
         </section>
 
-        {/* Section 5 */}
-        <section className="glass-panel border border-border-default rounded-3xl p-6 space-y-3">
-          <div className="flex items-center gap-2 text-orange-400">
-            <ShieldAlert size={18} />
-            <h2 className="text-base font-bold text-text-primary font-display">5. Adult Content Disclaimer</h2>
-          </div>
-          <p className="text-xs text-text-secondary leading-relaxed pl-7">
-            For DMCA notices related to links in the Adults Only section, the same procedure applies. We do not host adult content — all such links redirect to independent third-party sites. Copyright holders of adult content should contact us at animeworldrj@gmail.com.
-          </p>
-        </section>
+
 
       </div>
     </div>

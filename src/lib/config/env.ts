@@ -17,23 +17,6 @@ const envSchema = z.object({
   TMDB_API_KEY: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).optional(),
 
-  // Upstream config validation
-  CONSUMET_API_MIRRORS: z.string()
-    .default('http://localhost:4000')
-    .transform((val) => val.split(',').map(s => s.trim()).filter(Boolean))
-    .refine((urls) => urls.length > 0, { message: "At least one mirror must be specified" })
-    .refine((urls) => new Set(urls).size === urls.length, { message: "Duplicate mirrors are not allowed" })
-    .refine((urls) => urls.every(u => {
-      try {
-        const parsed = new URL(u);
-        if (parsed.protocol === 'https:') return true;
-        if (parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) return true;
-        return false;
-      } catch {
-        return false;
-      }
-    }), { message: "Mirrors must be valid HTTPS URLs (or HTTP for localhost)" }),
-
   // Feature Flags
   FLAG_USE_NEW_METADATA: z.enum(['true', 'false']).transform(v => v === 'true').default(false),
   FLAG_ENABLE_OUTBOX: z.enum(['true', 'false']).transform(v => v === 'true').default(false),
@@ -65,8 +48,6 @@ const parsed = envSchema.safeParse({
   ANILIST_TOKEN: process.env.ANILIST_TOKEN,
   TMDB_API_KEY: process.env.TMDB_API_KEY,
   LOG_LEVEL: process.env.LOG_LEVEL,
-  CONSUMET_API_MIRRORS: process.env.CONSUMET_API_MIRRORS,
-
   FLAG_USE_NEW_METADATA: process.env.FLAG_USE_NEW_METADATA || 'false',
   FLAG_ENABLE_OUTBOX: process.env.FLAG_ENABLE_OUTBOX || 'false',
   FLAG_ENABLE_SEARCH_FALLBACK: process.env.FLAG_ENABLE_SEARCH_FALLBACK || 'false',

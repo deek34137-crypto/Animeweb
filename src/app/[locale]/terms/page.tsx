@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Metadata } from 'next';
 import { FileText, CheckCircle, AlertOctagon, ExternalLink, ShieldAlert, Ban, UserX, ShieldCheck } from 'lucide-react';
 import { getSeoMetadata, getBreadcrumbSchema } from '@/lib/seo';
@@ -98,23 +98,6 @@ export default async function TermsOfServicePage({ params }: Props) {
           </div>
         </section>
 
-        {/* 4. Adult Content Terms (18+) */}
-        <section className="glass-panel border border-red-500/20 rounded-3xl p-6 space-y-3">
-          <div className="flex items-center gap-2 text-red-400">
-            <ShieldAlert size={18} />
-            <h2 className="text-base font-bold text-text-primary font-display">4. Adult Content Terms (18+)</h2>
-          </div>
-          <div className="text-xs text-text-secondary leading-relaxed space-y-2 pl-7">
-            <p>By accessing the Hentai (Adults Only) section of Aniworld, you explicitly acknowledge and agree that:</p>
-            <ul className="list-disc pl-5 space-y-1.5">
-              <li>You are at least 18 years of age (or the legal age of majority in your jurisdiction).</li>
-              <li>You are accessing adult content voluntarily for personal viewing only.</li>
-              <li>Viewing adult content is legal in your country, state, or region.</li>
-              <li>Aniworld provides links only and does not host adult content.</li>
-              <li>Minors are strictly prohibited from entering the adult section. Attempting to bypass age verification is a material violation of these Terms.</li>
-            </ul>
-          </div>
-        </section>
 
         {/* 5. Acceptable Use Policy */}
         <section className="glass-panel border border-border-default rounded-3xl p-6 space-y-3">
@@ -142,7 +125,7 @@ export default async function TermsOfServicePage({ params }: Props) {
           <div className="text-xs text-text-secondary leading-relaxed space-y-2 pl-7">
             <p>We reserve the right to suspend or terminate user accounts at our sole discretion, without prior notice, for conduct that violates these Terms:</p>
             <ul className="list-disc pl-5 space-y-1.5">
-              <li>Immediate termination for minors attempting to access adult sections or users facilitating minor access.</li>
+
               <li>Termination for repeat copyright infringement or abusive behavior.</li>
               <li>Account deletion requests or appeals can be submitted to: <strong>animeworldrj@gmail.com</strong></li>
             </ul>

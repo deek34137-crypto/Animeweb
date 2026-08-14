@@ -16,13 +16,6 @@ const ipLimitBucket = new Map<string, { tokens: number; lastRefill: number }>();
 export default async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
-  // Kids mode redirect for adult routes
-  if (path.includes('/hentai')) {
-    const kidsMode = req.cookies.get('kids_mode')?.value;
-    if (kidsMode === 'true') {
-      return NextResponse.redirect(new URL('/', req.url));
-    }
-  }
 
   if (path.startsWith('/api/')) {
     // Exclude health checks from rate limiting to prevent false-alarm alerts
@@ -56,16 +49,16 @@ export default async function proxy(req: NextRequest) {
                              path.startsWith('/api/stream');
 
     // Differentiated limits config:
-    // Search/Stream: Anon = 10 req/min (capacity 10, refill 1 token/6s)
-    //                Auth = 30 req/min (capacity 30, refill 1 token/2s)
-    // Default APIs:  Capacity 60, refill 1/s
+    // Search/Stream: Anon = 60 req/min (capacity 60, refill 1 token/s)
+    //                Auth = 120 req/min (capacity 120, refill 2 tokens/s)
+    // Default APIs:  Capacity 120, refill 2/s
     const limitCapacity = isSearchOrStream 
-      ? (userId !== 'anonymous' ? 30 : 10) 
-      : 60;
+      ? (userId !== 'anonymous' ? 120 : 60) 
+      : 120;
       
     const refillRate = isSearchOrStream 
-      ? (userId !== 'anonymous' ? 0.5 : 0.166) // 0.5/s = 30/min, 0.166/s = 10/min
-      : 1.0;
+      ? (userId !== 'anonymous' ? 2.0 : 1.0) 
+      : 2.0;
 
     const rateLimitKey = `${userId !== 'anonymous' ? 'user:' + userId : 'ip:' + ip}:${isSearchOrStream ? 'search' : 'default'}`;
     const now = Date.now() / 1000;

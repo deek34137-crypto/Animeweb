@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 
-import { motion } from 'framer-motion';
-import { Sparkles, Play, Globe, Shield, Tv, Search, Volume2 } from 'lucide-react';
-import { Link } from '@/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Play, Globe, Shield, Tv, Search, Volume2, X } from 'lucide-react';
+import { Link, useRouter } from '@/navigation';
 
 import { proxyUrl } from '@/lib/image';
 
@@ -109,11 +109,123 @@ const KIDS_CATALOG: KidsShow[] = [
     description: 'Tyson Granger and the Bladebreakers compete in high-stakes Beyblade spinning top battles worldwide.',
     languages: ['Hindi', 'English'],
   },
+  {
+    id: '4936',
+    title: 'Ninja Hattori',
+    hindiTitle: 'निंजा हथौड़ी',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/4936.jpg',
+    category: 'Cartoons',
+    episodesCount: 694,
+    rating: 'G - All Ages',
+    description: 'A young ninja boy named Hattori moves in with a normal family to train and helps them solve their daily problems.',
+    languages: ['Hindi'],
+  },
+  {
+    id: '6303',
+    title: 'Perman',
+    hindiTitle: 'परमैन',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/6303.jpg',
+    category: 'Cartoons',
+    episodesCount: 526,
+    rating: 'G - All Ages',
+    description: 'A clumsy boy is chosen to become an apprentice superhero, balancing his normal life with secret hero duties.',
+    languages: ['Hindi'],
+  },
+  {
+    id: '6509',
+    title: 'Kiteretsu',
+    hindiTitle: 'किटेरेत्सु',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6509-a14QqkXpymOc.png',
+    category: 'Cartoons',
+    episodesCount: 331,
+    rating: 'G - All Ages',
+    description: 'A young inventor uses his ancestors blueprint book to create amazing gadgets and a robotic friend named Korosuke.',
+    languages: ['Hindi'],
+  },
+  {
+    id: '3545',
+    title: 'KochiKame',
+    hindiTitle: 'कोचीकामे',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx3545-rhUDPxf7DsBQ.png',
+    category: 'Anime',
+    episodesCount: 373,
+    rating: 'PG-13',
+    description: 'The hilarious adventures of a lazy, money-making, but good-hearted police officer in Tokyo.',
+    languages: ['Hindi', 'Japanese'],
+  },
+  {
+    id: '552',
+    title: 'Digimon Adventure',
+    hindiTitle: 'डिजीमोन',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx552-zad0ts5hylQJ.jpg',
+    category: 'Anime',
+    episodesCount: 54,
+    rating: 'PG - Children',
+    description: 'Seven kids are transported to the Digital World where they befriend Digimon to save both worlds.',
+    languages: ['Hindi', 'English'],
+  },
+  {
+    id: '6149',
+    title: 'Chibi Maruko-chan',
+    hindiTitle: 'मारुको-चान',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6149-w9IRcMlFkn4i.jpg',
+    category: 'Cartoons',
+    episodesCount: 1000,
+    rating: 'G - All Ages',
+    description: 'Follow the everyday life and simple adventures of a young girl nicknamed Maruko and her family.',
+    languages: ['Hindi'],
+  },
+  {
+    id: '1316',
+    title: 'Idaten Jump',
+    hindiTitle: 'इदातेन जम्प',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1316-LGJ4cP4Kwltj.jpg',
+    category: 'Anime',
+    episodesCount: 52,
+    rating: 'PG - Children',
+    description: 'Sho Yamato loves MTB (Mountain Biking). He and his friends are transported to the X-Zone, where they must win Idaten battles to return home.',
+    languages: ['Hindi', 'English'],
+  },
+  {
+    id: '250',
+    title: 'Zatch Bell!',
+    hindiTitle: 'ज़ैच बेल!',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b250-w0c2KefXfW2i.png',
+    category: 'Anime',
+    episodesCount: 150,
+    rating: 'PG-13',
+    description: 'Every 1,000 years, one hundred mamodo descend upon earth to conduct the ultimate battle. The winning mamodo becomes the mighty king of the mamodo world.',
+    languages: ['Hindi', 'English'],
+  },
+  {
+    id: '9884',
+    title: 'Osomatsu-kun',
+    hindiTitle: 'ओसोमात्सू-कुन',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/9884-CGiD1zldkPwY.png',
+    category: 'Cartoons',
+    episodesCount: 86,
+    rating: 'G - All Ages',
+    description: 'The mischievous daily adventures of the Matsuno sextuplets, six identical brothers who love to cause trouble.',
+    languages: ['Hindi'],
+  },
+  {
+    id: '20075',
+    title: 'Obocchama-kun',
+    hindiTitle: 'ओबोचामा-कुन',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/20075.jpg',
+    category: 'Cartoons',
+    episodesCount: 164,
+    rating: 'PG - Children',
+    description: 'Chama is the heir to the ridiculously wealthy Obou family, living an exaggerated life of extreme luxury and bizarre comedic situations.',
+    languages: ['Hindi'],
+  }
 ];
 
 export default function KidsClient() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedShow, setSelectedShow] = useState<KidsShow | null>(null);
 
   // Set kids_mode cookie so Edge middleware can block /hentai/* routes
   React.useEffect(() => {
@@ -241,19 +353,19 @@ export default function KidsClient() {
                   ))}
                 </div>
 
-                {/* Hover Play Button */}
-                <Link
-                  href={`/watch/${show.id}/1`}
-                  className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                {/* Hover Play Icon instead of Link */}
+                <div
+                  className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  onClick={() => setSelectedShow(show)}
                 >
                   <div className="w-12 h-12 rounded-full bg-violet-600 text-white flex items-center justify-center shadow-xl transform scale-75 group-hover:scale-100 transition-transform">
                     <Play className="w-5 h-5 fill-current ml-0.5" />
                   </div>
-                </Link>
+                </div>
               </div>
 
               {/* Details */}
-              <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+              <div className="p-4 flex-1 flex flex-col justify-between space-y-2 cursor-pointer" onClick={() => setSelectedShow(show)}>
                 <div>
                   <div className="flex items-center justify-between">
                     <h3 className="font-extrabold text-sm text-white group-hover:text-violet-400 transition-colors line-clamp-1">
@@ -268,18 +380,109 @@ export default function KidsClient() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px] text-slate-400 font-medium">
                   <span>{show.episodesCount} Episodes</span>
-                  <Link
-                    href={`/watch/${show.id}/1`}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSelectedShow(show); }}
                     className="text-violet-400 font-bold hover:underline"
                   >
-                    Watch Now →
-                  </Link>
+                    Quick View →
+                  </button>
                 </div>
               </div>
             </motion.div>
           ))}
         </div>
       </div>
+
+      {/* Quick View Modal */}
+      <AnimatePresence>
+        {selectedShow && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedShow(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-[#1a1a24] rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col sm:flex-row z-10"
+            >
+              <button
+                onClick={() => setSelectedShow(null)}
+                className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-violet-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Modal Poster */}
+              <div className="w-full sm:w-1/2 aspect-[3/4] sm:aspect-auto relative">
+                <img
+                  src={proxyUrl(selectedShow.image)}
+                  alt={selectedShow.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a24] via-transparent to-transparent sm:bg-gradient-to-r" />
+              </div>
+
+              {/* Modal Content */}
+              <div className="w-full sm:w-1/2 p-6 sm:p-8 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-2xl font-black text-white">{selectedShow.title}</h2>
+                    {selectedShow.hindiTitle && (
+                      <p className="text-lg text-pink-400 font-bold">{selectedShow.hindiTitle}</p>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-bold text-slate-300">
+                      {selectedShow.rating}
+                    </span>
+                    <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-bold text-slate-300">
+                      {selectedShow.category}
+                    </span>
+                    <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-bold text-slate-300">
+                      {selectedShow.episodesCount} EPs
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-slate-300 leading-relaxed">
+                    {selectedShow.description}
+                  </p>
+
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Available Languages:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedShow.languages.map((lang) => (
+                        <span
+                          key={lang}
+                          className="px-2.5 py-1 rounded bg-violet-600/20 border border-violet-500/30 text-xs font-bold text-violet-300"
+                        >
+                          {lang}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-8">
+                  <button
+                    onClick={() => router.push(`/watch/${selectedShow.id}/1`)}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-bold transition-all shadow-lg shadow-violet-500/25 active:scale-95"
+                  >
+                    <Play className="w-5 h-5 fill-current" />
+                    Watch Now
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

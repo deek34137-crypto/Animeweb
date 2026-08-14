@@ -90,8 +90,6 @@ const getProviderFriendlyName = (name: string): string => {
     case 'vidsrc_me':    return 'VidSrc';
     case 'vidsrc_to':    return 'VidSrc.to';
     case 'vidsrc_sbs':   return 'VidSrc.sbs';
-    case 'consumet':     return 'Multilingual 1';
-    case 'animepahe':    return 'Multilingual 2';
     default: return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
 };
