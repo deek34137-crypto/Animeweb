@@ -231,6 +231,10 @@ export default function VideoPlayer({
             if (isFullscreen) return false;
             if (isFloatingClosed) return false;
 
+            // Prevent floating on initial load if the player is just high on the page.
+            // Only float if the top of the player is scrolled past the header.
+            if (entry.boundingClientRect.top > 100) return false;
+
             if (prev) {
               return ratio < 0.25;
             } else {

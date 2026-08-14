@@ -39,7 +39,7 @@ export default async function DiscoverPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const session = await auth();
+  const session = await auth().catch(() => null);
   const userId = session?.user?.id;
 
   const breadcrumbJson = getBreadcrumbSchema([

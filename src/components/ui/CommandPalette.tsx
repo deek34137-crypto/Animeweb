@@ -224,9 +224,10 @@ export default function CommandPalette() {
         }));
 
         setResults([...animeResults, ...charResults]);
-        setSelectedIndex(0);
+        setSelectedIndex(-1);
       } catch {
         setResults([]);
+        setSelectedIndex(-1);
       } finally {
         setIsLoading(false);
       }
@@ -240,10 +241,10 @@ export default function CommandPalette() {
       setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex((i) => Math.max(i - 1, 0));
+      setSelectedIndex((i) => Math.max(i - 1, -1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (results[selectedIndex]) {
+      if (selectedIndex >= 0 && results[selectedIndex]) {
         executeSelection(results[selectedIndex]);
       } else if (query.trim()) {
         router.push(`/search?q=${encodeURIComponent(query.trim())}`);
