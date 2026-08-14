@@ -269,3 +269,46 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
+
+export async function GET(req: Request) {
+  try {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const cursor = searchParams.get('cursor');
+    const limit = 20;
+
+    const history = await db.watchHistory.findMany({
+      where: { userId },
+      orderBy: { completedAt: 'desc' },
+      take: limit + 1, // Fetch one extra to know if there's a next page
+      cursor: cursor ? { id: cursor } : undefined,
+      select: {
+        id: true,
+        animeId: true,
+        animeTitle: true,
+        animeImage: true,
+        episode: true,
+        completedAt: true,
+      },
+    });
+
+    let nextCursor: string | null = null;
+    if (history.length > limit) {
+      const nextItem = history.pop();
+      if (nextItem) {
+        nextCursor = nextItem.id;
+      }
+    }
+
+    return NextResponse.json({ data: history, nextCursor });
+  } catch (error) {
+    console.error('[History GET API] Error:', error);
+    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+  }
+}
+

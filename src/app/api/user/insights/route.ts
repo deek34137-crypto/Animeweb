@@ -25,9 +25,18 @@ export async function GET(req: Request) {
       return NextResponse.json(user.insightsCache);
     }
 
-    // 1. Fetch all ListEntry items
+    // 1. Fetch all ListEntry items (optimized to select only needed fields)
     const entries = await db.listEntry.findMany({
       where: { userId },
+      select: {
+        status: true,
+        score: true,
+        episodesWatched: true,
+        animeEpisodes: true,
+        animeTitle: true,
+        rewatchCount: true,
+        animeId: true, // Needed for metadata resolution at the end
+      },
     });
 
     if (entries.length === 0) {

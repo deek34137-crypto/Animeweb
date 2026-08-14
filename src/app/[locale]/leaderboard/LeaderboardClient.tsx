@@ -5,6 +5,7 @@ import { Trophy, Award, Flame, ChevronDown, Loader2, RefreshCw } from 'lucide-re
 import { motion } from 'framer-motion';
 import { Link } from '@/navigation';
 import { EmptyState } from '@/components/ui/EmptyState';
+import Image from 'next/image';
 
 interface LeaderboardUser {
   id: string;
@@ -158,7 +159,7 @@ export default function LeaderboardClient() {
                     <span className="text-[10px] font-black uppercase text-slate-400">2nd Place</span>
                     <div className="relative w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-2xl overflow-hidden border-2 border-slate-400 shadow-inner">
                       {orderedPodium[0].avatar ? (
-                        <img src={orderedPodium[0].avatar} alt={orderedPodium[0].username} className="w-full h-full object-cover" />
+                        <Image src={orderedPodium[0].avatar} alt={orderedPodium[0].username} fill sizes="(max-width: 640px) 48px, 64px" className="object-cover" />
                       ) : (
                         <div className="w-full h-full bg-surface-3 flex items-center justify-center font-bold text-white uppercase">
                           {orderedPodium[0].username[0]}
@@ -193,7 +194,7 @@ export default function LeaderboardClient() {
                     <span className="text-[10px] font-black uppercase text-accent-gold tracking-widest">Champion</span>
                     <div className="relative w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-3xl overflow-hidden border-2 border-accent-gold shadow-md">
                       {orderedPodium[1].avatar ? (
-                        <img src={orderedPodium[1].avatar} alt={orderedPodium[1].username} className="w-full h-full object-cover" />
+                        <Image src={orderedPodium[1].avatar} alt={orderedPodium[1].username} fill sizes="(max-width: 640px) 56px, 80px" className="object-cover" />
                       ) : (
                         <div className="w-full h-full bg-surface-3 flex items-center justify-center font-bold text-white uppercase">
                           {orderedPodium[1].username[0]}
@@ -227,7 +228,7 @@ export default function LeaderboardClient() {
                     <span className="text-[10px] font-black uppercase text-amber-600">3rd Place</span>
                     <div className="relative w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-2xl overflow-hidden border-2 border-amber-600 shadow-inner">
                       {orderedPodium[2].avatar ? (
-                        <img src={orderedPodium[2].avatar} alt={orderedPodium[2].username} className="w-full h-full object-cover" />
+                        <Image src={orderedPodium[2].avatar} alt={orderedPodium[2].username} fill sizes="(max-width: 640px) 48px, 64px" className="object-cover" />
                       ) : (
                         <div className="w-full h-full bg-surface-3 flex items-center justify-center font-bold text-white uppercase">
                           {orderedPodium[2].username[0]}
@@ -273,9 +274,9 @@ export default function LeaderboardClient() {
                     </span>
 
                     {/* Avatar */}
-                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-surface-3 border border-border-subtle flex-shrink-0 flex items-center justify-center text-xs font-bold text-white uppercase">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-surface-3 border border-border-subtle flex-shrink-0 flex items-center justify-center text-xs font-bold text-white uppercase relative">
                       {user.avatar ? (
-                        <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                        <Image src={user.avatar} alt={user.username} fill sizes="40px" className="object-cover" />
                       ) : (
                         user.username[0]
                       )}

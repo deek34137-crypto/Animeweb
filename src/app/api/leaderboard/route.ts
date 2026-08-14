@@ -103,24 +103,24 @@ async function computeLeaderboardData(filter: string) {
     startDate.setDate(startDate.getDate() - 30); // Default to monthly
   }
 
-  // Fetch events since startDate
-  const events = await db.processedEvent.findMany({
+  // Fetch grouped events since startDate
+  const groupedEvents = await db.processedEvent.groupBy({
+    by: ['userId', 'eventType'],
     where: {
       createdAt: {
         gte: startDate,
       },
     },
-    select: {
-      userId: true,
+    _count: {
       eventType: true,
     },
   });
 
-  // Calculate user XP in memory
+  // Calculate user XP based on grouped counts
   const userXpMap: Record<string, number> = {};
-  for (const event of events) {
-    const xpReward = XP_REWARDS[event.eventType] || 0;
-    userXpMap[event.userId] = (userXpMap[event.userId] || 0) + xpReward;
+  for (const group of groupedEvents) {
+    const xpReward = XP_REWARDS[group.eventType] || 0;
+    userXpMap[group.userId] = (userXpMap[group.userId] || 0) + (xpReward * group._count.eventType);
   }
 
   // Fetch details for users who earned XP in the period

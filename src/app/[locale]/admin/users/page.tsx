@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Ban, Check, UserMinus, UserCheck, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import Image from 'next/image';
 
 interface User {
   id: string;
@@ -207,10 +208,10 @@ export default function AdminUsers() {
                       {/* User Info */}
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-purple-600/20 border border-purple-500/20 flex items-center justify-center font-bold text-purple-400 overflow-hidden">
-                            {user.avatar ? (
-                              <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
-                            ) : (
+                            <div className="w-10 h-10 rounded-full bg-surface-3 flex items-center justify-center font-bold text-white uppercase overflow-hidden border border-border-default flex-shrink-0 relative">
+                              {user.avatar ? (
+                                <Image src={user.avatar} alt={user.username} fill sizes="40px" className="object-cover" />
+                              ) : (
                               user.username[0].toUpperCase()
                             )}
                           </div>

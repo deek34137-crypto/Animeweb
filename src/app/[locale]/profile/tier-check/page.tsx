@@ -20,26 +20,39 @@ export default async function TierCheckPage() {
     );
   }
 
+  const limit = 50;
   const entries = await db.listEntry.findMany({
     where: {
       userId: session.user.id,
       score: { not: null },
     },
     select: {
+      id: true,
       animeId: true,
       animeTitle: true,
       animeImage: true,
       score: true,
     },
-    orderBy: { score: 'desc' },
+    orderBy: [
+      { score: 'desc' },
+      { id: 'asc' }
+    ],
+    take: limit + 1,
   });
 
+  let nextCursor: string | null = null;
+  if (entries.length > limit) {
+    const nextItem = entries.pop();
+    if (nextItem) nextCursor = nextItem.id;
+  }
+
   const formattedEntries = entries.map((e) => ({
+    id: e.id,
     animeId: e.animeId,
     animeTitle: e.animeTitle,
     animeImage: e.animeImage,
     score: e.score as number,
   }));
 
-  return <TierCheckClient entries={formattedEntries} username={session.user.name || 'User'} />;
+  return <TierCheckClient entries={formattedEntries} nextCursor={nextCursor} username={session.user.name || 'User'} />;
 }

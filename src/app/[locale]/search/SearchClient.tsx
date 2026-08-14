@@ -35,6 +35,10 @@ const YEARS = Array.from({ length: 27 }, (_, i) => String(2026 - i));
 
 export default function SearchClient({
   initialQuery,
+  initialLang = '',
+  initialGenre = null,
+  initialYear = '',
+  initialStatus = ''
 }: SearchClientProps) {
   const t = useTranslations('Search');
   const router = useRouter();
@@ -104,7 +108,7 @@ export default function SearchClient({
     const defaultCounts = { All: 0, Series: 0, Movie: 0, OVA: 0, Special: 0 };
     if (!allResults.length) return defaultCounts;
 
-    return allResults.reduce((acc, item) => {
+    return allResults.reduce((acc: { All: number, Series: number, Movie: number, OVA: number, Special: number }, item: any) => {
       acc.All += 1;
       const type = (item.type || '').toUpperCase();
       if (type === 'TV') acc.Series += 1;
@@ -118,7 +122,7 @@ export default function SearchClient({
   // Filter the displayed results based on the active tab
   const displayedResults = useMemo(() => {
     if (activeFilter === 'All') return allResults;
-    return allResults.filter(item => {
+    return allResults.filter((item: any) => {
       const type = (item.type || '').toUpperCase();
       if (activeFilter === 'Series') return type === 'TV';
       if (activeFilter === 'Movie') return type === 'MOVIE';

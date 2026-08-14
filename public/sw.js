@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'bb04291';
+const CACHE_VERSION = '2cbedf4';
 const STATIC_CACHE = `aniworld-static-${CACHE_VERSION}`;
 const IMAGE_CACHE = `aniworld-images-${CACHE_VERSION}`;
 const API_CACHE = `aniworld-api-${CACHE_VERSION}`;

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Link, useRouter } from '@/navigation';
 import {
   Play, Star, List, Film, Check, BookOpen, Pause, Trash, Heart,
@@ -397,8 +398,8 @@ export default function ProfileClient({
           <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
             {showcaseAnime && (
               <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-4 items-center shadow-sm">
-                <div className="w-16 aspect-[3/4] bg-surface-3 rounded-lg overflow-hidden flex-shrink-0 border border-border-subtle">
-                  <img src={showcaseAnime.animeImage} alt={showcaseAnime.animeTitle} className="w-full h-full object-cover" />
+                <div className="w-16 aspect-[3/4] bg-surface-3 rounded-lg overflow-hidden flex-shrink-0 border border-border-subtle relative">
+                  <Image src={showcaseAnime.animeImage} alt={showcaseAnime.animeTitle} fill sizes="64px" className="object-cover" />
                 </div>
                 <div className="space-y-1 overflow-hidden">
                   <p className="text-[9px] text-accent-gold font-bold uppercase tracking-wider">Favorite Anime</p>
@@ -674,12 +675,12 @@ export default function ProfileClient({
                   >
                     {/* Poster Cover */}
                     <div className="relative aspect-[3/4] w-full overflow-hidden bg-surface-3 border-b border-border-subtle">
-                      <img
+                      <Image
                         src={entry.animeImage}
                         alt={entry.animeTitle}
-                        className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500 ease-out"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
+                        fill
+                        className="object-cover group-hover:scale-[1.05] transition-transform duration-500 ease-out"
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 200px"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#05050A]/90 via-[#05050A]/30 to-transparent" />
 
@@ -793,7 +794,9 @@ export default function ProfileClient({
                       {/* Cover Thumbnail Grid */}
                       <div className="relative h-32 bg-surface-3 rounded-xl overflow-hidden border border-border-subtle flex items-center justify-center">
                         {cover ? (
-                          <img src={cover} alt={col.name} className="w-full h-full object-cover opacity-60" />
+                          <div className="absolute inset-0 bg-surface-3">
+                            <Image src={cover} alt={col.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover opacity-60" />
+                          </div>
                         ) : (
                           <Film size={28} className="text-text-disabled" />
                         )}
