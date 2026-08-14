@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { AnimeApi } from '@/lib/api';
 import { syncWatchProgress } from '@/lib/trackers';
 
+
 export async function GET(req: Request) {
   try {
     const session = await auth();

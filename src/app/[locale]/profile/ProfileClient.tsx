@@ -6,11 +6,18 @@ import {
   Play, Star, List, Film, Check, BookOpen, Pause, Trash, Heart,
   BarChart3, Calendar, Settings, Shield, EyeOff, Eye, Globe,
   FolderCheck, Plus, CheckSquare, Square, RefreshCcw, Search, Filter,
-  ChevronDown, Download, Upload, ExternalLink, Undo2, AlertCircle, XCircle, Loader2
+  ChevronDown, Download, Upload, ExternalLink, Undo2, AlertCircle, XCircle, Loader2,
+  Award, Flame
 } from 'lucide-react';
 import Progress from '@/components/ui/Progress';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ACHIEVEMENTS } from '@/lib/gamification/achievements-list';
 import { useWatchlistStore } from '@/store/useWatchlistStore';
 import { useSession } from 'next-auth/react';
+import { CollectionsSkeleton, InsightsSkeleton, ActivityLogSkeleton } from '@/components/ui/Skeleton';
+import CompareRateModal from '@/components/rating/CompareRateModal';
+import SmartRateModal from '@/components/rating/SmartRateModal';
+import TransposeRatingsModal from '@/components/rating/TransposeRatingsModal';
 
 interface ListEntry {
   id: string;
@@ -26,6 +33,29 @@ interface ListEntry {
   updatedAt: Date;
 }
 
+interface BadgeItem {
+  id: string;
+  icon: string;
+  name: string;
+  description: string;
+}
+
+interface CollectionItem {
+  id: string;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  isPrivate: boolean;
+  visibility: string;
+  coverSelectionType: string;
+  coverAnimeId: string | null;
+  coverImage: string | null;
+  entries: {
+    animeId: string;
+    animeImage: string;
+  }[];
+}
+
 interface ProfileClientProps {
   listEntries: ListEntry[];
   stats: {
@@ -36,11 +66,26 @@ interface ProfileClientProps {
     pausedCount: number;
     droppedCount: number;
   };
+  challenges?: any[];
+  achievements?: string[];
+  pinnedBadges?: BadgeItem[];
+  showcaseAnime?: any;
+  profile?: any;
+  accentColor?: string;
 }
 
-type FilterStatus = 'all' | 'watching' | 'completed' | 'paused' | 'dropped' | 'planning' | 'favorites' | 'collections' | 'insights' | 'activity';
+type FilterStatus = 'all' | 'watching' | 'completed' | 'paused' | 'dropped' | 'planning' | 'favorites' | 'collections' | 'insights' | 'activity' | 'achievements' | 'challenges';
 
-export default function ProfileClient({ listEntries, stats }: ProfileClientProps) {
+export default function ProfileClient({
+  listEntries,
+  stats,
+  challenges,
+  achievements,
+  pinnedBadges,
+  showcaseAnime,
+  profile,
+  accentColor,
+}: ProfileClientProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const isLoggedIn = !!session;
@@ -67,7 +112,7 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
   const [showBulkCollectionDropdown, setShowBulkCollectionDropdown] = useState(false);
 
   // Collections, Insights, and Activity states
-  const [collections, setCollections] = useState<any[]>([]);
+  const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [deletedCollections, setDeletedCollections] = useState<any[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -80,6 +125,12 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
 
   const [activity, setActivity] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
+
+  // YAR Rating Modals State
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [isSmartOpen, setIsSmartOpen] = useState(false);
+  const [isTransposeOpen, setIsTransposeOpen] = useState(false);
+  const [targetCompareAnime, setTargetCompareAnime] = useState<{ id: string; title: string; image?: string } | null>(null);
 
   // Undo notification countdown timer
   const [undoCountdown, setUndoCountdown] = useState(10);
@@ -96,6 +147,7 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (undoActive) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUndoCountdown(10);
       interval = setInterval(() => {
         setUndoCountdown(prev => {
@@ -110,17 +162,6 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
     }
     return () => clearInterval(interval);
   }, [undoActive, clearUndo]);
-
-  // Fetch specialized tab contents
-  useEffect(() => {
-    if (activeTab === 'collections' && isLoggedIn) {
-      fetchCollections();
-    } else if (activeTab === 'insights' && isLoggedIn) {
-      fetchInsights();
-    } else if (activeTab === 'activity' && isLoggedIn) {
-      fetchActivity();
-    }
-  }, [activeTab, isLoggedIn]);
 
   const fetchCollections = async () => {
     setCollectionsLoading(true);
@@ -166,6 +207,18 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
       setActivityLoading(false);
     }
   };
+
+  // Fetch specialized tab contents
+  useEffect(() => {
+    if (activeTab === 'collections' && isLoggedIn) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchCollections();
+    } else if (activeTab === 'insights' && isLoggedIn) {
+      fetchInsights();
+    } else if (activeTab === 'activity' && isLoggedIn) {
+      fetchActivity();
+    }
+  }, [activeTab, isLoggedIn]);
 
   const handleCreateCollection = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,6 +352,8 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
     { key: 'favorites', label: 'Favorites', icon: <Heart size={14} fill="currentColor" className="text-red-500" />, count: currentWatchlist.filter(e => e.isFavorite).length },
     { key: 'collections', label: 'Collections', icon: <FolderCheck size={14} className="text-accent-gold" /> },
     { key: 'insights', label: 'Insights', icon: <BarChart3 size={14} className="text-accent-sakura" /> },
+    { key: 'achievements', label: 'Milestones', icon: <Award size={14} className="text-accent-gold" /> },
+    { key: 'challenges', label: 'Challenges', icon: <Flame size={14} className="text-accent-sakura" /> },
     { key: 'activity', label: 'Activity Log', icon: <Calendar size={14} className="text-cyan-400" /> },
   ];
 
@@ -307,7 +362,14 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
     // 1. Status/Favorite Tab Filter
     if (activeTab === 'favorites') {
       if (!entry.isFavorite) return false;
-    } else if (activeTab !== 'all' && activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity') {
+    } else if (
+      activeTab !== 'all' &&
+      activeTab !== 'collections' &&
+      activeTab !== 'insights' &&
+      activeTab !== 'activity' &&
+      activeTab !== 'achievements' &&
+      activeTab !== 'challenges'
+    ) {
       if (entry.status !== activeTab) return false;
     }
 
@@ -328,6 +390,90 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
 
   return (
     <div className="space-y-6 relative pb-20">
+      {/* Bento Showcase & Pinned Badges Bar */}
+      {((pinnedBadges && pinnedBadges.length > 0) || showcaseAnime || profile?.showcaseCharacterId || profile?.showcaseStudioId || profile?.showcaseGenreId) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-up">
+          {/* Bento Showcase Grid */}
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {showcaseAnime && (
+              <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-4 items-center shadow-sm">
+                <div className="w-16 aspect-[3/4] bg-surface-3 rounded-lg overflow-hidden flex-shrink-0 border border-border-subtle">
+                  <img src={showcaseAnime.animeImage} alt={showcaseAnime.animeTitle} className="w-full h-full object-cover" />
+                </div>
+                <div className="space-y-1 overflow-hidden">
+                  <p className="text-[9px] text-accent-gold font-bold uppercase tracking-wider">Favorite Anime</p>
+                  <h4 className="text-xs font-black text-text-primary truncate">{showcaseAnime.animeTitle}</h4>
+                  <div className="flex gap-2.5 items-center text-[10px] text-text-muted">
+                    <span className="flex items-center gap-0.5">
+                      <Star size={10} className="text-accent-gold fill-current" />
+                      {showcaseAnime.score ? showcaseAnime.score.toFixed(1) : 'Unrated'}
+                    </span>
+                    <span className="capitalize">{showcaseAnime.status}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {profile?.showcaseCharacterId && (
+              <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-3.5 items-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-accent-sakura/10 border border-accent-sakura/20 flex items-center justify-center text-lg">
+                  👤
+                </div>
+                <div>
+                  <p className="text-[9px] text-accent-sakura font-bold uppercase tracking-wider">Favorite Character</p>
+                  <h4 className="text-xs font-black text-text-primary">{profile.showcaseCharacterId}</h4>
+                </div>
+              </div>
+            )}
+
+            {profile?.showcaseStudioId && (
+              <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-3.5 items-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-accent-gold/10 border border-accent-gold/20 flex items-center justify-center text-lg">
+                  🏢
+                </div>
+                <div>
+                  <p className="text-[9px] text-accent-gold font-bold uppercase tracking-wider">Favorite Studio</p>
+                  <h4 className="text-xs font-black text-text-primary">{profile.showcaseStudioId}</h4>
+                </div>
+              </div>
+            )}
+
+            {profile?.showcaseGenreId && (
+              <div className="bg-surface-2 border border-border-default rounded-3xl p-5 flex gap-3.5 items-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-lg">
+                  🧬
+                </div>
+                <div>
+                  <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">Favorite Genre</p>
+                  <h4 className="text-xs font-black text-text-primary">{profile.showcaseGenreId}</h4>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Pinned Badges Bar */}
+          {pinnedBadges && pinnedBadges.length > 0 && (
+            <div className="bg-surface-2 border border-border-default rounded-3xl p-6 flex flex-col justify-between shadow-sm md:col-span-1 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-widest text-text-muted">Pinned Badges</h3>
+              <div className="flex flex-wrap gap-3">
+                {pinnedBadges.map((badge) => (
+                  <div
+                    key={badge.id}
+                    className="group relative flex items-center justify-center w-12 h-12 rounded-2xl bg-surface-3 border border-border-subtle hover:border-accent-violet/40 transition cursor-help shadow-sm text-2xl"
+                  >
+                    <span>{badge.icon}</span>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-40 p-2 bg-[#0D0D14] border border-border-default rounded-xl text-center shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 space-y-0.5">
+                      <p className="text-[10px] font-black text-white">{badge.name}</p>
+                      <p className="text-[8px] text-text-secondary leading-normal">{badge.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Navigation Tabs */}
       <div className="flex gap-1.5 overflow-x-auto rail-scroll pb-1">
         {tabs.map((tab) => (
@@ -355,8 +501,54 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
         ))}
       </div>
 
+      {/* YAR Rating Tools & Features Bar */}
+      <div className="bg-gradient-to-r from-violet-950/40 via-purple-900/30 to-indigo-950/40 border border-violet-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-fade-up">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 font-bold">
+            ⚡
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">Rating & Taste Suite</h4>
+            <p className="text-[11px] text-slate-400">Quarter-point 0.25 scaling, 1v1 Elo comparisons, and fan MBTI persona.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setIsCompareOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/30 text-violet-200 text-xs font-bold transition-all shadow-sm"
+          >
+            🎯 Compare Rate
+          </button>
+          <button
+            onClick={() => setIsSmartOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 text-purple-200 text-xs font-bold transition-all shadow-sm"
+          >
+            ⚔ Smart Rate 1v1
+          </button>
+          <button
+            onClick={() => setIsTransposeOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/30 text-indigo-200 text-xs font-bold transition-all shadow-sm"
+          >
+            🎚 Transpose Scores
+          </button>
+          <Link
+            href="/profile/persona"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-600/30 hover:bg-pink-600/50 border border-pink-500/30 text-pink-200 text-xs font-bold transition-all shadow-sm"
+          >
+            🎭 Persona
+          </Link>
+          <Link
+            href="/profile/tier-check"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/30 text-amber-200 text-xs font-bold transition-all shadow-sm"
+          >
+            📊 Tier Check
+          </Link>
+        </div>
+      </div>
+
       {/* SEARCH AND FILTERS PANEL (Only shown for list entry views) */}
-      {activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity' && (
+      {activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity' && activeTab !== 'achievements' && activeTab !== 'challenges' && (
         <div className="bg-surface-2 border border-border-default rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm animate-fade-up">
           {/* Search bar */}
           <div className="relative w-full md:w-80">
@@ -432,7 +624,7 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
       )}
 
       {/* ─── TAB 1: LIST ENTRIES (GRID DISPLAY) ─────────────────────────────────── */}
-      {activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity' && (
+      {activeTab !== 'collections' && activeTab !== 'insights' && activeTab !== 'activity' && activeTab !== 'achievements' && activeTab !== 'challenges' && (
         <>
           {bulkMode && (
             <div className="flex items-center justify-between px-4 py-2 bg-accent-violet/10 border border-accent-violet/30 rounded-xl text-xs font-semibold text-accent-violet animate-fade-down">
@@ -446,11 +638,12 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
           )}
 
           {filteredEntries.length === 0 ? (
-            <div className="glass-panel border border-border-default rounded-3xl p-16 text-center max-w-sm mx-auto space-y-3">
-              <Film size={36} className="text-text-disabled mx-auto animate-pulse" />
-              <h3 className="text-sm font-bold text-text-primary">No Anime Found</h3>
-              <p className="text-xs text-text-muted">No titles matched your current filters.</p>
-            </div>
+            <EmptyState
+              icon={Film}
+              title="No Anime Found"
+              description="No titles matched your current filters."
+              size="sm"
+            />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {filteredEntries.map((entry) => {
@@ -578,21 +771,20 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
           </div>
 
           {collectionsLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 size={32} className="animate-spin text-accent-violet" />
-            </div>
+            <CollectionsSkeleton />
           ) : collections.length === 0 ? (
-            <div className="glass-panel border border-border-default rounded-3xl p-16 text-center max-w-sm mx-auto space-y-3">
-              <FolderCheck size={36} className="text-text-disabled mx-auto" />
-              <h3 className="text-sm font-bold text-text-primary">No Collections Yet</h3>
-              <p className="text-xs text-text-muted">Create a custom list to group your favorite shows.</p>
-            </div>
+            <EmptyState
+              icon={FolderCheck}
+              title="No Collections Yet"
+              description="Create a custom list to group your favorite shows."
+              size="sm"
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {collections.map((col) => {
                 const count = col.entries.length;
                 const cover = col.coverSelectionType === 'ANIME' && col.coverAnimeId
-                  ? col.entries.find((e: any) => e.animeId === col.coverAnimeId)?.animeImage
+                  ? col.entries.find((e) => e.animeId === col.coverAnimeId)?.animeImage
                   : (col.coverSelectionType === 'CUSTOM' ? col.coverImage : col.entries[0]?.animeImage);
 
                 return (
@@ -688,9 +880,7 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
           </div>
 
           {insightsLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 size={32} className="animate-spin text-accent-violet" />
-            </div>
+            <InsightsSkeleton />
           ) : insights ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Left bento: Circular Progress stats */}
@@ -775,15 +965,14 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
           </div>
 
           {activityLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 size={32} className="animate-spin text-accent-violet" />
-            </div>
+            <ActivityLogSkeleton />
           ) : activity.length === 0 ? (
-            <div className="glass-panel border border-border-default rounded-3xl p-16 text-center space-y-3">
-              <Calendar size={36} className="text-text-disabled mx-auto" />
-              <h3 className="text-sm font-bold text-text-primary">No Activity Yet</h3>
-              <p className="text-xs text-text-muted">Your milestones will be displayed here as you watch.</p>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="No Activity Yet"
+              description="Your milestones will be displayed here as you watch."
+              size="md"
+            />
           ) : (
             <div className="relative border-l-2 border-border-subtle ml-4 pl-6 space-y-6">
               {activity.map((log) => (
@@ -823,6 +1012,109 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── TAB 5: ACHIEVEMENTS & MILESTONES ────────────────────────────────────── */}
+      {activeTab === 'achievements' && achievements && (
+        <div className="space-y-8 animate-fade-up">
+          <div>
+            <h2 className="text-lg font-bold text-text-primary">Player Achievements</h2>
+            <p className="text-xs text-text-muted">Milestones you have unlocked by exploring the platform.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {Object.values(ACHIEVEMENTS).map((ach) => {
+              const isUnlocked = achievements.includes(ach.id);
+              if (ach.isHidden && !isUnlocked) return null;
+              
+              return (
+                <div
+                  key={ach.id}
+                  className={`relative p-5 rounded-3xl border transition shadow-sm flex items-center gap-4 ${
+                    isUnlocked
+                      ? 'bg-surface-2 border-accent-gold/45 shadow-[0_0_12px_rgba(234,179,8,0.06)]'
+                      : 'bg-surface-2/40 border-border-subtle opacity-60'
+                  }`}
+                >
+                  {isUnlocked && (
+                    <div className="absolute top-3 right-3 text-[10px] font-black text-accent-gold tracking-widest flex items-center gap-0.5">
+                      <Star size={10} className="fill-current animate-pulse" /> UNLOCKED
+                    </div>
+                  )}
+                  
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${
+                    isUnlocked ? 'bg-accent-gold/10 text-accent-gold border border-accent-gold/20' : 'bg-surface-3 text-text-disabled border border-border-subtle'
+                  }`}>
+                    {isUnlocked ? '🏆' : '🔒'}
+                  </div>
+
+                  <div className="space-y-1 overflow-hidden">
+                    <h4 className="text-xs font-black text-text-primary truncate">{ach.name}</h4>
+                    <p className="text-[10px] text-text-secondary leading-normal">{ach.description}</p>
+                    <div className="flex gap-2.5 pt-1 items-center text-[9px] font-bold">
+                      <span className="text-accent-gold">+{ach.xpAward} XP</span>
+                      {ach.badgeAwardId && <span className="text-accent-violet">🎖️ Badge Reward</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 6: ACTIVE CHALLENGES ────────────────────────────────────────────── */}
+      {activeTab === 'challenges' && challenges && (
+        <div className="space-y-8 animate-fade-up">
+          <div>
+            <h2 className="text-lg font-bold text-text-primary">Daily &amp; Weekly Challenges</h2>
+            <p className="text-xs text-text-muted">Earn bonus XP by completing targeted watching tasks.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {challenges.map((ch) => {
+              const pct = Math.min(100, Math.round((ch.progress / ch.target) * 100));
+              const isCompleted = ch.completedAt !== null;
+              
+              // eslint-disable-next-line react-hooks/purity
+              const hrs = Math.max(0, Math.ceil((new Date(ch.resetAt).getTime() - Date.now()) / (1000 * 60 * 60)));
+              
+              return (
+                <div key={ch.id || ch.challengeId} className="bg-surface-2 border border-border-default rounded-3xl p-6 flex flex-col justify-between shadow-sm space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                        ch.type === 'DAILY' ? 'bg-accent-sakura/10 text-accent-sakura' : ch.type === 'WEEKLY' ? 'bg-accent-violet/10 text-accent-violet' : 'bg-accent-gold/10 text-accent-gold'
+                      }`}>
+                        {ch.type}
+                      </span>
+                      {isCompleted && <span className="text-[10px] font-black text-emerald-400">✓ COMPLETED</span>}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-text-primary">{ch.name}</h4>
+                      <p className="text-[10px] text-text-secondary leading-relaxed">{ch.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 border-t border-white/5 pt-4">
+                    <div className="flex justify-between items-end text-[10px] font-semibold text-text-secondary">
+                      <span>{ch.progress} / {ch.target}</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="w-full bg-surface-3 rounded-full h-1.5 overflow-hidden border border-border-subtle">
+                      <div className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-emerald-400' : 'bg-accent-violet'}`} style={{ width: `${pct}%`, backgroundColor: isCompleted ? undefined : 'var(--player-accent)' }} />
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-[9px] font-bold">
+                      <span className="text-accent-gold">+{ch.xpAward} XP</span>
+                      <span className="text-text-muted">Resets in {hrs}h</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -977,6 +1269,30 @@ export default function ProfileClient({ listEntries, stats }: ProfileClientProps
             </div>
           </form>
         </div>
+      )}
+
+      {/* YAR Rating Modals */}
+      {isCompareOpen && (
+        <CompareRateModal
+          isOpen={isCompareOpen}
+          onClose={() => setIsCompareOpen(false)}
+          targetAnime={targetCompareAnime}
+          onSave={fetchList}
+        />
+      )}
+      {isSmartOpen && (
+        <SmartRateModal
+          isOpen={isSmartOpen}
+          onClose={() => setIsSmartOpen(false)}
+          onComplete={fetchList}
+        />
+      )}
+      {isTransposeOpen && (
+        <TransposeRatingsModal
+          isOpen={isTransposeOpen}
+          onClose={() => setIsTransposeOpen(false)}
+          onApply={fetchList}
+        />
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 
+
 const DEFAULT_PREFERENCES = {
   autoplayNext: true,
   autoSkipIntro: false,

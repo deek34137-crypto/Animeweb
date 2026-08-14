@@ -34,9 +34,16 @@ export default function FeelingLucky({ className = '' }: FeelingLuckyProps) {
   const handlePickRandom = async () => {
     setLoading(true);
     try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const res = await fetch('/api/discover/surprise');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.animeId) {
+          router.push(`/anime/${data.animeId}`);
+          return;
+        }
+      }
       const randomId = POPULAR_ANIME_IDS[Math.floor(Math.random() * POPULAR_ANIME_IDS.length)];
-      // Short delay to build suspense/premium feel
-      await new Promise((resolve) => setTimeout(resolve, 600));
       router.push(`/anime/${randomId}`);
     } catch {
       router.push(`/anime/5114`);

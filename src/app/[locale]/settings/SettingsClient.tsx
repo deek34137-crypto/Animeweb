@@ -8,6 +8,7 @@ import {
   Settings, Check, AlertTriangle
 } from 'lucide-react';
 import AccountLink from '@/components/settings/AccountLink';
+import NotificationToggle from '@/components/ui/NotificationToggle';
 
 interface UserSettings {
   id: string;
@@ -122,6 +123,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
     setProfileMessage(null);
 
     try {
+      console.log('Sending profile update request...');
       const res = await fetch('/api/user/profile', {
         method: 'POST',
         headers: {
@@ -131,20 +133,30 @@ export default function SettingsClient({ user }: SettingsClientProps) {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to update profile.');
+        const errorText = await res.text();
+        console.error('Profile update API failed:', res.status, errorText);
+        throw new Error(`Failed to update profile: ${errorText}`);
       }
 
+      console.log('Profile update API succeeded. Updating session...');
       // Refresh Client session in NextAuth
       if (updateSession) {
-        await updateSession({
-          image: avatar || null,
-          name: displayName || user.username,
-        });
+        try {
+          await updateSession({
+            image: avatar || null,
+            name: displayName || user.username,
+          });
+          console.log('Session update succeeded.');
+        } catch (sessionErr) {
+          console.error('Failed to update session:', sessionErr);
+          // Don't fail the whole operation if just session refresh fails
+        }
       }
 
       setProfileMessage({ type: 'success', text: 'Profile updated successfully!' });
       router.refresh();
     } catch (err) {
+      console.error('Error saving profile:', err);
       setProfileMessage({ type: 'error', text: 'Error saving profile preferences.' });
     } finally {
       setIsSavingProfile(false);
@@ -491,6 +503,9 @@ export default function SettingsClient({ user }: SettingsClientProps) {
 
         {/* 2. Connected Trackers Sync Section */}
         <AccountLink user={user} setNotification={setNotification} />
+
+        {/* 3. PWA Push Notifications Section */}
+        <NotificationToggle />
       </div>
     </div>
   );

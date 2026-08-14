@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Link, useRouter } from '@/navigation';
 import { AnimeData } from '@/services/jikan';
 import { Star, Plus, Play, Check, Loader2 } from 'lucide-react';
@@ -15,6 +16,7 @@ interface AnimeCardProps {
   rank?: number;
   variant?: 'standard' | 'large' | 'wide';
   onAddToList?: (anime: AnimeData) => void;
+  prefetch?: boolean;
 }
 
 const HINDI_FAVORITE_KEYWORDS = [
@@ -30,7 +32,7 @@ const hasHindiDub = (title: string, malId: number) => {
   return HINDI_FAVORITE_KEYWORDS.some(keyword => t.includes(keyword)) || [20, 1535, 21, 38000, 40748, 31964, 16498].includes(malId);
 };
 
-export default function AnimeCard({ anime, rank, variant = 'standard', onAddToList }: AnimeCardProps) {
+export default function AnimeCard({ anime, rank, variant = 'standard', onAddToList, prefetch }: AnimeCardProps) {
   const cardAnime = anime as any;
   const title = anime.title_english || anime.title;
   const score = anime.score ? anime.score.toFixed(1) : null;
@@ -42,9 +44,12 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
   const { data: session } = useSession();
   const { entries, upsertEntry, deleteEntry } = useWatchlistStore();
   const [listLoading, setListLoading] = useState(false);
+  // Defer watchlist reads until after client hydration to prevent SSR mismatch
+  const [mounted, setMounted] = useState(false);
+  React.useEffect(() => { setMounted(true); }, []);
 
   const isLoggedIn = !!session;
-  const listEntry = entries[String(anime.mal_id)];
+  const listEntry = mounted ? entries[String(anime.mal_id)] : undefined;
   const hasEntry = !!listEntry;
 
   // Toggle watchlist logic
@@ -89,23 +94,24 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
     ? Math.round((listEntry.episodesWatched / anime.episodes) * 100)
     : 0;
 
-  // 1. WIDE VARIANT: Landscape Bento Card (Spans 2 columns x 1 row)
+  // 1. WIDE VARIANT: Landscape Bento Card (Spans 2 columns x 1 row on sm+)
   if (variant === 'wide') {
     return (
-      <div className="group/card relative flex flex-col h-full transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] col-span-2 shadow-md hover:shadow-xl rounded-xl">
+      <div className="group/card relative flex flex-col h-full transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] col-span-1 sm:col-span-2 shadow-md hover:shadow-xl rounded-xl">
         <Link
           href={`/anime/${anime.mal_id}`}
+          prefetch={prefetch}
           className="flex h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover"
         >
           {/* Left: Poster */}
-          <div className="relative w-[32%] sm:w-[30%] flex-shrink-0 overflow-hidden bg-surface-3 h-full">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+          <div className="relative w-[36%] sm:w-[30%] flex-shrink-0 overflow-hidden bg-surface-3 h-full">
+            <Image
               src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
               alt={title}
-              className="w-full h-full object-cover group-hover/card:scale-[1.05] transition-transform duration-500 ease-out"
-              loading="lazy"
-              referrerPolicy="no-referrer"
+              fill
+              sizes="(max-width: 768px) 50vw, 33vw"
+              className="object-cover group-hover/card:scale-[1.05] transition-transform duration-500 ease-out"
+              priority={prefetch}
             />
             {rank && (
               <div className="absolute top-2 left-2 z-10 w-7.5 h-7.5 rounded-lg bg-accent-violet flex items-center justify-center text-[11px] font-semibold text-white shadow-lg">
@@ -165,16 +171,17 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
       <div className="group/card relative flex flex-col h-full transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] col-span-2 row-span-2 shadow-lg hover:shadow-2xl rounded-xl">
         <Link
           href={`/anime/${anime.mal_id}`}
+          prefetch={prefetch}
           className="block relative w-full h-full rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent-violet/40 transition-all duration-300 glow-violet-hover min-h-[350px]"
         >
           <div className="absolute inset-0 w-full h-full overflow-hidden bg-surface-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
               alt={title}
-              className="w-full h-full object-cover group-hover/card:scale-[1.04] transition-transform duration-700 ease-out"
-              loading="lazy"
-              referrerPolicy="no-referrer"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover group-hover/card:scale-[1.04] transition-transform duration-700 ease-out"
+              priority={prefetch}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#05050A] via-[#05050A]/70 to-[#05050A]/20 opacity-95" />
           </div>
@@ -230,17 +237,17 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
   // 3. STANDARD VARIANT: Vertical card with slide-up overlays
   return (
     <div className="group relative w-full select-none flex flex-col h-full bg-bg-secondary/40 border border-border-subtle rounded-2xl overflow-hidden hover:border-[#7c3aed]/40 hover:shadow-[0_8px_24px_rgba(124,58,237,0.1)] hover:-translate-y-1 transition-all duration-300">
-      <Link href={`/anime/${anime.mal_id}`} className="w-full flex-1 flex flex-col">
+      <Link href={`/anime/${anime.mal_id}`} prefetch={prefetch} className="w-full flex-1 flex flex-col">
         {/* Poster Container */}
         <div className="relative aspect-[2/3] w-full overflow-hidden bg-bg-elevated/20">
           {/* Poster Image */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
-            loading="lazy"
-            referrerPolicy="no-referrer"
+            fill
+            sizes="(max-width: 768px) 33vw, 20vw"
+            className="object-cover group-hover:scale-[1.04] transition-transform duration-500 ease-out"
+            priority={prefetch}
           />
 
           {/* Dynamic Progress Bar overlay */}
@@ -267,7 +274,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                 {/* Quick Play */}
                 <button
                   onClick={handleQuickPlay}
-                  className="w-10 h-10 rounded-full bg-accent-violet hover:bg-[#6b4ae6] text-white flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105"
+                  className="btn-press w-10 h-10 rounded-full bg-accent-violet hover:bg-[#6b4ae6] text-white flex items-center justify-center shadow-lg transition-transform duration-200 hover:scale-105"
                   title="Quick Play"
                 >
                   <Play size={15} fill="white" className="ml-0.5" />
@@ -277,7 +284,7 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
                 <button
                   onClick={handleToggleWatchlist}
                   disabled={listLoading}
-                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105"
+                  className="btn-press w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105"
                   title="Add to Plan to Watch"
                 >
                   {listLoading ? (
@@ -321,21 +328,41 @@ export default function AnimeCard({ anime, rank, variant = 'standard', onAddToLi
         </div>
 
         {/* Text Area */}
-        <div className="p-3 flex flex-col justify-between flex-1 min-h-[62px]">
+        <div className="p-3 flex flex-col justify-between flex-1 min-h-[75px]">
           <h3 className="font-display font-semibold text-xs text-text-primary line-clamp-2 leading-tight group-hover:text-accent-primary transition-colors duration-200">
             {title}
           </h3>
 
-          <div className="flex items-center justify-between text-[9px] text-text-secondary mt-1.5 border-t border-border-subtle/30 pt-1.5">
-            <span className="uppercase font-extrabold tracking-wider">{anime.type || 'TV'}</span>
-            <div className="flex items-center gap-1.5">
+          <div className="space-y-1 mt-2 pt-1.5 border-t border-border-subtle/30">
+            {/* Line 1: Year · Type · Rating */}
+            <div className="flex items-center gap-1.5 text-[9px] text-text-secondary font-medium">
+              <span>{anime.year || 'Ongoing'}</span>
+              <span>·</span>
+              <span className="uppercase font-extrabold tracking-wider">{anime.type || 'TV'}</span>
+              {anime.rating && (
+                <>
+                  <span>·</span>
+                  <span className="px-1 py-0.2 rounded bg-white/10 text-[8px] font-black border border-white/10 uppercase">
+                    {anime.rating}
+                  </span>
+                </>
+              )}
+            </div>
+            
+            {/* Line 2: Short metadata line (Studio/Genres · Score) */}
+            <div className="flex items-center justify-between text-[9px] text-text-muted">
+              <span className="truncate max-w-[70%] font-medium">
+                {anime.studios && anime.studios.length > 0
+                  ? anime.studios[0].name
+                  : anime.genres && anime.genres.length > 0
+                  ? anime.genres.slice(0, 2).map((g) => g.name).join(', ')
+                  : 'No Studio Info'}
+              </span>
               {score && (
-                <span className="flex items-center gap-0.5 text-accent-gold font-extrabold">
+                <span className="flex items-center gap-0.5 text-accent-gold font-extrabold flex-shrink-0">
                   <Star size={9} fill="currentColor" /> {score}
                 </span>
               )}
-              <span className="text-text-muted">·</span>
-              <span className="font-medium text-text-muted">{anime.year || 'Ongoing'}</span>
             </div>
           </div>
         </div>

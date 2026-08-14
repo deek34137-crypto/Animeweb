@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
+import { env } from '@/lib/config/env';
+
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -29,7 +31,7 @@ export async function GET(req: Request) {
 
   const clientId = process.env.MAL_CLIENT_ID;
   const clientSecret = process.env.MAL_CLIENT_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = env.APP_URL;
   const redirectUri = `${appUrl}/api/auth/tracker/mal/callback`;
 
   try {

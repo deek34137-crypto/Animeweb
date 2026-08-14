@@ -4,7 +4,24 @@
     "home": "Inicio",
     "search": "Buscar",
     "searchPlaceholder": "Buscar anime...",
-    "language": "Idioma"
+    "language": "Idioma",
+    "discover": "Descubrir",
+    "continueWatching": "Continuar Viendo",
+    "library": "Biblioteca",
+    "history": "Historial",
+    "calendar": "Calendario de Emisión",
+    "seasonal": "Anime de Temporada",
+    "leaderboard": "Clasificación",
+    "community": "Foro de la Comunidad",
+    "settings": "Ajustes",
+    "adminPanel": "Panel de Admin",
+    "login": "Iniciar Sesión",
+    "myLibrary": "Mi Biblioteca",
+    "watchHistory": "Historial de Visto",
+    "playerSettings": "Ajustes del Reproductor",
+    "accountSettings": "Ajustes de Cuenta",
+    "customCursor": "Cursor Personalizado ⭐",
+    "signOut": "Cerrar Sesión"
   },
   "Homepage": {
     "trending": "Tendencias Ahora",
@@ -50,6 +67,27 @@
     "statusLabel": "Estado",
     "studioLabel": "Estudio",
     "noResults": "No se encontraron animes que coincidan con estos criterios.",
-    "all": "Todos"
+    "all": "Todos",
+    "resetAll": "Restablecer Todo",
+    "keywordPlaceholder": "Filtrar por palabra clave...",
+    "languageLabel": "Idioma",
+    "languageAll": "Idioma: Todos",
+    "hindiDub": "Doblaje al Hindi",
+    "japaneseSub": "Subtítulos en Japonés",
+    "englishDub": "Doblaje al Inglés",
+    "tamilDub": "Doblaje al Tamil",
+    "teluguDub": "Doblaje al Telugu",
+    "statusAiring": "En Emisión",
+    "statusCompleted": "Completado",
+    "statusUpcoming": "Próximamente",
+    "foundResults": "Se encontraron {count} resultados",
+    "noResultsSub": "No pudimos encontrar nada que coincida con tus filtros. ¡Intenta verificar la ortografía o relajar algunas opciones!",
+    "clearAllFilters": "Borrar Todos los Filtros"
+  },
+  "Footer": {
+    "discoverTrackDiscuss": "Descubre, sigue y discute tu anime favorito.",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "contactUs": "Contáctanos"
   }
 }

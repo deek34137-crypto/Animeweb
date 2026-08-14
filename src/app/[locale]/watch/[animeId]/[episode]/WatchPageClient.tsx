@@ -1,7 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import VideoPlayer from '@/components/video/VideoPlayer';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+import TorrentPanel from '@/components/video/TorrentPanel';
+
+const VideoPlayer = dynamic(
+  () => import('@/components/video/VideoPlayer'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="aspect-video w-full rounded-2xl bg-bg-secondary/40 border border-border-subtle flex items-center justify-center text-text-muted text-xs animate-pulse">
+        Initializing player components...
+      </div>
+    )
+  }
+);
 
 interface EpisodeSource {
   url: string;
@@ -40,7 +53,8 @@ interface WatchPageClientProps {
   episodeCountFound?: number;
   providerSlug?: string;
   sidebar: React.ReactNode;
-  
+  torrentsEnabled?: boolean;
+
   // Next episode details
   nextEpisodeTitle?: string;
   nextEpisodeThumbnail?: string;
@@ -48,9 +62,15 @@ interface WatchPageClientProps {
 
 export default function WatchPageClient({
   sidebar,
+  torrentsEnabled = false,
   ...playerProps
 }: WatchPageClientProps) {
   const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [torrServerStreamUrl, setTorrServerStreamUrl] = useState<string | null>(null);
+
+  const handleTorrServerStream = useCallback((url: string) => {
+    setTorrServerStreamUrl(url);
+  }, []);
   const [bookmarks, setBookmarks] = useState<any[]>([]);
 
   // Fetch bookmarks on client mount / parameter changes
@@ -132,6 +152,9 @@ export default function WatchPageClient({
         <Suspense fallback={<div className="aspect-video w-full rounded-2xl shimmer-loader" />}>
           <VideoPlayer
             {...playerProps}
+            sources={torrServerStreamUrl
+              ? [{ url: torrServerStreamUrl, quality: 'auto', isM3U8: true }]
+              : playerProps.sources}
             bookmarks={bookmarks}
             onAddBookmark={handleAddBookmark}
             onDeleteBookmark={handleDeleteBookmark}
@@ -139,6 +162,15 @@ export default function WatchPageClient({
             onTheaterModeChange={setIsTheaterMode}
           />
         </Suspense>
+
+        {/* Torrents & Downloads Panel */}
+        {torrentsEnabled && (
+          <TorrentPanel
+            animeTitle={playerProps.animeTitle}
+            episodeNumber={playerProps.episodeNumber}
+            onTorrServerStream={handleTorrServerStream}
+          />
+        )}
       </div>
 
       {/* Right/Bottom Area: Episode Sidebar */}

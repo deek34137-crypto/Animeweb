@@ -100,7 +100,7 @@ export const toonplayProvider: StreamingProviderInterface = {
     }
 
     let episodeUrl = '';
-    let matchedTitle = info.title || animeTitle;
+    const matchedTitle = info.title || animeTitle;
 
     if (info.type === 'movie') {
       const watchServers = info.watchServers || [];
@@ -300,14 +300,16 @@ async function findBestAnimeMatch(title: string, isMovie: boolean = false): Prom
 
     // Sort by score descending
     scoredCandidates.sort((a, b) => b.score - a.score);
+    const topCandidate = scoredCandidates[0];
+    const MIN_SCORE = 300; // confidence threshold
 
-    console.info(`[ToonPlay] Best match: "${scoredCandidates[0].item.title}" (score: ${scoredCandidates[0].score}, id: "${scoredCandidates[0].item.id}")`);
-
-    if (scoredCandidates[0].score > 0) {
-      return scoredCandidates[0].item;
+    if (topCandidate.score >= MIN_SCORE) {
+      console.info(`[ToonPlay] Best confident match: "${topCandidate.item.title}" (score: ${topCandidate.score}, id: "${topCandidate.item.id}")`);
+      return topCandidate.item;
     }
 
-    return results[0];
+    console.warn(`[ToonPlay] No confident match (top score ${topCandidate.score} < ${MIN_SCORE}); returning null.`);
+    return null;
   } catch (err: any) {
     console.error(`[ToonPlay] findBestAnimeMatch error: ${err.message}`);
     return null;

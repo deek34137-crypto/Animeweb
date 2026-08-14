@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import {
   MessageSquare, Users, Play, Star, Calendar, Check, Heart, ArrowRight,
   Loader2, Share2, ExternalLink, Volume2, ShieldAlert,
@@ -15,6 +16,7 @@ import WatchActions from '@/components/video/WatchActions';
 import type { AnimeData, CharacterRoster, EpisodeData, RecommendationItem } from '@/services/jikan';
 import FranchiseTimeline from '@/components/FranchiseTimeline';
 import type { FranchiseGraph } from '@/lib/franchise';
+import AnimeCarousel from '@/components/dashboard/AnimeCarousel';
 
 interface TrackingData {
   status: string;
@@ -141,7 +143,7 @@ export default function AnimeDetailTabs({
             : 'border-b border-border-subtle/50 mb-6'
         }`}
       >
-        <div className="flex gap-1 py-3 overflow-x-auto no-scrollbar scroll-smooth">
+        <div className="flex gap-1.5 py-2.5 sm:py-3 overflow-x-auto no-scrollbar scroll-smooth -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 touch-pan-x">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -245,9 +247,9 @@ function OverviewTab({
   const streamingServers = [
     { name: 'ToonPlay', badges: ['HINDI DUB', 'ENG SUB/DUB'], active: true },
     { name: 'ToonWorld', badges: ['HINDI DUB', 'ENG SUB/DUB'], active: true },
-    { name: 'PirateX', badges: ['MULTI-AUDIO', 'ENG SUB'], active: true },
-    { name: 'TryEmbed', badges: ['ENG SUB/DUB'], active: true },
-    { name: 'AnimePlay', badges: ['ENG SUB/DUB'], active: true }
+    { name: 'VidNest', badges: ['HINDI DUB', 'ENG SUB'], active: true },
+    { name: 'Multilingual 1', badges: ['ENG SUB/DUB'], active: true },
+    { name: 'Multilingual 2', badges: ['ENG SUB/DUB'], active: true }
   ];
 
   return (
@@ -305,12 +307,12 @@ function OverviewTab({
                   <Play size={14} fill="currentColor" className="ml-0.5" />
                 </div>
               </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
                 alt="Episode Thumbnail Placeholder"
-                className="w-full h-full object-cover opacity-90 scale-[1.05] group-hover:scale-100 transition-transform duration-300"
-                referrerPolicy="no-referrer"
+                fill
+                sizes="128px"
+                className="object-cover opacity-90 scale-[1.05] group-hover:scale-100 transition-transform duration-300"
               />
             </div>
             {/* Metadata info */}
@@ -558,36 +560,31 @@ function OverviewTab({
 
         {/* Horizontal Recommendations Rail */}
         {recommendations.length > 0 && (
-          <section className="space-y-4">
-            <div className="flex items-center justify-between border-b border-border-subtle/50 pb-3">
-              <h2 className="flex items-center gap-2 text-xs font-black text-text-primary uppercase tracking-widest">
-                <Heart size={14} className="text-accent-sakura" /> Recommended Anime
-              </h2>
-            </div>
-            <div className="flex gap-3 overflow-x-auto rail-scroll pb-2">
-              {recommendations.slice(0, 10).map((r) => (
-                <Link
-                  key={r.entry.mal_id}
-                  href={`/anime/${r.entry.mal_id}` as '/'}
-                  className="flex-shrink-0 w-32 group"
-                >
-                  <div className="aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-colors">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={r.entry.images.webp.image_url || r.entry.images.jpg.image_url}
-                      alt={r.entry.title}
-                      className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <p className="mt-2 text-[11px] font-semibold text-text-secondary line-clamp-2 leading-tight group-hover:text-accent-violet transition-colors">
-                    {r.entry.title}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </section>
+          <AnimeCarousel title="Recommended Anime" icon={<Heart size={14} className="text-accent-sakura" />}>
+            {recommendations.slice(0, 10).map((r) => (
+              <div key={r.entry.mal_id} className="snap-start">
+                <div className="w-32 group">
+                  <Link
+                    href={`/anime/${r.entry.mal_id}` as '/'}
+                    className="block"
+                  >
+                    <div className="aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-colors">
+                      <Image
+                        src={r.entry.images.webp.image_url || r.entry.images.jpg.image_url}
+                        alt={r.entry.title}
+                        fill
+                        sizes="128px"
+                        className="object-cover group-hover:scale-[1.05] transition-transform duration-300"
+                      />
+                    </div>
+                    <p className="mt-2 text-[11px] font-semibold text-text-secondary line-clamp-2 leading-tight group-hover:text-accent-violet transition-colors">
+                      {r.entry.title}
+                    </p>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </AnimeCarousel>
         )}
       </div>
 
@@ -818,28 +815,33 @@ function EpisodesTab({
   };
 
   // Dynamically Filter & Sort Episodes
-  const filtered = resolvedEpisodes
-    .filter((ep: any) => {
-      // 1. Search Query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const titleMatch = (ep.title || '').toLowerCase().includes(query);
-        const epNumMatch = String(ep.mal_id) === query;
-        if (!titleMatch && !epNumMatch) return false;
-      }
-      // 2. Tab Filter
-      if (filter === 'watched') return localWatched.includes(ep.mal_id);
-      if (filter === 'unwatched') return !localWatched.includes(ep.mal_id);
-      return true;
-    })
-    .sort((a: any, b: any) => {
-      return sortOrder === 'asc' ? a.mal_id - b.mal_id : b.mal_id - a.mal_id;
-    });
+  const filtered = useMemo(() => {
+    return resolvedEpisodes
+      .filter((ep: any) => {
+        // 1. Search Query
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase();
+          const titleMatch = (ep.title || '').toLowerCase().includes(query);
+          const epNumMatch = String(ep.mal_id) === query;
+          if (!titleMatch && !epNumMatch) return false;
+        }
+        // 2. Tab Filter
+        if (filter === 'watched') return localWatched.includes(ep.mal_id);
+        if (filter === 'unwatched') return !localWatched.includes(ep.mal_id);
+        return true;
+      })
+      .sort((a: any, b: any) => {
+        return sortOrder === 'asc' ? a.mal_id - b.mal_id : b.mal_id - a.mal_id;
+      });
+  }, [resolvedEpisodes, searchQuery, filter, localWatched, sortOrder]);
 
   // Dynamic grouping (specials / recaps / movies / main episodes)
-  const recaps = filtered.filter((ep: any) => ep.recap || (ep.title && ep.title.toLowerCase().includes('recap')));
-  const specials = filtered.filter((ep: any) => ep.filler && !recaps.includes(ep));
-  const mainEpisodes = filtered.filter((ep: any) => !recaps.includes(ep) && !specials.includes(ep));
+  const { recaps, specials, mainEpisodes } = useMemo(() => {
+    const recaps = filtered.filter((ep: any) => ep.recap || (ep.title && ep.title.toLowerCase().includes('recap')));
+    const specials = filtered.filter((ep: any) => ep.filler && !recaps.includes(ep));
+    const mainEpisodes = filtered.filter((ep: any) => !recaps.includes(ep) && !specials.includes(ep));
+    return { recaps, specials, mainEpisodes };
+  }, [filtered]);
 
   const totalEps = resolvedEpisodes.length;
   const pct = totalEps > 0 ? Math.round((localWatched.length / totalEps) * 100) : 0;
@@ -869,12 +871,12 @@ function EpisodesTab({
           <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-black text-white z-10">
             EP {ep.mal_id}
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={anime.images.webp.large_image_url || anime.images.jpg.large_image_url}
             alt={ep.title || `Episode ${ep.mal_id}`}
-            className="w-full h-full object-cover opacity-80 scale-[1.05]"
-            referrerPolicy="no-referrer"
+            fill
+            sizes="160px"
+            className="object-cover opacity-80 scale-[1.05]"
           />
           {/* Play progress bar overlay */}
           {progressPct > 0 && (
@@ -1142,12 +1144,23 @@ function ReviewsTab({
   });
 
   // Calculate review stats
-  const totalReviewsCount = activeReviews.length;
-  const averageReviewScore = activeReviews.reduce((sum, r) => sum + r.score, 0) / (totalReviewsCount || 1);
-  const excellentReviews = activeReviews.filter(r => r.score >= 9).length;
-  const goodReviews = activeReviews.filter(r => r.score >= 7 && r.score <= 8).length;
-  const avgReviews = activeReviews.filter(r => r.score >= 5 && r.score <= 6).length;
-  const poorReviews = activeReviews.filter(r => r.score < 5).length;
+  // Calculate review stats
+  const { totalReviewsCount, averageReviewScore, excellentReviews, goodReviews, avgReviews, poorReviews } = useMemo(() => {
+    const totalCount = activeReviews.length;
+    const avgScore = activeReviews.reduce((sum, r) => sum + r.score, 0) / (totalCount || 1);
+    const excellent = activeReviews.filter(r => r.score >= 9).length;
+    const good = activeReviews.filter(r => r.score >= 7 && r.score <= 8).length;
+    const avg = activeReviews.filter(r => r.score >= 5 && r.score <= 6).length;
+    const poor = activeReviews.filter(r => r.score < 5).length;
+    return {
+      totalReviewsCount: totalCount,
+      averageReviewScore: avgScore,
+      excellentReviews: excellent,
+      goodReviews: good,
+      avgReviews: avg,
+      poorReviews: poor
+    };
+  }, [activeReviews]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
@@ -1226,13 +1239,12 @@ function ReviewsTab({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={userImg}
                         alt={review.user.username}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
+                        fill
+                        sizes="40px"
+                        className="object-cover"
                       />
                     </div>
                     <div>
@@ -1315,16 +1327,18 @@ function CastStaffTab({
   staff: any[];
   anime: AnimeData;
 }) {
-  const mainCharacters = characters.filter((c) => c.role === 'Main');
-  const supportingCharacters = characters.filter((c) => c.role === 'Supporting');
+  const mainCharacters = useMemo(() => characters.filter((c) => c.role === 'Main'), [characters]);
+  const supportingCharacters = useMemo(() => characters.filter((c) => c.role === 'Supporting'), [characters]);
 
   // Filter staff to include key roles
-  const keyStaffRoles = ['Director', 'Series Composition', 'Original Creator', 'Character Design', 'Music'];
-  const productionStaff = staff.filter((s) => {
-    return s.positions.some((pos: string) =>
-      keyStaffRoles.some((r) => pos.toLowerCase().includes(r.toLowerCase()))
-    );
-  });
+  const productionStaff = useMemo(() => {
+    const keyStaffRoles = ['Director', 'Series Composition', 'Original Creator', 'Character Design', 'Music'];
+    return staff.filter((s) => {
+      return s.positions.some((pos: string) =>
+        keyStaffRoles.some((r) => pos.toLowerCase().includes(r.toLowerCase()))
+      );
+    });
+  }, [staff]);
 
   return (
     <div className="space-y-8">
@@ -1341,13 +1355,12 @@ function CastStaffTab({
                 className="flex items-center gap-3 bg-surface-2/60 border border-border-subtle rounded-xl p-3 hover:border-border-emphasis transition-all"
               >
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={member.person.images.jpg.image_url}
                     alt={member.person.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
+                    fill
+                    sizes="40px"
+                    className="object-cover"
                   />
                 </div>
                 <div className="min-w-0">
@@ -1389,13 +1402,12 @@ function CastStaffTab({
                         {/* Character Details */}
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-12 h-12 rounded-xl overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                               src={c.character.images.jpg.image_url}
                               alt={c.character.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
+                              fill
+                              sizes="48px"
+                              className="object-cover"
                             />
                           </div>
                           <div className="min-w-0">
@@ -1413,13 +1425,12 @@ function CastStaffTab({
                                 <p className="text-[8px] text-accent-violet uppercase font-extrabold tracking-wider">JP VA</p>
                               </div>
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <Image
                                   src={jpVA.person.images.jpg.image_url}
                                   alt={jpVA.person.name}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
+                                  fill
+                                  sizes="32px"
+                                  className="object-cover"
                                 />
                               </div>
                             </div>
@@ -1432,13 +1443,12 @@ function CastStaffTab({
                                 <p className="text-[8px] text-amber-500 uppercase font-extrabold tracking-wider">EN VA</p>
                               </div>
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <Image
                                   src={enVA.person.images.jpg.image_url}
                                   alt={enVA.person.name}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
+                                  fill
+                                  sizes="32px"
+                                  className="object-cover"
                                 />
                               </div>
                             </div>
@@ -1466,13 +1476,12 @@ function CastStaffTab({
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-10 h-10 rounded-lg overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                               src={c.character.images.jpg.image_url}
                               alt={c.character.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
+                              fill
+                              sizes="40px"
+                              className="object-cover"
                             />
                           </div>
                           <div className="min-w-0">
@@ -1488,13 +1497,12 @@ function CastStaffTab({
                               <p className="text-[8px] text-text-muted uppercase tracking-wider">JP VA</p>
                             </div>
                             <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-3 border border-border-subtle shrink-0">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
+                              <Image
                                 src={jpVA.person.images.jpg.image_url}
                                 alt={jpVA.person.name}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                                referrerPolicy="no-referrer"
+                                fill
+                                sizes="32px"
+                                className="object-cover"
                               />
                             </div>
                           </div>
@@ -1666,13 +1674,12 @@ function RelatedTab({
                 className="group flex flex-col space-y-2"
               >
                 <div className="aspect-[3/4] w-full rounded-2xl overflow-hidden bg-surface-2 border border-border-subtle group-hover:border-accent-violet/40 transition-all duration-300 relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={item.entry.images.webp.image_url || item.entry.images.jpg.image_url}
                     alt={item.entry.title}
-                    className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-300"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                    className="object-cover group-hover:scale-[1.05] transition-transform duration-300"
                   />
                   {item.votes > 0 && (
                     <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold text-accent-sakura">

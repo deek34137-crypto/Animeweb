@@ -54,6 +54,21 @@
   /* Fonts */
   --font-display: 'Outfit', sans-serif;
   --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Timings & Animations */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 250ms;
+
+  --transition-hover: var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-dropdown: 130ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-page: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-modal: var(--duration-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-drawer: var(--duration-slow) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .light, [data-theme="light"] {
@@ -142,7 +157,10 @@ body {
   justify-content: space-between;
   z-index: 1000;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-  transition: all 0.3s ease;
+  transition: transform var(--duration-slow) var(--ease-out),
+              background-color var(--duration-slow) ease,
+              border-color var(--duration-slow) ease,
+              box-shadow var(--duration-slow) ease;
 }
 
 .logo-text {
@@ -159,6 +177,29 @@ body {
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--transition-page) both;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-backdrop-in {
+  animation: backdropIn var(--transition-modal) both;
 }
 
 .skeleton {
@@ -192,6 +233,63 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
+.glass-panel-pro {
+  background: rgba(17, 17, 24, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* UI-UX Pro Max Tactile Button Pressing */
+.btn-press {
+  transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background-color 160ms ease, opacity 160ms ease;
+  will-change: transform;
+}
+
+.btn-press:active {
+  transform: scale(0.97) !important;
+}
+
+/* Entrance Scaling (never start from scale(0)) */
+.entrance-scale {
+  opacity: 0;
+  transform: scale(0.95);
+  animation: entranceScaleIn var(--duration-normal) var(--ease-out) forwards;
+}
+
+@keyframes entranceScaleIn {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scoped Hover Effects for Pointer Devices */
+@media (hover: hover) and (pointer: fine) {
+  .card-hover-pro {
+    transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out), border-color 220ms ease;
+  }
+  .card-hover-pro:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 30px -10px rgba(124, 58, 237, 0.3);
+    border-color: rgba(124, 58, 237, 0.4);
+  }
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn-press:active {
+    transform: none !important;
+  }
+}
+
 /* Anime Card Component Design */
 .anime-card {
   width: 100%;
@@ -200,9 +298,9 @@ body {
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.25s ease;
+  transition: transform 220ms var(--ease-out),
+              box-shadow 220ms var(--ease-out),
+              border-color 220ms ease;
   position: relative;
   will-change: transform;
 }
@@ -297,7 +395,11 @@ body {
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: transform var(--duration-normal) var(--ease-out),
+              border-color var(--duration-normal) ease,
+              color var(--duration-normal) ease,
+              background-color var(--duration-normal) ease,
+              box-shadow var(--duration-normal) ease;
 }
 
 .server-btn:hover {
@@ -368,7 +470,9 @@ body {
   letter-spacing: 0.04em;
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color var(--duration-normal) ease,
+              color var(--duration-normal) ease,
+              box-shadow var(--duration-normal) ease;
   color: var(--text-secondary);
   background: transparent;
 }
@@ -394,7 +498,8 @@ body {
   padding: 10px 14px;
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color var(--duration-fast) ease,
+              border-left-color var(--duration-fast) ease;
   border-left: 3px solid transparent;
 }
 .episode-item:hover { background: var(--bg-elevated); }
@@ -622,4 +727,39 @@ body {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
+
+/* Accessibility: Prefers Reduced Motion overrides */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .shimmer-loader, .skeleton {
+    animation: pulse 2.5s infinite ease-in-out !important;
+    background: var(--bg-secondary) !important;
+  }
+}
+
+@keyframes slideUpFade {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+  -webkit-overflow-scrolling: touch;
+}
+
 

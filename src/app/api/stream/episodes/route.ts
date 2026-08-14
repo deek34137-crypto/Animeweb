@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { StreamingManager } from '@/lib/streaming';
 
 export async function GET(req: Request) {

@@ -1,7 +1,27 @@
 import { JikanAPI, AnimeData, EpisodeData, CharacterRoster, RecommendationItem, StaffMember, UserReview } from '@/services/jikan';
 import { db } from '../db';
+import { cacheLife, cacheTag } from 'next/cache';
+import { cache } from 'react';
+import { rewriteImages } from '@/lib/image';
+
+// Standalone cache-compiled helpers for Jikan fetches to prevent rate limiting
+const getJikanAnimeDetail = async (id: number) => {
+  'use cache';
+  cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+  cacheTag(`anime:${id}`);
+  return JikanAPI.getAnimeDetail(id);
+};
+
+const getJikanAnimeEpisodes = async (id: number) => {
+  'use cache';
+  cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+  cacheTag(`anime-episodes:${id}`);
+  return JikanAPI.getAnimeEpisodes(id);
+};
 
 import { EpisodeCache } from '../anime/episodeCache';
+import { triggerGamification } from '@/lib/gamification/background';
+import { triggerAutomaticRecalculation } from '@/lib/discover/recommendations/background';
 
 // Unified types returned by the API layer
 export interface UnifiedAnimeDetail extends AnimeData {
@@ -21,31 +41,56 @@ export interface UnifiedAnimeDetail extends AnimeData {
 export const AnimeApi = {
   // --- External Anime Metadata Methods ---
   getTrendingAnime: async (page = 1) => {
-    return JikanAPI.getTrendingAnime(page);
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`trending-page:${page}`);
+    return rewriteImages(await JikanAPI.getTrendingAnime(page));
   },
 
   getTopRatedAnime: async (page = 1) => {
-    return JikanAPI.getTopRatedAnime(page);
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`top-rated-page:${page}`);
+    return rewriteImages(await JikanAPI.getTopRatedAnime(page));
   },
 
   getSeasonalAnime: async (page = 1) => {
-    return JikanAPI.getSeasonalAnime(page);
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`seasonal-page:${page}`);
+    return rewriteImages(await JikanAPI.getSeasonalAnime(page));
+  },
+
+  getUpcomingSeasonalAnime: async (page = 1) => {
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`upcoming-seasonal-page:${page}`);
+    return rewriteImages(await JikanAPI.getUpcomingSeasonalAnime(page));
   },
 
   getTopAiringAnime: async (page = 1) => {
-    return JikanAPI.getTopAiringAnime(page);
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`top-airing-page:${page}`);
+    return rewriteImages(await JikanAPI.getTopAiringAnime(page));
   },
 
   getAiringSchedule: async (page = 1) => {
-    return JikanAPI.getAiringSchedule(page);
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`airing-schedule-page:${page}`);
+    return rewriteImages(await JikanAPI.getAiringSchedule(page));
   },
 
   getRecentAnimeRecommendations: async (page = 1) => {
-    return JikanAPI.getRecentAnimeRecommendations(page);
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`recent-recommendations-page:${page}`);
+    return rewriteImages(await JikanAPI.getRecentAnimeRecommendations(page));
   },
 
-  getAnimeDetail: async (id: number, userId?: string): Promise<UnifiedAnimeDetail> => {
-    const res = await JikanAPI.getAnimeDetail(id);
+  getAnimeDetail: cache(async (id: number, userId?: string): Promise<UnifiedAnimeDetail> => {
+    const res = await getJikanAnimeDetail(id);
     const anime = res.data;
 
     let userTracking = null;
@@ -73,61 +118,73 @@ export const AnimeApi = {
       }
     }
 
-    return {
+    return rewriteImages({
       ...anime,
       userTracking,
-    };
-  },
+    });
+  }),
 
-  getAnimeEpisodes: async (id: number): Promise<EpisodeData[]> => {
+  getAnimeEpisodes: cache(async (id: number): Promise<EpisodeData[]> => {
     const animeIdStr = String(id);
     const cached = await EpisodeCache.get(animeIdStr);
     if (cached) {
-      return cached;
+      return rewriteImages(cached);
     }
 
-    const res = await JikanAPI.getAnimeEpisodes(id);
+    const res = await getJikanAnimeEpisodes(id);
     const episodes = res.data || [];
 
     let isAiring = false;
     try {
-      const detailRes = await JikanAPI.getAnimeDetail(id);
+      const detailRes = await getJikanAnimeDetail(id);
       isAiring = detailRes?.data?.airing || detailRes?.data?.status === 'Currently Airing';
     } catch (e) {
       console.error(`Failed to fetch anime detail for airing status of ${id}:`, e);
     }
 
     await EpisodeCache.set(animeIdStr, episodes, isAiring);
-    return episodes;
-  },
+    return rewriteImages(episodes);
+  }),
 
-  getAnimeCharacters: async (id: number): Promise<CharacterRoster[]> => {
+  getAnimeCharacters: cache(async (id: number): Promise<CharacterRoster[]> => {
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`anime-characters:${id}`);
     const res = await JikanAPI.getAnimeCharacters(id);
-    return res.data || [];
-  },
+    return rewriteImages(res.data || []);
+  }),
 
-  getAnimeRecommendations: async (id: number): Promise<RecommendationItem[]> => {
+  getAnimeRecommendations: cache(async (id: number): Promise<RecommendationItem[]> => {
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`anime-recommendations:${id}`);
     const res = await JikanAPI.getAnimeRecommendations(id);
-    return res.data || [];
-  },
+    return rewriteImages(res.data || []);
+  }),
 
-  getAnimeStaff: async (id: number): Promise<StaffMember[]> => {
+  getAnimeStaff: cache(async (id: number): Promise<StaffMember[]> => {
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`anime-staff:${id}`);
     const res = await JikanAPI.getAnimeStaff(id);
-    return res.data || [];
-  },
+    return rewriteImages(res.data || []);
+  }),
 
-  getAnimeReviews: async (id: number): Promise<UserReview[]> => {
+  getAnimeReviews: cache(async (id: number): Promise<UserReview[]> => {
+    'use cache';
+    cacheLife({ stale: 86400, revalidate: 86400, expire: 604800 });
+    cacheTag(`anime-reviews:${id}`);
     const res = await JikanAPI.getAnimeReviews(id);
-    return res.data || [];
-  },
+    return rewriteImages(res.data || []);
+  }),
 
   searchAnime: async (query: string, filters: Parameters<typeof JikanAPI.searchAnime>[1] = {}) => {
-    return JikanAPI.searchAnime(query, filters);
+    return rewriteImages(await JikanAPI.searchAnime(query, filters));
   },
 
   // --- Database Tracking Methods ---
-  getUserList: async (userId: string, status?: string) => {
-    return db.listEntry.findMany({
+  getUserList: cache(async (userId: string, status?: string) => {
+    const list = await db.listEntry.findMany({
       where: {
         userId,
         ...(status ? { status } : {}),
@@ -136,10 +193,11 @@ export const AnimeApi = {
         updatedAt: 'desc',
       },
     });
-  },
+    return rewriteImages(list);
+  }),
 
-  getListEntry: async (userId: string, animeId: string) => {
-    return db.listEntry.findUnique({
+  getListEntry: cache(async (userId: string, animeId: string) => {
+    const entry = await db.listEntry.findUnique({
       where: {
         userId_animeId: {
           userId,
@@ -147,7 +205,8 @@ export const AnimeApi = {
         },
       },
     });
-  },
+    return rewriteImages(entry);
+  }),
 
   upsertListEntry: async (
     userId: string,
@@ -288,6 +347,24 @@ export const AnimeApi = {
       console.error('Failed to write activity log:', logErr);
     }
 
+    // Trigger Gamification XP / Achievement checks in background
+    try {
+      if (finalStatus === 'completed' && (!existing || existing.status !== 'completed')) {
+        triggerGamification(userId, { eventType: 'COMPLETE', animeId });
+      }
+      if (data.score !== undefined && data.score !== null && (!existing || existing.score !== data.score)) {
+        triggerGamification(userId, { eventType: 'RATE', animeId });
+      }
+      if (data.notes && data.notes.trim() !== '' && (!existing || existing.notes !== data.notes)) {
+        triggerGamification(userId, { eventType: 'REVIEW', animeId });
+      }
+    } catch (err) {
+      console.error('[Gamification Trigger Error]', err);
+    }
+
+    // Trigger automatic recommendation recalculation in background
+    triggerAutomaticRecalculation(userId).catch(err => console.error('Failed to trigger automatic recalculation:', err));
+
     return result;
   },
 
@@ -307,10 +384,13 @@ export const AnimeApi = {
       data: { insightsDirty: true },
     }).catch(err => console.error('Failed to dirty insights:', err));
 
+    // Trigger automatic recommendation recalculation in background
+    triggerAutomaticRecalculation(userId).catch(err => console.error('Failed to trigger automatic recalculation:', err));
+
     return deleted;
   },
 
-  getContinueWatching: async (userId: string) => {
+  getContinueWatching: cache(async (userId: string) => {
     // Return all entries in 'watching' status, ordered by most recently updated
     const entries = await db.listEntry.findMany({
       where: {
@@ -323,64 +403,82 @@ export const AnimeApi = {
       take: 12,
     });
 
-    const results = await Promise.all(
-      entries.map(async (entry) => {
-        const latestProgress = await db.watchProgress.findFirst({
-          where: {
-            userId,
-            animeId: entry.animeId,
-          },
-          orderBy: {
-            lastWatchedAt: 'desc',
-          },
-        });
+    const animeIds = entries.map((e) => e.animeId);
 
-        let resumeEpisode = entry.episodesWatched + 1;
-        let lastWatchedDate = entry.updatedAt;
-        let percentageComplete = 0;
-        let remainingMinutes = 0;
+    // Fetch all progress records for these anime IDs in one go
+    let progressList: any[] = [];
+    if (animeIds.length > 0) {
+      progressList = await db.watchProgress.findMany({
+        where: {
+          userId,
+          animeId: { in: animeIds },
+        },
+        orderBy: {
+          lastWatchedAt: 'desc',
+        },
+      });
+    }
 
-        if (latestProgress) {
-          const isCompleted = latestProgress.position / latestProgress.duration >= 0.90;
-          if (!isCompleted) {
-            resumeEpisode = latestProgress.episode;
-            percentageComplete = Math.round((latestProgress.position / latestProgress.duration) * 100);
-            remainingMinutes = Math.max(0, Math.ceil((latestProgress.duration - latestProgress.position) / 60));
-          } else {
-            resumeEpisode = latestProgress.episode + 1;
-          }
-          lastWatchedDate = latestProgress.lastWatchedAt;
+    // Group progress by animeId
+    // Since it's ordered by lastWatchedAt desc, the first progress record we find for each animeId
+    // is the latest one, which is exactly what we want.
+    const latestProgressMap = new Map<string, any>();
+    progressList.forEach((p) => {
+      if (!latestProgressMap.has(p.animeId)) {
+        latestProgressMap.set(p.animeId, p);
+      }
+    });
+
+    const results = entries.map((entry) => {
+      const latestProgress = latestProgressMap.get(entry.animeId);
+
+      let resumeEpisode = entry.episodesWatched + 1;
+      let lastWatchedDate = entry.updatedAt;
+      let percentageComplete = 0;
+      let remainingMinutes = 0;
+
+      if (latestProgress) {
+        const isCompleted = latestProgress.position / latestProgress.duration >= 0.90;
+        if (!isCompleted) {
+          resumeEpisode = latestProgress.episode;
+          percentageComplete = Math.round((latestProgress.position / latestProgress.duration) * 100);
+          remainingMinutes = Math.max(0, Math.ceil((latestProgress.duration - latestProgress.position) / 60));
+        } else {
+          resumeEpisode = latestProgress.episode + 1;
         }
+        lastWatchedDate = latestProgress.lastWatchedAt;
+      }
 
-        return {
-          id: entry.id,
-          userId: entry.userId,
-          animeId: entry.animeId,
-          animeTitle: entry.animeTitle,
-          animeImage: entry.animeImage,
-          animeEpisodes: entry.animeEpisodes,
-          status: entry.status,
-          score: entry.score,
-          episodesWatched: resumeEpisode,
-          rewatchCount: entry.rewatchCount,
-          startedAt: entry.startedAt,
-          completedAt: entry.completedAt,
-          notes: entry.notes,
-          isPrivate: entry.isPrivate,
-          createdAt: entry.createdAt,
-          updatedAt: entry.updatedAt,
-          lastWatchedAt: lastWatchedDate.toISOString(),
-          percentageComplete,
-          remainingMinutes,
-        };
-      })
-    );
+      return {
+        id: entry.id,
+        userId: entry.userId,
+        animeId: entry.animeId,
+        animeTitle: entry.animeTitle,
+        animeImage: entry.animeImage,
+        animeEpisodes: entry.animeEpisodes,
+        status: entry.status,
+        score: entry.score,
+        episodesWatched: resumeEpisode,
+        rewatchCount: entry.rewatchCount,
+        startedAt: entry.startedAt,
+        completedAt: entry.completedAt,
+        notes: entry.notes,
+        isPrivate: entry.isPrivate,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt,
+        lastWatchedAt: lastWatchedDate.toISOString(),
+        percentageComplete,
+        remainingMinutes,
+      };
+    });
 
     // In-memory filter out completed shows
-    return results.filter(
-      (entry) => !entry.animeEpisodes || entry.episodesWatched <= entry.animeEpisodes
+    return rewriteImages(
+      results.filter(
+        (entry) => !entry.animeEpisodes || entry.episodesWatched <= entry.animeEpisodes
+      )
     );
-  },
+  }),
 };
 
 export async function pruneActivityLogs(userId: string) {

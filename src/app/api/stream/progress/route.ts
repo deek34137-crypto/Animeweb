@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { syncWatchProgress } from '@/lib/trackers';
+import { triggerGamification } from '@/lib/gamification/background';
+
 
 export async function POST(req: Request) {
   try {
@@ -21,6 +23,31 @@ export async function POST(req: Request) {
     const epNum = Number(episode);
     const posSec = Number(position);
     const durSec = Number(duration);
+
+    // Gamification Rate Limiting
+    if (process.env.REDIS_REST_URL && process.env.REDIS_REST_TOKEN) {
+      try {
+        const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+        const key = `progress-limit:${userId}`;
+        const countRes = await fetch(`${process.env.REDIS_REST_URL}/incr/${key}`, {
+          headers: { Authorization: `Bearer ${process.env.REDIS_REST_TOKEN}` },
+          cache: 'no-store'
+        });
+        const countData = await countRes.json();
+        const attempts = parseInt(countData.result || '0', 10);
+
+        if (attempts === 1) {
+          await fetch(`${process.env.REDIS_REST_URL}/expire/${key}/60`, {
+            headers: { Authorization: `Bearer ${process.env.REDIS_REST_TOKEN}` }
+          });
+        }
+        if (attempts > 30) {
+          return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+        }
+      } catch (err) {
+        console.error('[Progress API] Rate limiting error:', err);
+      }
+    }
 
     // 1. Upsert WatchProgress
     const progress = await db.watchProgress.upsert({
@@ -74,6 +101,12 @@ export async function POST(req: Request) {
     let listEntryUpdated = false;
 
     if (isCompleted) {
+      // Award XP for watching the episode
+      triggerGamification(userId, {
+        eventType: 'WATCH_EPISODE',
+        animeId: String(animeId),
+        episode: epNum,
+      });
 
       // 2b. Auto list tracking updates
       // Find user's list entry for this anime
@@ -113,6 +146,13 @@ export async function POST(req: Request) {
               completedAt: completedDate,
             },
           });
+
+          if (finalStatus === 'completed' && listEntry.status !== 'completed') {
+            triggerGamification(userId, {
+              eventType: 'COMPLETE',
+              animeId: String(animeId),
+            });
+          }
           listEntryUpdated = true;
           // Trigger sync in the background
           syncWatchProgress(userId, String(animeId), finalStatus, finalEpsWatched).catch((err) => {
@@ -142,6 +182,13 @@ export async function POST(req: Request) {
             completedAt: completedDate,
           },
         });
+
+        if (finalStatus === 'completed') {
+          triggerGamification(userId, {
+            eventType: 'COMPLETE',
+            animeId: String(animeId),
+          });
+        }
         listEntryUpdated = true;
         // Trigger sync in the background
         syncWatchProgress(userId, String(animeId), finalStatus, epNum).catch((err) => {
