@@ -28,48 +28,28 @@ import { getSeoMetadata, getOrganizationSchema, getWebsiteSchema } from '@/lib/s
 // Helper: Calculate watch streak
 async function calculateCurrentStreak(userId: string): Promise<number> {
   try {
-    const history = await db.watchHistory.findMany({
-      where: { userId },
-      select: { completedAt: true },
-      orderBy: { completedAt: 'desc' },
-      take: 365,
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { streakCurrent: true, lastStreakActivity: true },
     });
-    
-    if (history.length === 0) return 0;
-    
-    const uniqueDates = Array.from(
-      new Set(
-        history.map((h) => {
-          const d = new Date(h.completedAt);
-          d.setHours(0, 0, 0, 0);
-          return d.getTime();
-        })
-      )
-    ).sort((a, b) => b - a);
+
+    if (!user) return 0;
+    if (!user.lastStreakActivity || user.streakCurrent === 0) return 0;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayTime = today.getTime();
-    const yesterdayTime = todayTime - 24 * 60 * 60 * 1000;
+    const lastActive = new Date(user.lastStreakActivity);
+    lastActive.setHours(0, 0, 0, 0);
 
-    const latestWatchTime = uniqueDates[0];
-    if (latestWatchTime !== todayTime && latestWatchTime !== yesterdayTime) {
+    const diffTime = today.getTime() - lastActive.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    // If last activity was today or yesterday, streak is maintained. Otherwise it broke.
+    if (diffDays > 1) {
       return 0;
     }
 
-    let streak = 1;
-    let expectedTime = latestWatchTime - 24 * 60 * 60 * 1000;
-
-    for (let i = 1; i < uniqueDates.length; i++) {
-      if (uniqueDates[i] === expectedTime) {
-        streak++;
-        expectedTime -= 24 * 60 * 60 * 1000;
-      } else if (uniqueDates[i] < expectedTime) {
-        break;
-      }
-    }
-
-    return streak;
+    return user.streakCurrent;
   } catch (error) {
     console.error('Failed to calculate watch streak:', error);
     return 0;
