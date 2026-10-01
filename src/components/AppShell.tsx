@@ -38,7 +38,7 @@ export default function AppShell({
     if (typeof window !== 'undefined') {
       const isDesktop = window.innerWidth >= 1024;
       const isHome = pathname === '/' || pathname === '';
-      const hasSeenIntro = sessionStorage.getItem('aniworld_intro_viewed') === 'true';
+      const hasSeenIntro = sessionStorage.getItem('aniworld_intro_v2') === 'true';
 
       if (isDesktop && isHome && !hasSeenIntro) {
         setShowDesktopIntro(true);
@@ -46,10 +46,16 @@ export default function AppShell({
     }
   }, [pathname]);
 
+  useEffect(() => {
+    const handleReopen = () => setShowDesktopIntro(true);
+    window.addEventListener('open-anime-intro', handleReopen);
+    return () => window.removeEventListener('open-anime-intro', handleReopen);
+  }, []);
+
   const handleDismissIntro = () => {
     setShowDesktopIntro(false);
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('aniworld_intro_viewed', 'true');
+      sessionStorage.setItem('aniworld_intro_v2', 'true');
     }
   };
 

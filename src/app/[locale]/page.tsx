@@ -3,7 +3,6 @@ import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { AnimeApi } from '@/lib/api';
-import CinematicEditHero from '@/components/dashboard/CinematicEditHero';
 import DesktopSpotlightBento from '@/components/dashboard/DesktopSpotlightBento';
 import StatCard from '@/components/dashboard/StatCard';
 import GuestWelcome from '@/components/dashboard/GuestWelcome';
@@ -233,19 +232,13 @@ async function HeroSection({ sessionPromise, trendingPromise, seasonalPromise, t
   }
 
   return (
-    <div className="space-y-10">
-      {/* 1. Sequential Auto-Playing High Bitrate Fan Edits Hero */}
-      <CinematicEditHero trendingAnime={trending} />
-
-      {/* 2. Desktop Spotlight Bento & Live Airing Schedule Radar */}
-      <DesktopSpotlightBento
-        spotlightAnime={trending.length > 0 ? trending[0] : (seasonal.length > 0 ? seasonal[0] : null)}
-        airingSchedule={schedules}
-        topPick={topRated.length > 0 ? topRated[0] : null}
-        continueWatching={continueWatching.length > 0 ? continueWatching[0] : null}
-        guestMode={!userId}
-      />
-    </div>
+    <DesktopSpotlightBento
+      spotlightAnime={trending.length > 0 ? trending[0] : (seasonal.length > 0 ? seasonal[0] : null)}
+      airingSchedule={schedules}
+      topPick={topRated.length > 0 ? topRated[0] : null}
+      continueWatching={continueWatching.length > 0 ? continueWatching[0] : null}
+      guestMode={!userId}
+    />
   );
 }
 
