@@ -23,12 +23,15 @@ class ProgressService {
     const currentPos = Math.round(data.position);
     const totalDuration = Math.round(data.duration);
     
+    console.log(`[ProgressService] updateProgress. force:`, data.force, `totalDuration:`, totalDuration, `pos:`, currentPos, `lastSave:`, lastSave, `diff:`, now - lastSave);
+
     if (totalDuration <= 0) return;
 
     const isCompletedThreshold = currentPos >= totalDuration * 0.90;
 
     // Check throttle constraints: 30 seconds cooldown, completed threshold reached, or forced save
     if (data.force || isCompletedThreshold || now - lastSave >= 30000) {
+      console.log(`[ProgressService] updateProgress constraint passed. Calling fetch...`);
       this.lastSaveTimes.set(key, now);
 
       try {

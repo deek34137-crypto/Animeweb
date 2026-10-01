@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { env } from '@/lib/config/env';
 
 export async function GET() {
   const clientId = process.env.MAL_CLIENT_ID;
@@ -7,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: 'MyAnimeList Client ID not configured.' }, { status: 500 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = env.APP_URL;
   const redirectUri = `${appUrl}/api/auth/tracker/mal/callback`;
 
   // Generate a random code_verifier for PKCE (between 43 and 128 characters)

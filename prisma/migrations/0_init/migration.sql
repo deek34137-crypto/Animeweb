@@ -1,0 +1,1 @@
+-- Baseline migration representing the pre-existing schema tables

@@ -34,12 +34,16 @@ export default function NotificationBell() {
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center justify-center w-9 h-9 rounded-full bg-white/[0.04] border border-border-subtle hover:border-[#7c3aed]/50 text-text-secondary hover:text-text-primary hover:bg-white/[0.08] transition-all duration-200 relative shadow-sm"
-        aria-label="Notifications"
+        aria-label={unreadCount > 0 ? `Notifications — ${unreadCount} unread` : 'Notifications'}
         aria-expanded={open}
+        aria-haspopup="true"
       >
-        <Bell size={15} />
+        <Bell size={15} aria-hidden="true" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#7c3aed] text-[8px] font-bold text-white shadow-[0_0_6px_#9f5eff] scale-90">
+          <span
+            aria-hidden="true"
+            className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#7c3aed] text-[8px] font-bold text-white shadow-[0_0_6px_#9f5eff] scale-90"
+          >
             {unreadCount}
           </span>
         )}

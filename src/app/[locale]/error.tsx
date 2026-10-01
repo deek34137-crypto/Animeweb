@@ -17,6 +17,8 @@ export default function ErrorBoundary({ error, reset }: ErrorProps) {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 sm:px-6 lg:px-8">
+      {/* Prevent search engines from indexing error pages */}
+      <meta name="robots" content="noindex, nofollow" />
       <div className="max-w-md w-full text-center space-y-6 p-8 rounded-2xl glass-panel shadow-2xl relative overflow-hidden">
         {/* Glow effect */}
         <div className="absolute -top-16 -left-16 w-32 h-32 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />

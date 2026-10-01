@@ -4,7 +4,24 @@
     "home": "Home",
     "search": "Search",
     "searchPlaceholder": "Search anime...",
-    "language": "Language"
+    "language": "Language",
+    "discover": "Discover",
+    "continueWatching": "Continue Watching",
+    "library": "Library",
+    "history": "History",
+    "calendar": "Airing Calendar",
+    "seasonal": "Seasonal Anime",
+    "leaderboard": "Leaderboard",
+    "community": "Community Forum",
+    "settings": "Settings",
+    "adminPanel": "Admin Panel",
+    "login": "Log In",
+    "myLibrary": "My Library",
+    "watchHistory": "Watch History",
+    "playerSettings": "Player Settings",
+    "accountSettings": "Account Settings",
+    "customCursor": "Custom Cursor ⭐",
+    "signOut": "Sign Out"
   },
   "Homepage": {
     "trending": "Trending Now",
@@ -50,6 +67,27 @@
     "statusLabel": "Status",
     "studioLabel": "Studio",
     "noResults": "No anime found matching these criteria.",
-    "all": "All"
+    "all": "All",
+    "resetAll": "Reset All",
+    "keywordPlaceholder": "Filter by keyword...",
+    "languageLabel": "Language",
+    "languageAll": "Language: All",
+    "hindiDub": "Hindi Dub",
+    "japaneseSub": "Japanese Sub",
+    "englishDub": "English Dub",
+    "tamilDub": "Tamil Dub",
+    "teluguDub": "Telugu Dub",
+    "statusAiring": "Airing",
+    "statusCompleted": "Completed",
+    "statusUpcoming": "Upcoming",
+    "foundResults": "Found {count} results",
+    "noResultsSub": "We couldn't find anything matching your filters. Try checking spelling or relaxing some dropdown options!",
+    "clearAllFilters": "Clear All Filters"
+  },
+  "Footer": {
+    "discoverTrackDiscuss": "Discover, track, and discuss your favorite anime.",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "contactUs": "Contact Us"
   }
 }

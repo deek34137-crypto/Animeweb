@@ -1,4 +1,47 @@
 import type { Config } from 'tailwindcss';
+import { Primitives, Semantic, Typography, Layout, MotionConfigs } from './src/config/design';
+
+const spacing = Object.fromEntries(
+  Object.entries(Primitives.spacing).map(([key, val]) => [key, `${val}px`])
+);
+
+const borderRadius = {
+  ...Object.fromEntries(
+    Object.entries(Primitives.radius).map(([key, val]) => [key, `${val}px`])
+  ),
+  card: `${Semantic.radius.card}px`,
+  button: `${Semantic.radius.button}px`,
+  input: `${Semantic.radius.input}px`,
+  popover: `${Semantic.radius.popover}px`,
+  modal: `${Semantic.radius.modal}px`,
+};
+
+const screens = Object.fromEntries(
+  Object.entries(Primitives.breakpoints).map(([key, val]) => [key, `${val}px`])
+);
+
+const fontFamily = Object.fromEntries(
+  Object.entries(Typography.fontFamily).map(([key, val]) => [key, [...val]])
+) as Record<string, string[]>;
+
+const fontSize = Object.fromEntries(
+  Object.entries(Typography.fontSize).map(([key, [size, opts]]) => [
+    key,
+    [size, { ...opts }],
+  ])
+) as Record<string, [string, { lineHeight: string }]>;
+
+const transitionDuration = {
+  instant: '0ms',
+  hover: `${Primitives.duration.fast * 1000}ms`,
+  standard: `${Primitives.duration.normal * 1000}ms`,
+  emphasized: `${Primitives.duration.slow * 1000}ms`,
+};
+
+const transitionTimingFunction = {
+  feedback: `cubic-bezier(${MotionConfigs.feedback.ease.join(', ')})`,
+  navigation: `cubic-bezier(${MotionConfigs.navigation.ease.join(', ')})`,
+};
 
 const config: Config = {
   content: [
@@ -8,6 +51,12 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      spacing,
+      borderRadius,
+      screens,
+      gridTemplateColumns: Layout.grids,
+      transitionDuration,
+      transitionTimingFunction,
       colors: {
         background: 'var(--color-void)',
         foreground: 'var(--color-text-primary)',
@@ -55,14 +104,11 @@ const config: Config = {
           muted: 'var(--color-text-secondary)',
         },
       },
-      fontFamily: {
-        display: ['var(--font-display)', 'Outfit', 'sans-serif'],
-        body: ['var(--font-body)', 'Plus Jakarta Sans', 'sans-serif'],
-        mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
-        sans: ['var(--font-body)', 'Plus Jakarta Sans', 'sans-serif'],
-      },
+      fontFamily,
+      fontSize,
     },
   },
   plugins: [],
 };
 export default config;
+

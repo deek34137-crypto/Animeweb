@@ -182,7 +182,6 @@ async function findBestAnimeMatch(title: string, isMovie: boolean = false): Prom
       return null;
     }
 
-    // Evaluate all candidates using getMatchScore
     const scoredCandidates = animes.map(anime => {
       const score = getMatchScore(anime.title || anime.name || '', anime.type || '', title, isMovie);
       return { anime, score };
@@ -190,14 +189,16 @@ async function findBestAnimeMatch(title: string, isMovie: boolean = false): Prom
 
     // Sort by score descending
     scoredCandidates.sort((a, b) => b.score - a.score);
+    const topCandidate = scoredCandidates[0];
+    const MIN_SCORE = 300; // confidence threshold
 
-    console.info(`[ToonWorld] Best match: "${scoredCandidates[0].anime.title || scoredCandidates[0].anime.name}" (score: ${scoredCandidates[0].score}, id: "${scoredCandidates[0].anime.id}")`);
-
-    if (scoredCandidates[0].score > 0) {
-      return scoredCandidates[0].anime;
+    if (topCandidate.score >= MIN_SCORE) {
+      console.info(`[ToonWorld] Best confident match: "${topCandidate.anime.title || topCandidate.anime.name}" (score: ${topCandidate.score}, id: "${topCandidate.anime.id}")`);
+      return topCandidate.anime;
     }
 
-    return animes[0];
+    console.warn(`[ToonWorld] No confident match (top score ${topCandidate.score} < ${MIN_SCORE}); returning null.`);
+    return null;
   } catch (err: any) {
     console.error(`[ToonWorld] findBestAnimeMatch error: ${err.message}`);
     return null;

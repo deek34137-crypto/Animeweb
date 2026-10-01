@@ -40,6 +40,17 @@ export interface EpisodeItem {
 
 export interface StreamingProviderInterface {
   name: string;
+  /** Human-readable display name shown in the provider selector UI */
+  label?: string;
+  /**
+   * Controls where this provider appears in the player UI:
+   * - 'primary' → shown in the main priority chain (home page player default list)
+   * - 'drawer'  → user-selectable extras in ⚙ Settings → Provider → More Providers
+   * - 'kids'    → only shown in the Kids / ToonWorld section
+   */
+  placement?: 'primary' | 'drawer' | 'kids';
+  /** Optional quality badge e.g. 'BD', '1080p', '4K', 'HD' */
+  quality?: string;
   getEpisodes(animeId: string, animeTitle?: string): Promise<EpisodeItem[]>;
   getStreamInfo(animeId: string, episode: number, animeTitle?: string): Promise<EpisodeStreamInfo>;
 }

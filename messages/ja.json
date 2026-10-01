@@ -4,7 +4,24 @@
     "home": "ホーム",
     "search": "検索",
     "searchPlaceholder": "アニメを検索...",
-    "language": "言語"
+    "language": "言語",
+    "discover": "ディスカバー",
+    "continueWatching": "視聴を再開",
+    "library": "ライブラリ",
+    "history": "視聴履歴",
+    "calendar": "放送カレンダー",
+    "seasonal": "シーズンアニメ",
+    "leaderboard": "リーダーボード",
+    "community": "コミュニティ",
+    "settings": "設定",
+    "adminPanel": "管理パネル",
+    "login": "ログイン",
+    "myLibrary": "マイライブラリ",
+    "watchHistory": "視聴履歴",
+    "playerSettings": "プレーヤー設定",
+    "accountSettings": "アカウント設定",
+    "customCursor": "カスタムカーソル ⭐",
+    "signOut": "サインアウト"
   },
   "Homepage": {
     "trending": "今週の人気作品",
@@ -50,6 +67,27 @@
     "statusLabel": "ステータス",
     "studioLabel": "スタジオ",
     "noResults": "条件に一致するアニメが見つかりませんでした。",
-    "all": "すべて"
+    "all": "すべて",
+    "resetAll": "リセット",
+    "keywordPlaceholder": "キーワードで絞り込む...",
+    "languageLabel": "言語",
+    "languageAll": "言語: すべて",
+    "hindiDub": "ヒンディー語吹き替え",
+    "japaneseSub": "日本語字幕",
+    "englishDub": "英語吹き替え",
+    "tamilDub": "タミル語吹き替え",
+    "teluguDub": "テルグ語吹き替え",
+    "statusAiring": "放送中",
+    "statusCompleted": "完結",
+    "statusUpcoming": "放送予定",
+    "foundResults": "{count}件の結果が見つかりました",
+    "noResultsSub": "フィルターに一致する作品が見つかりませんでした。スペルを確認するか、検索条件を緩めてみてください。",
+    "clearAllFilters": "すべてのフィルターをクリア"
+  },
+  "Footer": {
+    "discoverTrackDiscuss": "お気に入りのアニメを見つけ、記録し、語り合いましょう。",
+    "privacyPolicy": "プライバシーポリシー",
+    "termsOfService": "利用規約",
+    "contactUs": "お問い合わせ"
   }
 }

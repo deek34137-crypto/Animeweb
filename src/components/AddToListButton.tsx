@@ -236,7 +236,7 @@ export default function AddToListButton({
           {/* Main button showing current state */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className={`inline-flex items-center gap-2 px-5 py-3 rounded-l-xl bg-surface-2 border border-border-default hover:border-border-emphasis text-sm font-semibold capitalize ${STATUS_COLORS[status] || 'text-text-secondary'}`}
+            className={`btn-press inline-flex items-center gap-2 px-5 py-3 rounded-l-xl bg-surface-2 border border-border-default hover:border-border-emphasis text-sm font-semibold capitalize ${STATUS_COLORS[status] || 'text-text-secondary'}`}
           >
             {isUpdating ? (
               <Loader2 size={14} className="animate-spin" />
@@ -252,7 +252,7 @@ export default function AddToListButton({
           {/* Settings Trigger */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="inline-flex items-center justify-center p-3 rounded-r-xl bg-surface-3 border-y border-r border-border-default hover:border-border-emphasis text-text-muted hover:text-text-primary transition-colors h-[46px]"
+            className="btn-press inline-flex items-center justify-center p-3 rounded-r-xl bg-surface-3 border-y border-r border-border-default hover:border-border-emphasis text-text-muted hover:text-text-primary transition-colors h-[46px]"
             aria-label="List options"
           >
             <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -262,7 +262,7 @@ export default function AddToListButton({
           <button
             onClick={() => handleUpdateField({ isFavorite: !isFavorite })}
             disabled={isUpdating}
-            className={`ml-2 p-3 rounded-xl border transition-all duration-200 ${
+            className={`btn-press ml-2 p-3 rounded-xl border transition-all duration-200 ${
               isFavorite
                 ? 'bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20'
                 : 'bg-surface-2 border-border-default text-text-muted hover:text-text-primary'
@@ -276,7 +276,7 @@ export default function AddToListButton({
         <button
           onClick={handleQuickAdd}
           disabled={isUpdating}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-2 border border-border-default text-text-secondary font-semibold text-sm hover:border-border-emphasis hover:text-text-primary transition-all duration-200"
+          className="btn-press inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-surface-2 border border-border-default text-text-secondary font-semibold text-sm hover:border-border-emphasis hover:text-text-primary transition-all duration-200"
         >
           {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
           <span>Add to List</span>
@@ -285,7 +285,7 @@ export default function AddToListButton({
 
       {/* Popover Settings Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-80 rounded-2xl bg-surface-2 border border-border-default backdrop-blur-md shadow-2xl z-50 p-4 space-y-4 animate-fade-up max-h-[500px] overflow-y-auto rail-scroll">
+        <div className="entrance-scale glass-panel-pro absolute top-full left-0 mt-2 w-80 rounded-2xl border border-border-default shadow-2xl z-50 p-4 space-y-4 max-h-[500px] overflow-y-auto rail-scroll origin-top-left">
           {/* 1. Watch Status */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Watch Status</span>

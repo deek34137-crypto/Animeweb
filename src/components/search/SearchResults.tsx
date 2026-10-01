@@ -9,9 +9,10 @@ interface SearchResultsProps {
   filter: string;
   results: any[];
   onSelect: (item: any) => void;
+  selectedIndex?: number;
 }
 
-export default function SearchResults({ query, filter, results, onSelect }: SearchResultsProps) {
+export default function SearchResults({ query, filter, results, onSelect, selectedIndex = -1 }: SearchResultsProps) {
   // Highlight matching text helper
   const highlight = (text: string, q: string) => {
     if (!text || !q) return text || '';
@@ -62,9 +63,16 @@ export default function SearchResults({ query, filter, results, onSelect }: Sear
           return (
             <Link
               key={item.mal_id || item.id}
+              id={`search-option-${results.indexOf(item)}`}
+              role="option"
+              aria-selected={results.indexOf(item) === selectedIndex}
               href={getUrl(item) as '/'}
               onClick={() => onSelect(item)}
-              className="flex items-center gap-3 p-2 rounded-2xl bg-bg-secondary/40 border border-border-subtle hover:border-[#7c3aed]/30 hover:bg-bg-elevated/40 transition-all duration-200 group"
+              className={`flex items-center gap-3 p-2 rounded-2xl border transition-all duration-200 group ${
+                results.indexOf(item) === selectedIndex
+                  ? 'border-accent-violet/60 bg-accent-violet/10'
+                  : 'bg-bg-secondary/40 border-border-subtle hover:border-[#7c3aed]/30 hover:bg-bg-elevated/40'
+              }`}
             >
               {/* Thumbnail / Icon */}
               {image ? (

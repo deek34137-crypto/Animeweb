@@ -20,7 +20,7 @@ export default function SearchFilters({ activeFilter, onChange }: SearchFiltersP
   ];
 
   return (
-    <div className="flex gap-2 overflow-x-auto px-5 py-3 border-b border-border-subtle bg-bg-elevated/10 scrollbar-none select-none">
+    <div className="flex gap-2 overflow-x-auto px-5 py-3 border-b border-border-subtle bg-bg-elevated/10 no-scrollbar select-none">
       {filters.map((f) => {
         const active = activeFilter === f.value;
         return (

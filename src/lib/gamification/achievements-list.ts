@@ -1,0 +1,131 @@
+export interface Achievement {
+  id: string;
+  name: string;
+  category: 'Watching' | 'Collection' | 'Reviews' | 'Social' | 'Challenges' | 'Events';
+  description: string;
+  targetValue: number;
+  xpAward: number;
+  badgeAwardId?: string;
+  version: number;
+  isHidden: boolean;
+}
+
+export const ACHIEVEMENTS: Record<string, Achievement> = {
+  first_episode: {
+    id: 'first_episode',
+    name: 'First Contact',
+    category: 'Watching',
+    description: 'Watch your very first anime episode.',
+    targetValue: 1,
+    xpAward: 100,
+    badgeAwardId: 'first_watch',
+    version: 1,
+    isHidden: false,
+  },
+  watch_10_episodes: {
+    id: 'watch_10_episodes',
+    name: 'Binge Beginner',
+    category: 'Watching',
+    description: 'Watch 10 anime episodes in total.',
+    targetValue: 10,
+    xpAward: 150,
+    version: 1,
+    isHidden: false,
+  },
+  watch_100_episodes: {
+    id: 'watch_100_episodes',
+    name: 'Hardcore Fan',
+    category: 'Watching',
+    description: 'Watch 100 anime episodes in total.',
+    targetValue: 100,
+    xpAward: 500,
+    version: 1,
+    isHidden: false,
+  },
+  complete_1_anime: {
+    id: 'complete_1_anime',
+    name: 'First Completion',
+    category: 'Collection',
+    description: 'Complete 1 anime series.',
+    targetValue: 1,
+    xpAward: 200,
+    badgeAwardId: 'completed_first',
+    version: 1,
+    isHidden: false,
+  },
+  complete_10_anime: {
+    id: 'complete_10_anime',
+    name: 'Seasoned Veteran',
+    category: 'Collection',
+    description: 'Complete 10 anime series.',
+    targetValue: 10,
+    xpAward: 400,
+    version: 1,
+    isHidden: false,
+  },
+  complete_20_anime: {
+    id: 'complete_20_anime',
+    name: 'Anime Scholar',
+    category: 'Collection',
+    description: 'Complete 20 anime series.',
+    targetValue: 20,
+    xpAward: 600,
+    badgeAwardId: 'otaku_gold',
+    version: 1,
+    isHidden: false,
+  },
+  complete_50_anime: {
+    id: 'complete_50_anime',
+    name: 'Legendary Master',
+    category: 'Collection',
+    description: 'Complete 50 anime series.',
+    targetValue: 50,
+    xpAward: 1000,
+    badgeAwardId: 'completionist_plat',
+    version: 1,
+    isHidden: false,
+  },
+  write_1_review: {
+    id: 'write_1_review',
+    name: 'First Words',
+    category: 'Reviews',
+    description: 'Write 1 anime review.',
+    targetValue: 1,
+    xpAward: 100,
+    version: 1,
+    isHidden: false,
+  },
+  write_3_reviews: {
+    id: 'write_3_reviews',
+    name: 'Influencer',
+    category: 'Reviews',
+    description: 'Write 3 anime reviews.',
+    targetValue: 3,
+    xpAward: 200,
+    badgeAwardId: 'critic_silver',
+    version: 1,
+    isHidden: false,
+  },
+  streak_7_days: {
+    id: 'streak_7_days',
+    name: 'Unstoppable Devotion',
+    category: 'Events',
+    description: 'Achieve a 7-day daily activity streak.',
+    targetValue: 7,
+    xpAward: 300,
+    badgeAwardId: 'streak_gold',
+    version: 1,
+    isHidden: false,
+  },
+  secret_easter_egg: {
+    id: 'secret_easter_egg',
+    name: 'Hidden Artifact',
+    category: 'Events',
+    description: 'Unlock this hidden secret.',
+    targetValue: 1,
+    xpAward: 500,
+    badgeAwardId: 'secret_badge',
+    version: 1,
+    isHidden: true,
+  },
+};

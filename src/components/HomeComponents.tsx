@@ -46,7 +46,7 @@ export default function HeroSpotlight({ items }: HeroSpotlightProps) {
   const genres = anime.genres?.slice(0, 3) || [];
 
   return (
-    <section className="relative w-full rounded-2xl overflow-hidden aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] min-h-[340px] sm:min-h-[400px]">
+    <section className="relative w-full rounded-2xl overflow-hidden aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] min-h-[280px] sm:min-h-[400px]">
       {/* Background Image with Ken Burns / Video Hero */}
       <div
         key={`bg-${currentIndex}`}
@@ -106,7 +106,7 @@ export default function HeroSpotlight({ items }: HeroSpotlightProps) {
             <Flame size={9} />
             #{currentIndex + 1} Trending
           </Badge>
-          {genres.slice(0, 2).map((g) => (
+          {genres.slice(0, 2).map((g: { mal_id: number; name: string }) => (
             <Badge key={g.mal_id} variant="ghost" size="xs">
               {g.name}
             </Badge>
@@ -179,18 +179,22 @@ export default function HeroSpotlight({ items }: HeroSpotlightProps) {
           </button>
 
           {/* Dot indicators */}
-          <div className="absolute bottom-4 sm:bottom-5 right-4 sm:right-6 z-20 flex items-center gap-1 sm:gap-1.5">
+          <div className="absolute bottom-3 sm:bottom-5 right-3 sm:right-6 z-20 flex items-center gap-1 sm:gap-1.5">
             {items.slice(0, 8).map((_, i) => (
               <button
                 key={i}
                 onClick={() => goTo(i)}
-                className={`h-1 sm:h-1.5 rounded-full transition-all duration-300 ${
-                  i === currentIndex
-                    ? 'bg-accent-violet w-4 sm:w-5 shadow-[0_0_8px_rgba(124,91,255,0.8)]'
-                    : 'bg-text-disabled w-1 sm:w-1.5 hover:bg-text-muted'
-                }`}
+                className="p-1 min-w-[20px] min-h-[20px] flex items-center justify-center"
                 aria-label={`Go to slide ${i + 1}`}
-              />
+              >
+                <span
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === currentIndex
+                      ? 'bg-accent-violet w-4 sm:w-5 shadow-[0_0_8px_rgba(124,91,255,0.8)]'
+                      : 'bg-text-disabled w-1.5 hover:bg-text-muted'
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </>

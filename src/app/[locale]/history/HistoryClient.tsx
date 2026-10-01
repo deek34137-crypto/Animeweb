@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useEffect } from 'react';
 import { Play, Calendar, Trash2, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { Link, useRouter } from '@/navigation';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 
 interface HistoryItem {
   id: string;
@@ -15,6 +18,7 @@ interface HistoryItem {
 
 interface HistoryClientProps {
   initialHistory: HistoryItem[];
+  initialNextCursor: string | null;
 }
 
 // ─── Confirmation Dialog ───────────────────────────────────────────────────────
@@ -91,24 +95,58 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, isDeleting }: Conf
 }
 
 // ─── Main Client Component ─────────────────────────────────────────────────────
-export default function HistoryClient({ initialHistory }: HistoryClientProps) {
+export default function HistoryClient({ initialHistory, initialNextCursor }: HistoryClientProps) {
   const router = useRouter();
-  const [history, setHistory] = useState<HistoryItem[]>(initialHistory);
   const [pendingRemove, setPendingRemove] = useState<HistoryItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [, startTransition] = useTransition();
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['user-history'],
+    queryFn: async ({ pageParam = null }) => {
+      if (pageParam === null) {
+        return { data: initialHistory, nextCursor: initialNextCursor };
+      }
+      const res = await fetch(`/api/user/history?cursor=${pageParam}`);
+      if (!res.ok) throw new Error('Failed to fetch history');
+      return res.json() as Promise<{ data: HistoryItem[], nextCursor: string | null }>;
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    initialData: {
+      pages: [{ data: initialHistory, nextCursor: initialNextCursor }],
+      pageParams: [null],
+    },
+  });
+
+  const allHistory = data?.pages.flatMap((page) => page.data) || [];
+
+  const { ref: loadMoreRef, isIntersecting } = useIntersectionObserver({
+    threshold: 0.1,
+  });
+
+  useEffect(() => {
+    if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Group history by animeId so we can show one card per anime
   const byAnime = React.useMemo(() => {
     const map = new Map<string, HistoryItem>();
     // history is ordered completedAt desc — take the first (most recent) per anime
-    for (const item of history) {
+    for (const item of allHistory) {
       if (!map.has(item.animeId)) {
         map.set(item.animeId, item);
       }
     }
     return Array.from(map.values());
-  }, [history]);
+  }, [allHistory]);
 
   const handleRemoveConfirm = async () => {
     if (!pendingRemove) return;
@@ -123,11 +161,9 @@ export default function HistoryClient({ initialHistory }: HistoryClientProps) {
 
       if (!res.ok) throw new Error('Failed to remove');
 
-      // Optimistic UI — remove all episodes for this anime from local state
-      setHistory((prev) => prev.filter((h) => h.animeId !== pendingRemove.animeId));
       setPendingRemove(null);
 
-      // Refresh server component data in background
+      // Refresh server component data in background to reload history
       startTransition(() => {
         router.refresh();
       });
@@ -140,23 +176,19 @@ export default function HistoryClient({ initialHistory }: HistoryClientProps) {
 
   if (byAnime.length === 0) {
     return (
-      <div className="glass-panel border border-border-default rounded-3xl p-12 text-center max-w-md mx-auto space-y-4">
-        <div className="w-16 h-16 rounded-full bg-surface-2 border border-border-subtle flex items-center justify-center mx-auto text-text-muted">
-          <Play size={28} />
-        </div>
-        <div>
-          <h3 className="text-base font-bold text-text-primary">No Watch History</h3>
-          <p className="text-xs text-text-muted mt-1">
-            You haven&apos;t completed any episodes yet. Start streaming to populate your history!
-          </p>
-        </div>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-accent-violet hover:bg-[#6b4ae6] text-white font-bold text-xs shadow-lg shadow-accent-violet/15 transition-all duration-200"
-        >
-          <Play size={12} fill="currentColor" className="ml-0.5" /> Browse Anime
-        </Link>
-      </div>
+      <EmptyState
+        icon={Play}
+        title="No Watch History"
+        description="You haven't completed any episodes yet. Start streaming to populate your history!"
+        action={
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-accent-violet hover:bg-[#6b4ae6] text-white font-bold text-xs shadow-lg shadow-accent-violet/15 transition-all duration-200"
+          >
+            <Play size={12} fill="currentColor" className="ml-0.5" /> Browse Anime
+          </Link>
+        }
+      />
     );
   }
 
@@ -176,7 +208,7 @@ export default function HistoryClient({ initialHistory }: HistoryClientProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {byAnime.map((item) => {
           // Count total episodes watched for this anime
-          const epCount = history.filter((h) => h.animeId === item.animeId).length;
+          const epCount = allHistory.filter((h) => h.animeId === item.animeId).length;
 
           return (
             <div
@@ -248,6 +280,17 @@ export default function HistoryClient({ initialHistory }: HistoryClientProps) {
           );
         })}
       </div>
+      
+      {/* Intersection Observer target for infinite scrolling */}
+      {hasNextPage && (
+        <div ref={loadMoreRef} className="py-8 flex justify-center">
+          {isFetchingNextPage ? (
+            <Loader2 className="animate-spin text-accent-violet" size={24} />
+          ) : (
+            <span className="text-text-muted text-sm">Scroll to load more...</span>
+          )}
+        </div>
+      )}
     </>
   );
 }

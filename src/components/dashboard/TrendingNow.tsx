@@ -18,7 +18,7 @@ export default function TrendingNow({ items }: TrendingNowProps) {
       {items.map((anime, index) => (
         <div key={`${anime.mal_id}-${index}`} className="snap-start">
           <div className="w-36 sm:w-40 md:w-44">
-            <AnimeCard anime={anime} rank={index + 1} />
+            <AnimeCard anime={anime} rank={index + 1} prefetch={index < 4} />
           </div>
         </div>
       ))}

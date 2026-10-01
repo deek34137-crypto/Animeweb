@@ -67,7 +67,7 @@ export default function Progress({
             h-full rounded-full
             ${variantTrack[variant]}
             ${glowColors[variant]}
-            ${animated ? 'transition-[width] duration-700 ease-out' : ''}
+            ${animated ? 'transition-[width] duration-standard ease-feedback' : ''}
           `}
           style={{ width: `${pct}%` }}
         />

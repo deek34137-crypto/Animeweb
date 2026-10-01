@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 interface ModalProps {
   isOpen: boolean;
@@ -29,75 +31,80 @@ export default function Modal({
   className = '',
   hideClose = false,
 }: ModalProps) {
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    },
-    [onClose]
-  );
+  const trapRef = useFocusTrap(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
     }
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
-  }, [isOpen, handleKeyDown]);
+  }, [isOpen]);
 
-  if (!isOpen) return null;
+  const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={onClose}
+            aria-hidden="true"
+          />
 
-      {/* Panel */}
-      <div
-        className={`
-          relative w-full ${sizeClasses[size]}
-          glass-panel rounded-2xl shadow-2xl
-          border border-border-default
-          animate-[modalIn_0.2s_ease-out]
-          ${className}
-        `}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? 'modal-title' : undefined}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        {(title || !hideClose) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-            {title && (
-              <h2
-                id="modal-title"
-                className="text-base font-bold text-text-primary font-display tracking-tight"
-              >
-                {title}
-              </h2>
+          {/* Panel */}
+          <motion.div
+            ref={trapRef as React.RefCallback<HTMLDivElement>}
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: [0.23, 1, 0.32, 1] }}
+            className={`
+              relative w-full ${sizeClasses[size]}
+              glass-panel rounded-2xl shadow-2xl
+              border border-border-default
+              ${className}
+            `}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? 'modal-title' : undefined}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            {(title || !hideClose) && (
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+                {title && (
+                  <h2
+                    id="modal-title"
+                    className="text-base font-bold text-text-primary font-display tracking-tight"
+                  >
+                    {title}
+                  </h2>
+                )}
+                {!hideClose && (
+                  <button
+                    onClick={onClose}
+                    className="ml-auto p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-3 transition-all"
+                    aria-label="Close modal"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
             )}
-            {!hideClose && (
-              <button
-                onClick={onClose}
-                className="ml-auto p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-3 transition-all"
-                aria-label="Close modal"
-              >
-                <X size={18} />
-              </button>
-            )}
-          </div>
-        )}
 
-        {/* Body */}
-        <div className="px-6 py-4">{children}</div>
-      </div>
-    </div>
+            {/* Body */}
+            <div className="px-6 py-4">{children}</div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }

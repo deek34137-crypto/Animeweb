@@ -1,13 +1,24 @@
 import React from 'react';
+import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { redirect } from '@/navigation';
 import SettingsClient from './SettingsClient';
-
-export const revalidate = 0; // Dynamic route
+import { getSeoMetadata } from '@/lib/seo';
 
 interface SettingsPageProps {
   params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: SettingsPageProps): Promise<Metadata> {
+  const { locale } = await params;
+  return getSeoMetadata({
+    title: 'Customizer Settings - AnimeWorld RJ',
+    description: 'Customize your PWA player settings, profile display widgets, and unlocked otaku titles.',
+    path: '/profile/settings',
+    locale,
+    preventIndexing: true,
+  });
 }
 
 export default async function SettingsPage({ params }: SettingsPageProps) {
@@ -19,6 +30,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
     redirect({ href: '/login', locale });
   }
 
+  // 1. Fetch playback preferences
   const preferences = await db.userPreferences.findUnique({
     where: { userId },
   });
@@ -49,9 +61,60 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
     reducedMotion: preferences.reducedMotion,
   } : defaultPreferences;
 
+  // 2. Fetch profile details
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      displayName: true,
+      bio: true,
+      favoriteQuote: true,
+      location: true,
+      profileAccentColor: true,
+      profileVisibility: true,
+      hideStats: true,
+      hideLibrary: true,
+      hideActivity: true,
+      hideFavorites: true,
+      hideAchievements: true,
+      selectedTitleId: true,
+      showcaseAnimeId: true,
+      showcaseCharacterId: true,
+      showcaseStudioId: true,
+      showcaseGenreId: true,
+      achievements: {
+        select: {
+          achievementId: true,
+        },
+      },
+    },
+  });
+
+  const unlockedAchievementIds = user?.achievements.map((a) => a.achievementId) || [];
+
+  const initialProfile = {
+    displayName: user?.displayName || '',
+    bio: user?.bio || '',
+    favoriteQuote: user?.favoriteQuote || '',
+    location: user?.location || '',
+    profileAccentColor: user?.profileAccentColor || '#7c3aed',
+    profileVisibility: user?.profileVisibility || 'PUBLIC',
+    hideStats: user?.hideStats || false,
+    hideLibrary: user?.hideLibrary || false,
+    hideActivity: user?.hideActivity || false,
+    hideFavorites: user?.hideFavorites || false,
+    hideAchievements: user?.hideAchievements || false,
+    selectedTitleId: user?.selectedTitleId || '',
+    showcaseAnimeId: user?.showcaseAnimeId || '',
+    showcaseCharacterId: user?.showcaseCharacterId || '',
+    showcaseStudioId: user?.showcaseStudioId || '',
+    showcaseGenreId: user?.showcaseGenreId || '',
+  };
+
   return (
     <SettingsClient
       initialPreferences={finalPreferences}
+      initialProfile={initialProfile}
+      unlockedAchievementIds={unlockedAchievementIds}
       locale={locale}
     />
   );

@@ -17,7 +17,7 @@ export default function AnimeCarousel({
   viewAllHref,
   children,
 }: AnimeCarouselProps) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLUListElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 
@@ -65,7 +65,7 @@ export default function AnimeCarousel({
   };
 
   return (
-    <div className="space-y-1 relative group/carousel">
+    <div role="region" aria-label={title} className="space-y-1 relative group/carousel">
       {/* Title Header */}
       <SectionHeader title={title} icon={icon} viewAllHref={viewAllHref} />
 
@@ -94,15 +94,29 @@ export default function AnimeCarousel({
         )}
 
         {/* Horizontal Scroll Area */}
-        <div
+        <ul
           ref={scrollContainerRef}
-          className="flex gap-4 overflow-x-auto pb-4 scroll-smooth snap-x scrollbar-none"
+          tabIndex={0}
+          className="flex gap-4 overflow-x-auto pb-4 scroll-smooth snap-x no-scrollbar list-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-violet focus-visible:ring-inset"
           style={{
             WebkitOverflowScrolling: 'touch',
           }}
+          onKeyDown={(e) => {
+            // Only act when the list container itself (not a child) is focused
+            if (e.target !== e.currentTarget) return;
+            if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              scroll('left');
+            } else if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              scroll('right');
+            }
+          }}
         >
-          {children}
-        </div>
+          {React.Children.map(children, (child, i) =>
+            child ? <li key={i} className="flex-shrink-0">{child}</li> : null
+          )}
+        </ul>
       </div>
     </div>
   );

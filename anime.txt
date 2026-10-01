@@ -1,0 +1,180 @@
+=== WORKING ANIME STREAMING WEBSITES (TESTED IN SANDBOX) ===
+
+Total Active / Working Sites: 28 / 33
+
+--- WORKING ANIME SITES ---
+1. AG48 Anime [⭐ TRUSTED]
+   Domain: ag48anime.site
+   URL: https://ag48anime.site/
+   Region: India
+   Status: HTTP 200
+
+2. Anime Joker
+   Domain: animejoker.com
+   URL: https://animejoker.com/
+   Region: India
+   Status: HTTP 200 | Title: Anime Joker
+
+3. Blakite Anime
+   Domain: subdubanime.site
+   URL: https://subdubanime.site/
+   Region: India
+   Status: HTTP 200
+
+4. AnimeDrive
+   Domain: animedrive.in
+   URL: https://animedrive.in/
+   Region: India
+   Status: HTTP 200
+
+5. Desi Dub Anime
+   Domain: desidubanime.me
+   URL: https://desidubanime.me/
+   Region: India
+   Status: HTTP 200 | Title: DesiDubAnime - Watch Indian Regional Dubbed Anime Online
+
+6. AnimeDekho
+   Domain: animedekho.app
+   URL: https://animedekho.app/
+   Region: India
+   Status: HTTP 200 | Title: AnimeDekho - Watch Online Cartoons Anime in Hindi Tamil Telu
+
+7. AnimeLok
+   Domain: animelok.live
+   URL: https://animelok.live/
+   Region: India
+   Status: HTTP 200
+
+8. AnimeSalt
+   Domain: animesalt.link
+   URL: https://animesalt.link/
+   Region: India
+   Status: HTTP 200 | Title: Anime Salt - Watch Anime Cartoons in Your Language – Hindi, 
+
+9. animepahe [⭐ TRUSTED]
+   Domain: animepahe.pw
+   URL: https://animepahe.pw/
+   Region: Global & India
+   Status: HTTP 403 (Cloudflare / WAF Blocked)
+
+10. Rare Animes India
+   Domain: rareanimes.mov
+   URL: https://rareanimes.mov/
+   Region: India
+   Status: HTTP 200 | Title: Rare Toons India - All Animes and Toons Hindi Download
+
+11. AnimeSogu
+   Domain: animesogo.to
+   URL: https://animesogo.to/
+   Region: India
+   Status: HTTP 200 | Title: AnimeSogo - Free Anime Streaming | Watch Subbed &amp; Dubbed
+
+12. ReAnime [⭐ TRUSTED]
+   Domain: reanime.to
+   URL: https://reanime.to/home
+   Region: Global
+   Status: HTTP 200 | Title: Home | Re:ANIME
+
+13. Anikoto [⭐ TRUSTED]
+   Domain: anikototv.to
+   URL: https://anikototv.to
+   Region: Global
+   Status: HTTP 200 (Cloudflare Protected) | Title: Anikoto - Watch Anime Online, Free Anime Streaming
+
+14. Enma [⭐ TRUSTED]
+   Domain: enma.lol
+   URL: https://www.enma.lol
+   Region: Global
+   Status: HTTP 200
+
+15. AnimeNexus
+   Domain: anime.nexus
+   URL: https://anime.nexus/
+   Region: Global
+   Status: HTTP 200 | Title: Anime Nexus: Watch Popular &amp; High Quality Anime Online F
+
+16. AniDB
+   Domain: anidb.app
+   URL: https://anidb.app/home
+   Region: Global
+   Status: HTTP 403 (Cloudflare / WAF Blocked)
+
+17. Senshi
+   Domain: senshi.live
+   URL: https://senshi.live/
+   Region: Global
+   Status: HTTP 200 | Title: Senshi Project - New Website
+
+18. Anikage
+   Domain: anikage.cc
+   URL: https://anikage.cc/home
+   Region: Global
+   Status: HTTP 200
+
+19. AniDap
+   Domain: anidap.lol
+   URL: https://anidap.lol/
+   Region: Global
+   Status: HTTP 200 | Title: Watch Anime Online Free with English Sub/Dub in HD on Anidap
+
+20. Kitetsu
+   Domain: kitetsu.net
+   URL: https://kitetsu.net/
+   Region: Global
+   Status: HTTP 200 | Title: Kitetsu — Watch Anime Online Free, HD Sub & Dub
+
+21. SenpaiFlix
+   Domain: senpaiflix.fun
+   URL: https://senpaiflix.fun/
+   Region: Global
+   Status: HTTP 200 | Title: SenpaiFlix | Watch Anime Online Free in HD
+
+22. Animex
+   Domain: animex.one
+   URL: https://animex.one/home
+   Region: Global
+   Status: HTTP 200
+
+23. Anistream
+   Domain: anistream.one
+   URL: https://anistream.one
+   Region: Global
+   Status: HTTP 200
+
+24. KickAssAnime
+   Domain: kaa.lt
+   URL: https://kaa.lt/
+   Region: Global
+   Status: HTTP 200
+
+25. Justanime
+   Domain: justanime.to
+   URL: https://justanime.to/
+   Region: Global
+   Status: HTTP 200 (Cloudflare Protected) | Title: JustAnime · Watch Free Anime Online
+
+26. AniWaves
+   Domain: aniwaves.ru
+   URL: https://aniwaves.ru
+   Region: Global
+   Status: HTTP 200 | Title: Aniwave - Watch Anime Online Free HD Streaming
+
+27. Anitaku
+   Domain: anitaku.io
+   URL: https://anitaku.io/
+   Region: Global
+   Status: HTTP 200 | Title: Anitaku – Watch Anime Online Free in HD Anitaku
+
+28. Lunar
+   Domain: lunaranime.ru
+   URL: https://lunaranime.ru/anime
+   Region: Global
+   Status: HTTP 200
+
+
+--- UNREACHABLE / TIMED OUT SITES ---
+1. ANIMEWORLD [⭐ TRUSTED] | Domain: watchanimeworld.net | URL: https://watchanimeworld.net/ | Status: Error: Timeout (>6s)
+2. Anime4u | Domain: anime4u.org | URL: https://anime4u.org/ | Status: Error: Timeout (>6s)
+3. Miruro [⭐ TRUSTED] | Domain: miruro.to | URL: https://www.miruro.to | Status: Error: Timeout (>6s)
+4. 1Anime | Domain: 1anime.app | URL: https://1anime.app/discover | Status: Error: Timeout (>6s)
+5. Animeheaven | Domain: animeheaven.me | URL: https://animeheaven.me/ | Status: Error: Timeout (>6s)

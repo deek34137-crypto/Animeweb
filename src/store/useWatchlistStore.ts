@@ -1,4 +1,11 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+const syncOfflineWatchlist = (entries: Record<string, WatchlistEntry>) => {
+  if (typeof window === 'undefined') return;
+  const list = Object.values(entries);
+  localStorage.setItem('offline-watchlist', JSON.stringify(list));
+};
 
 export interface WatchlistEntry {
   id: string;
@@ -63,8 +70,10 @@ interface WatchlistState {
   clearUndo: () => void;
 }
 
-export const useWatchlistStore = create<WatchlistState>((set, get) => {
-  const registerUndo = (targetIds: string[], type: 'update' | 'delete') => {
+export const useWatchlistStore = create<WatchlistState>()(
+  persist(
+    (set, get) => {
+      const registerUndo = (targetIds: string[], type: 'update' | 'delete') => {
     const currentTimeout = get().undoTimeoutId;
     if (currentTimeout) clearTimeout(currentTimeout);
 
@@ -103,6 +112,7 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
             entriesMap[entry.animeId] = entry;
           });
           set({ entries: entriesMap, loading: false });
+          syncOfflineWatchlist(entriesMap);
         } else {
           set({ loading: false });
         }
@@ -139,12 +149,12 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
         updatedAt: new Date().toISOString(),
       };
 
-      set({
-        entries: {
-          ...currentEntries,
-          [animeId]: tempEntry,
-        },
-      });
+      const optimisticEntries = {
+        ...currentEntries,
+        [animeId]: tempEntry,
+      };
+      set({ entries: optimisticEntries });
+      syncOfflineWatchlist(optimisticEntries);
 
       try {
         const res = await fetch('/api/list/entry', {
@@ -156,14 +166,15 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
         if (!res.ok) throw new Error('Failed to save tracking entry');
 
         const savedEntry: WatchlistEntry = await res.json();
-        set({
-          entries: {
-            ...get().entries,
-            [animeId]: savedEntry,
-          },
-        });
+        const finalEntries = {
+          ...get().entries,
+          [animeId]: savedEntry,
+        };
+        set({ entries: finalEntries });
+        syncOfflineWatchlist(finalEntries);
       } catch (err) {
         set({ entries: previousEntries });
+        syncOfflineWatchlist(previousEntries);
         console.error(err);
       }
     },
@@ -177,6 +188,7 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
       const updatedEntries = { ...currentEntries };
       delete updatedEntries[animeId];
       set({ entries: updatedEntries });
+      syncOfflineWatchlist(updatedEntries);
 
       try {
         const res = await fetch(`/api/list/entry?animeId=${animeId}`, {
@@ -186,6 +198,7 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
         if (!res.ok) throw new Error('Failed to delete tracking entry');
       } catch (err) {
         set({ entries: previousEntries });
+        syncOfflineWatchlist(previousEntries);
         console.error(err);
       }
     },
@@ -208,6 +221,7 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
         }
       });
       set({ entries: updatedEntries });
+      syncOfflineWatchlist(updatedEntries);
 
       try {
         const res = await fetch('/api/list/entry/bulk', {
@@ -224,8 +238,10 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
           mergedEntries[entry.animeId] = entry;
         });
         set({ entries: mergedEntries });
+        syncOfflineWatchlist(mergedEntries);
       } catch (err) {
         set({ entries: previousEntries });
+        syncOfflineWatchlist(previousEntries);
         console.error(err);
       }
     },
@@ -241,6 +257,7 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
         delete updatedEntries[id];
       });
       set({ entries: updatedEntries });
+      syncOfflineWatchlist(updatedEntries);
 
       try {
         const res = await fetch('/api/list/entry/bulk', {
@@ -252,6 +269,7 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
         if (!res.ok) throw new Error('Failed bulk delete');
       } catch (err) {
         set({ entries: previousEntries });
+        syncOfflineWatchlist(previousEntries);
         console.error(err);
       }
     },
@@ -269,6 +287,7 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
         previousState: null,
         undoTimeoutId: null,
       });
+      syncOfflineWatchlist(previousState);
 
       // Synchronize the undo with the backend
       try {
@@ -297,4 +316,9 @@ export const useWatchlistStore = create<WatchlistState>((set, get) => {
       set({ undoActive: false, previousState: null, undoTimeoutId: null, lastActionTargetIds: [], lastActionType: null });
     },
   };
-});
+}, {
+  name: 'aniworld-watchlist-store',
+  partialize: (state) => ({
+    entries: state.entries,
+  }),
+}));

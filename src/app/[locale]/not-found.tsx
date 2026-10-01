@@ -7,6 +7,8 @@ import { Link } from '@/navigation';
 export default function NotFound() {
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 sm:px-6 lg:px-8">
+      {/* Prevent search engines from indexing 404 pages */}
+      <meta name="robots" content="noindex, nofollow" />
       <div className="max-w-md w-full text-center space-y-6 p-8 rounded-2xl glass-panel shadow-2xl relative overflow-hidden animate-fade-up">
         {/* Glow effect */}
         <div className="absolute -top-16 -left-16 w-32 h-32 bg-accent-violet/15 rounded-full blur-2xl pointer-events-none" />

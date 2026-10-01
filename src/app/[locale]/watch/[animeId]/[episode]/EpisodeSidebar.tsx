@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, ArrowUpDown, Check, Play, ChevronDown, Loader2 } from 'lucide-react';
 import { Link, useRouter } from '@/navigation';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface EpisodeItem {
   number: number;
@@ -96,8 +97,6 @@ export default function EpisodeSidebar({
       if (!res.ok) {
         throw new Error('Failed to toggle watch state');
       }
-
-      router.refresh();
     } catch (err) {
       console.error(err);
       setLocalWatched(localWatched);
@@ -110,7 +109,7 @@ export default function EpisodeSidebar({
   // Fallback & Padding: ensure we show up to totalEpisodes if provider returned fewer episodes
   const resolvedEpisodes = useMemo(() => {
     const list = [...episodes];
-    const maxEp = Math.max(totalEpisodes || 0, list.length);
+    const maxEp = Math.max(totalEpisodes || 0, list.length, currentEpisode);
 
     for (let i = 1; i <= maxEp; i++) {
       if (!list.some((e) => e.number === i)) {
@@ -125,7 +124,7 @@ export default function EpisodeSidebar({
     }
 
     return list.sort((a, b) => a.number - b.number);
-  }, [episodes, totalEpisodes]);
+  }, [episodes, totalEpisodes, currentEpisode]);
 
   // Search & Filter
   const filteredEpisodes = useMemo(() => {
@@ -208,9 +207,13 @@ export default function EpisodeSidebar({
       {/* Episode Rows List */}
       <div ref={listContainerRef} className="flex-grow overflow-y-auto no-scrollbar p-2 space-y-1">
         {filteredEpisodes.length === 0 ? (
-          <div className="py-12 text-center text-xs text-text-muted">
-            No episodes match your search.
-          </div>
+          <EmptyState
+            icon={Search}
+            title="No episodes found"
+            description="No episodes match your search."
+            size="sm"
+            className="py-12 border-none bg-transparent shadow-none"
+          />
         ) : (
           filteredEpisodes.map((ep) => {
             const isActive = ep.number === currentEpisode;
@@ -330,7 +333,7 @@ export default function EpisodeSidebar({
       {/* Footer stats summary */}
       <div className="p-3 border-t border-border-subtle text-[10px] text-text-muted font-semibold bg-surface-1/50 flex-shrink-0 flex justify-between">
         <span>Total: {resolvedEpisodes.length} episodes</span>
-        <span>Watched: {watchedEpisodes.length}</span>
+        <span>Watched: {localWatched.length}</span>
       </div>
     </div>
   );

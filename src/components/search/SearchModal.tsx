@@ -99,6 +99,34 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     addQueryToHistory(selectedQuery);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const trimmed = query.trim();
+      if (!trimmed) return;
+
+      addQueryToHistory(trimmed);
+
+      // Check if exactly one highly confident match exists and no alternatives
+      if (results.length === 1) {
+        const single = results[0];
+        const cleanStr = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        const cleanQ = cleanStr(trimmed);
+        const titleRomaji = cleanStr(single.title || '');
+        const titleEnglish = cleanStr(single.title_english || '');
+
+        if (titleRomaji.includes(cleanQ) || titleEnglish.includes(cleanQ)) {
+          router.push(`/anime/${single.mal_id}` as '/');
+          onClose();
+          return;
+        }
+      }
+
+      router.push(`/search?q=${encodeURIComponent(trimmed)}` as '/');
+      onClose();
+    }
+  };
+
   const handleViewAll = () => {
     addQueryToHistory(query);
     router.push(`/search?q=${encodeURIComponent(query)}` as '/');
@@ -134,6 +162,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Search anime, characters, studios, genres..."
             className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted text-sm sm:text-base outline-none font-semibold"
             autoComplete="off"

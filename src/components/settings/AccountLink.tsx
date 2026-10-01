@@ -104,7 +104,7 @@ export default function AccountLink({ user, setNotification }: AccountLinkProps)
   return (
     <div className="glass-panel border border-border-default rounded-3xl p-6 sm:p-8 space-y-6">
       <div className="flex items-center space-x-2 text-text-primary border-b border-border-subtle pb-4">
-        <Link2 size={20} className="text-accent-violet" />
+        <Link2 size={20} className="text-accent-violet" aria-hidden="true" />
         <h2 className="text-lg font-black tracking-tight font-display">Watchlist Tracker Integration</h2>
       </div>
 
@@ -136,7 +136,7 @@ export default function AccountLink({ user, setNotification }: AccountLinkProps)
                     onClick={() => setImportProvider('mal')}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border-default hover:border-[#7c3aed]/50 bg-bg-secondary hover:bg-bg-elevated text-text-primary text-xs font-bold rounded-xl transition"
                   >
-                    <Database size={12} className="text-text-muted" />
+                    <Database size={12} className="text-text-muted" aria-hidden="true" />
                     <span>Import Library</span>
                   </button>
                   <button
@@ -145,29 +145,32 @@ export default function AccountLink({ user, setNotification }: AccountLinkProps)
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-500/20 hover:border-red-500 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold rounded-xl transition disabled:opacity-50"
                   >
                     {actionLoading === 'mal' ? (
-                      <Loader2 size={12} className="animate-spin" />
+                      <Loader2 size={12} className="animate-spin" aria-hidden="true" />
                     ) : (
-                      <Unlink size={12} />
+                      <Unlink size={12} aria-hidden="true" />
                     )}
                     <span>Disconnect</span>
                   </button>
                 </div>
-                {/* Auto Sync Toggle switch */}
-                <div className="flex items-center gap-2 cursor-pointer mt-1">
-                  <span className="text-[10px] text-text-muted font-bold uppercase">Auto-Sync</span>
-                  <button
-                    onClick={() => handleToggleSync('mal', syncToMal)}
-                    className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${
-                      syncToMal ? 'bg-accent-violet' : 'bg-surface-3 border border-border-subtle'
-                    }`}
-                  >
-                    <div
-                      className={`w-3.5 h-3.5 bg-white rounded-full transition-transform duration-200 transform ${
-                        syncToMal ? 'translate-x-4' : 'translate-x-0'
+                  {/* Auto Sync Toggle switch */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span id="mal-sync-label" className="text-[10px] text-text-muted font-bold uppercase">Auto-Sync</span>
+                    <button
+                      role="switch"
+                      aria-checked={syncToMal}
+                      aria-labelledby="mal-sync-label"
+                      onClick={() => handleToggleSync('mal', syncToMal)}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-violet focus-visible:ring-offset-2 ${
+                        syncToMal ? 'bg-accent-violet' : 'bg-surface-3 border border-border-subtle'
                       }`}
-                    />
-                  </button>
-                </div>
+                    >
+                      <div
+                        className={`w-3.5 h-3.5 bg-white rounded-full transition-transform duration-200 transform ${
+                          syncToMal ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
               </>
             ) : (
               <button
@@ -175,7 +178,7 @@ export default function AccountLink({ user, setNotification }: AccountLinkProps)
                 disabled={actionLoading === 'mal'}
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-accent-violet hover:bg-[#6b4ae6] text-white text-xs font-bold rounded-xl transition shadow-[0_0_12px_rgba(124,91,255,0.15)] disabled:opacity-50"
               >
-                {actionLoading === 'mal' && <Loader2 size={12} className="animate-spin" />}
+                {actionLoading === 'mal' && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}
                 <span>Connect MyAnimeList</span>
               </button>
             )}
@@ -209,7 +212,7 @@ export default function AccountLink({ user, setNotification }: AccountLinkProps)
                     onClick={() => setImportProvider('anilist')}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border-default hover:border-[#7c3aed]/50 bg-bg-secondary hover:bg-bg-elevated text-text-primary text-xs font-bold rounded-xl transition"
                   >
-                    <Database size={12} className="text-text-muted" />
+                    <Database size={12} className="text-text-muted" aria-hidden="true" />
                     <span>Import Library</span>
                   </button>
                   <button
@@ -218,29 +221,32 @@ export default function AccountLink({ user, setNotification }: AccountLinkProps)
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-500/20 hover:border-red-500 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold rounded-xl transition disabled:opacity-50"
                   >
                     {actionLoading === 'anilist' ? (
-                      <Loader2 size={12} className="animate-spin" />
+                      <Loader2 size={12} className="animate-spin" aria-hidden="true" />
                     ) : (
-                      <Unlink size={12} />
+                      <Unlink size={12} aria-hidden="true" />
                     )}
                     <span>Disconnect</span>
                   </button>
                 </div>
-                {/* Auto Sync Toggle switch */}
-                <div className="flex items-center gap-2 cursor-pointer mt-1">
-                  <span className="text-[10px] text-text-muted font-bold uppercase">Auto-Sync</span>
-                  <button
-                    onClick={() => handleToggleSync('anilist', syncToAnilist)}
-                    className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${
-                      syncToAnilist ? 'bg-accent-violet' : 'bg-surface-3 border border-border-subtle'
-                    }`}
-                  >
-                    <div
-                      className={`w-3.5 h-3.5 bg-white rounded-full transition-transform duration-200 transform ${
-                        syncToAnilist ? 'translate-x-4' : 'translate-x-0'
+                  {/* Auto Sync Toggle switch */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span id="anilist-sync-label" className="text-[10px] text-text-muted font-bold uppercase">Auto-Sync</span>
+                    <button
+                      role="switch"
+                      aria-checked={syncToAnilist}
+                      aria-labelledby="anilist-sync-label"
+                      onClick={() => handleToggleSync('anilist', syncToAnilist)}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-violet focus-visible:ring-offset-2 ${
+                        syncToAnilist ? 'bg-accent-violet' : 'bg-surface-3 border border-border-subtle'
                       }`}
-                    />
-                  </button>
-                </div>
+                    >
+                      <div
+                        className={`w-3.5 h-3.5 bg-white rounded-full transition-transform duration-200 transform ${
+                          syncToAnilist ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
               </>
             ) : (
               <button
@@ -248,7 +254,7 @@ export default function AccountLink({ user, setNotification }: AccountLinkProps)
                 disabled={actionLoading === 'anilist'}
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-accent-violet hover:bg-[#6b4ae6] text-white text-xs font-bold rounded-xl transition shadow-[0_0_12px_rgba(124,91,255,0.15)] disabled:opacity-50"
               >
-                {actionLoading === 'anilist' && <Loader2 size={12} className="animate-spin" />}
+                {actionLoading === 'anilist' && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}
                 <span>Connect AniList</span>
               </button>
             )}
