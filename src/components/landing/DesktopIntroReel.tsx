@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Maximize, Minimize } from 'lucide-react';
 import { ANIME_EDITS } from '@/lib/edits/manifest';
 
 interface DesktopIntroReelProps {
@@ -11,11 +11,21 @@ interface DesktopIntroReelProps {
 export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const currentEdit = ANIME_EDITS[currentIndex];
   const nextIndex = (currentIndex + 1) % ANIME_EDITS.length;
   const nextEdit = ANIME_EDITS[nextIndex];
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // Advance to next edit
   const handleNext = useCallback(() => {
@@ -58,7 +68,17 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
     setIsMuted(nextMuted);
   };
 
-  // Keyboard navigation: Enter = Go to Homepage, ArrowRight = Next, ArrowLeft = Prev, M = Mute
+  // Toggle fullscreen mode
+  const toggleFullscreen = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  // Keyboard navigation: Enter = Homepage, ArrowRight = Next, ArrowLeft = Prev, M = Mute, F = Fullscreen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
@@ -71,6 +91,8 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
         handlePrev();
       } else if (e.key === 'm' || e.key === 'M') {
         toggleSound();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -79,7 +101,7 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
 
   return (
     <div className="fixed inset-0 z-[99999] w-screen h-screen bg-black overflow-hidden select-none">
-      {/* ── Ambient Background Blur (Only active for non-16:9 aspect ratios for maximum 60fps performance) ── */}
+      {/* ── Ambient Background Blur (Only active for non-16:9 aspect ratios for 60fps performance) ── */}
       {currentEdit.aspectRatio !== '16:9' && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 scale-110 filter blur-3xl">
           <video
@@ -99,7 +121,6 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
       <div 
         onClick={toggleSound}
         className="relative z-10 w-full h-full flex items-center justify-center cursor-pointer"
-        title="Click to toggle audio"
       >
         <video
           ref={videoRef}
@@ -128,8 +149,23 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
         aria-hidden="true"
       />
 
-      {/* ── Corner Control: Small compact button at bottom-right corner ── */}
-      <div className="absolute bottom-5 right-5 sm:bottom-6 sm:right-6 z-20">
+      {/* ── Corner Controls: Small compact buttons at bottom-right corner ── */}
+      <div className="absolute bottom-5 right-5 sm:bottom-6 sm:right-6 z-20 flex items-center gap-2">
+        {/* Small Fullscreen Button */}
+        <button
+          onClick={toggleFullscreen}
+          className="p-1.5 sm:p-2 rounded-full bg-white text-black font-bold text-[11px] shadow-lg opacity-50 hover:opacity-100 border border-white/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-sm"
+          title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+          aria-label="Toggle Fullscreen"
+        >
+          {isFullscreen ? (
+            <Minimize className="w-3 h-3" />
+          ) : (
+            <Maximize className="w-3 h-3" />
+          )}
+        </button>
+
+        {/* Small Homepage Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
