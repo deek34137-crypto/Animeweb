@@ -16,6 +16,7 @@ const ShortcutHelper = dynamic(() => import('@/components/ui/ShortcutHelper'), {
 const XPToastManager = dynamic(() => import('@/components/gamification/XPToastManager'), { ssr: false });
 const InstallAppPrompt = dynamic(() => import('@/components/ui/InstallAppPrompt'), { ssr: false });
 const QuickMenu = dynamic(() => import('@/components/dashboard/QuickMenu'), { ssr: false });
+const DesktopIntroReel = dynamic(() => import('@/components/landing/DesktopIntroReel'), { ssr: false });
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -27,9 +28,30 @@ export default function AppShell({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showDesktopIntro, setShowDesktopIntro] = useState(false);
 
   const { data: session } = useSession();
   const { entries, fetchList } = useWatchlistStore();
+
+  useEffect(() => {
+    // Show anime edit intro only for desktop screens (>= 1024px) on root homepage
+    if (typeof window !== 'undefined') {
+      const isDesktop = window.innerWidth >= 1024;
+      const isHome = pathname === '/' || pathname === '';
+      const hasSeenIntro = sessionStorage.getItem('aniworld_intro_viewed') === 'true';
+
+      if (isDesktop && isHome && !hasSeenIntro) {
+        setShowDesktopIntro(true);
+      }
+    }
+  }, [pathname]);
+
+  const handleDismissIntro = () => {
+    setShowDesktopIntro(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('aniworld_intro_viewed', 'true');
+    }
+  };
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -120,6 +142,11 @@ export default function AppShell({
       <XPToastManager />
       <InstallAppPrompt />
       <QuickMenu />
+
+      {/* Full-Screen Desktop Anime Edit Intro Reel */}
+      {showDesktopIntro && (
+        <DesktopIntroReel onEnter={handleDismissIntro} />
+      )}
     </div>
   );
 }

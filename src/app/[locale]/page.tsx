@@ -3,8 +3,8 @@ import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { AnimeApi } from '@/lib/api';
-import HeroBanner from '@/components/dashboard/HeroBanner';
-import QuickActions from '@/components/dashboard/QuickActions';
+import CinematicEditHero from '@/components/dashboard/CinematicEditHero';
+import DesktopSpotlightBento from '@/components/dashboard/DesktopSpotlightBento';
 import StatCard from '@/components/dashboard/StatCard';
 import GuestWelcome from '@/components/dashboard/GuestWelcome';
 import ContinueWatchingCard from '@/components/dashboard/ContinueWatchingCard';
@@ -115,7 +115,7 @@ export default async function HomePage({ params }: HomePageProps) {
         }}
       />
 
-      {/* 1. Hero Spotlight Carousel Rotation (Suspended) */}
+      {/* 1. Cinematic Reel Hero & Desktop Spotlight Bento (Suspended) */}
       <Suspense fallback={<HeroSkeleton />}>
         <HeroSection 
           sessionPromise={sessionPromise}
@@ -127,15 +127,10 @@ export default async function HomePage({ params }: HomePageProps) {
         />
       </Suspense>
 
-      {/* 2. Quick Actions Row (Suspended) */}
-      <Suspense fallback={<div className="h-16 shimmer-loader rounded-xl" />}>
-        <QuickActionsSection sessionPromise={sessionPromise} />
-      </Suspense>
-
       {/* Recently Visited Links */}
       <RecentHistory />
 
-      {/* 3. Continue Watching & User Dashboard Stats (Suspended) */}
+      {/* 2. Continue Watching & User Dashboard Stats (Suspended) */}
       <Suspense fallback={<div className="h-64 shimmer-loader rounded-2xl" />}>
         <UserDashboardSection sessionPromise={sessionPromise} />
       </Suspense>
@@ -238,34 +233,22 @@ async function HeroSection({ sessionPromise, trendingPromise, seasonalPromise, t
   }
 
   return (
-    <HeroBanner
-      continueWatching={continueWatching.length > 0 ? continueWatching[0] : null}
-      trendingToday={trending.length > 0 ? trending[0] : null}
-      seasonSpotlight={seasonal.length > 0 ? seasonal[0] : null}
-      upcomingRelease={schedules.length > 0 ? schedules[0] : null}
-      editorsPick={topRated.length > 0 ? topRated[0] : null}
-      randomRec={recommendations.length > 0 ? recommendations[Math.floor(Math.random() * recommendations.length)] : null}
-      guestMode={!userId}
-    />
+    <div className="space-y-10">
+      {/* 1. Sequential Auto-Playing High Bitrate Fan Edits Hero */}
+      <CinematicEditHero trendingAnime={trending} />
+
+      {/* 2. Desktop Spotlight Bento & Live Airing Schedule Radar */}
+      <DesktopSpotlightBento
+        spotlightAnime={trending.length > 0 ? trending[0] : (seasonal.length > 0 ? seasonal[0] : null)}
+        airingSchedule={schedules}
+        topPick={topRated.length > 0 ? topRated[0] : null}
+        continueWatching={continueWatching.length > 0 ? continueWatching[0] : null}
+        guestMode={!userId}
+      />
+    </div>
   );
 }
 
-// ─── Suspenseful Server Component: Quick Actions ─────────────────────────────
-async function QuickActionsSection({ sessionPromise }: any) {
-  const session = await sessionPromise;
-  const userId = session?.user?.id;
-
-  let continueWatching: any[] = [];
-  if (userId) {
-    continueWatching = await AnimeApi.getContinueWatching(userId).catch(() => []);
-  }
-
-  const resumeUrl = continueWatching.length > 0
-    ? `/watch/${continueWatching[0].animeId}/${continueWatching[0].episodesWatched}`
-    : null;
-
-  return <QuickActions resumeUrl={resumeUrl} guestMode={!userId} />;
-}
 
 // ─── Suspenseful Server Component: User Dashboard Stats & Continue Watching ───
 async function UserDashboardSection({ sessionPromise }: any) {
