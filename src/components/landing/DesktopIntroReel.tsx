@@ -14,6 +14,8 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const currentEdit = ANIME_EDITS[currentIndex];
+  const nextIndex = (currentIndex + 1) % ANIME_EDITS.length;
+  const nextEdit = ANIME_EDITS[nextIndex];
 
   // Advance to next edit
   const handleNext = useCallback(() => {
@@ -77,20 +79,23 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
 
   return (
     <div className="fixed inset-0 z-[99999] w-screen h-screen bg-black overflow-hidden select-none">
-      {/* ── Ambient Blurred Background (Fills 100% of the screen seamlessly) ── */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 scale-110 filter blur-3xl">
-        <video
-          key={`ambient-${currentEdit.id}`}
-          src={currentEdit.src}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        />
-      </div>
+      {/* ── Ambient Background Blur (Only active for non-16:9 aspect ratios for maximum 60fps performance) ── */}
+      {currentEdit.aspectRatio !== '16:9' && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 scale-110 filter blur-3xl">
+          <video
+            key={`ambient-${currentEdit.id}`}
+            src={currentEdit.src}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
-      {/* ── Foreground Video (Zoomed out to show full scene without cropping) ── */}
+      {/* ── Foreground Video (Native GPU Accelerated Video Playback) ── */}
       <div 
         onClick={toggleSound}
         className="relative z-10 w-full h-full flex items-center justify-center cursor-pointer"
@@ -104,12 +109,24 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
           loop={false}
           muted={isMuted}
           playsInline
+          preload="auto"
           onEnded={handleVideoEnded}
           className={`w-full h-full ${
             currentEdit.aspectRatio === '16:9' ? 'object-cover' : 'object-contain'
           }`}
         />
       </div>
+
+      {/* ── Silent Background Buffer for NEXT Video (0ms switch latency) ── */}
+      <video
+        key={`preload-${nextEdit.id}`}
+        src={nextEdit.src}
+        preload="auto"
+        muted
+        playsInline
+        className="hidden"
+        aria-hidden="true"
+      />
 
       {/* ── Corner Control: Small compact button at bottom-right corner ── */}
       <div className="absolute bottom-5 right-5 sm:bottom-6 sm:right-6 z-20">

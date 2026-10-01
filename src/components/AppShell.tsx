@@ -16,7 +16,7 @@ const ShortcutHelper = dynamic(() => import('@/components/ui/ShortcutHelper'), {
 const XPToastManager = dynamic(() => import('@/components/gamification/XPToastManager'), { ssr: false });
 const InstallAppPrompt = dynamic(() => import('@/components/ui/InstallAppPrompt'), { ssr: false });
 const QuickMenu = dynamic(() => import('@/components/dashboard/QuickMenu'), { ssr: false });
-const DesktopIntroReel = dynamic(() => import('@/components/landing/DesktopIntroReel'), { ssr: false });
+import DesktopIntroReel from '@/components/landing/DesktopIntroReel';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -34,13 +34,13 @@ export default function AppShell({
   const { entries, fetchList } = useWatchlistStore();
 
   useEffect(() => {
-    // Show anime edit intro only for desktop screens (>= 1024px) on root homepage
+    // Show anime edit intro on root homepage across all locales (/, /en, /es, /ja)
     if (typeof window !== 'undefined') {
-      const isDesktop = window.innerWidth >= 1024;
-      const isHome = pathname === '/' || pathname === '';
-      const hasSeenIntro = sessionStorage.getItem('aniworld_intro_v2') === 'true';
+      const p = (window.location.pathname || '').replace(/\/$/, '');
+      const isHome = !p || p === '' || p === '/' || p === '/en' || p === '/es' || p === '/ja';
+      const isDesktop = window.innerWidth >= 640;
 
-      if (isDesktop && isHome && !hasSeenIntro) {
+      if (isDesktop && isHome) {
         setShowDesktopIntro(true);
       }
     }
@@ -54,9 +54,6 @@ export default function AppShell({
 
   const handleDismissIntro = () => {
     setShowDesktopIntro(false);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('aniworld_intro_v2', 'true');
-    }
   };
 
   useEffect(() => {
