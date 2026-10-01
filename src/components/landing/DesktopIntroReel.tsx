@@ -105,18 +105,20 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
           muted={isMuted}
           playsInline
           onEnded={handleVideoEnded}
-          className="w-full h-full object-contain"
+          className={`w-full h-full ${
+            currentEdit.aspectRatio === '16:9' ? 'object-cover' : 'object-contain'
+          }`}
         />
       </div>
 
-      {/* ── Side Control: ONLY Go to Homepage Button with Hover Opacity ── */}
+      {/* ── Side Control: ONLY Go to Homepage Button with 50% Idle Opacity ── */}
       <div className="absolute bottom-8 right-8 sm:bottom-12 sm:right-12 z-20">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onEnter();
           }}
-          className="group flex items-center gap-3 px-6 sm:px-8 py-3.5 sm:py-4 rounded-full bg-white text-black font-black text-xs sm:text-sm tracking-wider uppercase shadow-2xl opacity-75 hover:opacity-100 border border-white/40 transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-purple-600/50 cursor-pointer"
+          className="group flex items-center gap-3 px-6 sm:px-8 py-3.5 sm:py-4 rounded-full bg-white text-black font-black text-xs sm:text-sm tracking-wider uppercase shadow-2xl opacity-50 hover:opacity-100 border border-white/40 transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-purple-600/50 cursor-pointer"
         >
           <span>Go to Homepage</span>
           <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:translate-x-1" />
