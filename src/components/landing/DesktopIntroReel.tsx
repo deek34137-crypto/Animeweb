@@ -111,17 +111,18 @@ export default function DesktopIntroReel({ onEnter }: DesktopIntroReelProps) {
         />
       </div>
 
-      {/* ── Side Control: ONLY Go to Homepage Button with 50% Idle Opacity ── */}
-      <div className="absolute bottom-8 right-8 sm:bottom-12 sm:right-12 z-20">
+      {/* ── Corner Control: Small compact button at bottom-right corner ── */}
+      <div className="absolute bottom-5 right-5 sm:bottom-6 sm:right-6 z-20">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onEnter();
           }}
-          className="group flex items-center gap-3 px-6 sm:px-8 py-3.5 sm:py-4 rounded-full bg-white text-black font-black text-xs sm:text-sm tracking-wider uppercase shadow-2xl opacity-50 hover:opacity-100 border border-white/40 transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-purple-600/50 cursor-pointer"
+          className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-black font-bold text-[11px] tracking-wide shadow-lg opacity-50 hover:opacity-100 border border-white/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-sm"
+          title="Go to Homepage"
         >
-          <span>Go to Homepage</span>
-          <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:translate-x-1" />
+          <span>Homepage</span>
+          <ArrowRight className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5" />
         </button>
       </div>
     </div>
